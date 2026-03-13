@@ -4,9 +4,10 @@ import { AMENITIES } from './constants';
 // ── Backend API support ──
 
 export async function checkBackendHealth() {
+  const delay = 1
   if (!API_BASE) return false;
   try {
-    const r = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(3000) });
+    const r = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(delay) });
     return r.ok;
   } catch { return false; }
 }
@@ -73,11 +74,14 @@ async function apiCall(town, ftype, limit = 500, offset = 0) {
     limit,
     offset,
     filters: JSON.stringify(filters),
+    town: town,
     sort: 'month desc',
   }).toString();
 
-  const directUrl = `https://data.gov.sg/api/action/datastore_search?${qs}`;
-  const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(directUrl)}`;
+  // const directUrl = `https://data.gov.sg/api/action/datastore_search?${qs}`;
+  const directUrl = `http://localhost:3000/api/recommendations?${qs}`
+  // const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(directUrl)}`;
+  const proxyUrl = `http://localhost:3000/api/recommendations?${qs}`
 
   const tryFetch = async (url) => {
     const r = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -91,7 +95,8 @@ async function apiCall(town, ftype, limit = 500, offset = 0) {
   try { return await tryFetch(directUrl); } catch (_) { /* fallback */ }
   try { return await tryFetch(proxyUrl); } catch (_) { /* fallback */ }
 
-  const aoUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`;
+  // const aoUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`;
+  const aoUrl = `http://localhost:3000/api/recommendations?${qs}`
   const ao = await fetch(aoUrl);
   const aoJ = await ao.json();
   return JSON.parse(aoJ.contents);
@@ -100,20 +105,15 @@ async function apiCall(town, ftype, limit = 500, offset = 0) {
 export async function fetchTown(town, ftype, cutoff) {
   const all = [];
   let offset = 0;
-  while (true) {
+  
     let data;
     try { data = await apiCall(town, ftype, 500, offset); }
-    catch (e) { console.warn('Fetch fail', town, e); break; }
+    catch (e) { console.warn('Fetch fail', town, e); }
 
     const recs = data?.result?.records || [];
-    if (!recs.length) break;
-
+  
     const filtered = recs.filter(r => r.month >= cutoff);
-    all.push(...filtered);
-
-    const oldest = recs.reduce((mn, r) => r.month < mn ? r.month : mn, recs[0].month);
-    if (oldest < cutoff || recs.length < 500) break;
-    offset += 500;
-  }
+    all.push(...filtered);  
+  
   return all;
 }
