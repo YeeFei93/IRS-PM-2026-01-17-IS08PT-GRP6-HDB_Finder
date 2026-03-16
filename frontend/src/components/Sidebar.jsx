@@ -77,7 +77,7 @@ function RegionTag({ label, active, onClick }) {
   );
 }
 
-function EligibilityBadge({ eligible, warns, notes, effective, grants }) {
+function EligibilityBadge({ eligible, warns, notes, effective, loanAmt, grants }) {
   if (!eligible) {
     return (
       <div className="mt-2.5 p-2.5 px-3 rounded-md text-[0.78rem] leading-relaxed border bg-[rgba(192,57,43,0.07)] border-[rgba(192,57,43,0.3)] text-[#ff8080]">
@@ -91,6 +91,8 @@ function EligibilityBadge({ eligible, warns, notes, effective, grants }) {
   return (
     <div className={`mt-2.5 p-2.5 px-3 rounded-md text-[0.78rem] leading-relaxed border ${cls}`}>
       ✓ Eligible &nbsp;·&nbsp; Effective Budget: <strong>~${effective.toLocaleString()}</strong>
+      <br />
+      <small>Estimated Max Loan Principal: <strong>~${loanAmt.toLocaleString()}</strong> (2.6% p.a., 25 years)</small>
       {grants.total > 0 && (
         <><br /><small>EHG ${grants.ehg.toLocaleString()} + CPF ${grants.cpfG.toLocaleString()} + PHG ${grants.phg.toLocaleString()} = ${grants.total.toLocaleString()}</small></>
       )}
@@ -135,7 +137,7 @@ const FTIMER_OPTIONS = [
 ];
 
 export default function Sidebar({
-  formState, onFormChange, eligibility, grants, effective, onSearch, isSearching,
+  formState, onFormChange, eligibility, grants, effective, loanAmt, onSearch, isSearching,
 }) {
   const {
     cit, age, marital, inc, ftimer, prox,
@@ -231,6 +233,7 @@ export default function Sidebar({
             warns={eligibility.warns}
             notes={eligibility.notes}
             effective={effective}
+            loanAmt={loanAmt}
             grants={grants}
           />
         )}
