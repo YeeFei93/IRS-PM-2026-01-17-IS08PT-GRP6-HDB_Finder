@@ -57,6 +57,8 @@ export function normaliseBackendRec(r) {
       flat: r.flat || { pts: 0, max: 0, desc: '' },
       lease: r.lease || { pts: 0, max: 0, desc: '' },
     },
+    amenities: r.amenities || {},
+    centroid: r.centroid || null,
     grants: r.grants || { ehg: 0, cpfG: 0, phg: 0, total: 0, notes: [] },
     effective: r.effective || 0,
   };

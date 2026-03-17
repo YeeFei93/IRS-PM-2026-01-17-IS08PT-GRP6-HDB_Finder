@@ -129,6 +129,7 @@ def run_recommendation(profile: dict) -> dict:
             "ftype":          item["ftype"],
             "price_data":     item["price_data"],
             "amenities":      item["amenities"],
+            "centroid":       item.get("centroid"),
             "failed_must":    item.get("failed_must", []),
             "score":          score,
             "grants":         grants,

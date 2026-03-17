@@ -26,13 +26,15 @@ function ScoreRow({ icon, label, pts, max, desc }) {
   );
 }
 
-function AmenityRow({ icon, label, d, isMust, amenKey }) {
+function AmenityRow({ icon, label, d, isMust, amenKey, fallbackName }) {
   if (!d) return null;
   const thresh = AMENITY_THRESHOLDS[amenKey];
   const withinThreshold = d.ok ?? (d.pts > 0);
   const ptsCls = d.pts >= 5 ? 'text-green' : d.pts > 0 ? 'text-gold' : 'text-orange';
-  const detail = d.name
-    ? (d.mins ? `${d.name} — ${d.mins} min walk` : d.name)
+  const amenName = d.name || fallbackName || label;
+  const mins = d.mins || d.walk_mins || '-';
+  const detail = amenName
+    ? `${amenName}${mins ? ` — ${mins} min walk` : ''}`
     : (withinThreshold ? 'Present nearby' : 'Not confirmed nearby');
   return (
     <div className="flex items-center px-3 py-1 gap-2.5 border-b border-dk4 last:border-b-0">
@@ -59,7 +61,7 @@ function AmenityRow({ icon, label, d, isMust, amenKey }) {
 
 export default function ResultCard({ rec, index, mustAmenities, isHighlighted, onClick, onJumpMap }) {
   const { town, ftype, pd, sc, grants } = rec;
-  const am = AMENITIES[town] || {};
+  const am = rec.amenities || AMENITIES[town] || {};
   const scCls = sc.total >= 75 ? 'text-green' : sc.total >= 55 ? 'text-gold' : 'text-orange';
   const tr = pd.trend12;
   const trStr = `${tr > 0 ? '▲' : '▼'} ${Math.abs(tr)}%`;
@@ -90,12 +92,12 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
     });
 
   const amenItems = [
-    { key: 'mrt', icon: '🚇', label: 'MRT Station', d: sc.amenity?.detail?.mrt },
-    { key: 'hawker', icon: '🍜', label: 'Hawker Centre', d: sc.amenity?.detail?.hawker },
-    { key: 'park', icon: '🌳', label: 'Park', d: sc.amenity?.detail?.park },
-    { key: 'school', icon: '🏫', label: 'Primary School', d: sc.amenity?.detail?.school },
-    { key: 'mall', icon: '🛍️', label: 'Shopping Mall', d: sc.amenity?.detail?.mall },
-    { key: 'hospital', icon: '🏥', label: 'Hospital', d: sc.amenity?.detail?.hospital },
+    { key: 'mrt', icon: '🚇', label: 'MRT Station', fallback: am.mrt?.name || 'MRT Station', d: sc.amenity?.detail?.mrt },
+    { key: 'hawker', icon: '🍜', label: 'Hawker Centre', fallback: am.hawker?.name || 'Hawker Centre', d: sc.amenity?.detail?.hawker },
+    { key: 'park', icon: '🌳', label: 'Park', fallback: am.park?.name || 'Park', d: sc.amenity?.detail?.park },
+    { key: 'school', icon: '🏫', label: 'Primary School', fallback: am.school?.name || 'Primary School', d: sc.amenity?.detail?.school },
+    { key: 'mall', icon: '🛍️', label: 'Shopping Mall', fallback: am.mall?.name || 'Shopping Mall', d: sc.amenity?.detail?.mall },
+    { key: 'hospital', icon: '🏥', label: 'Hospital', fallback: am.hospital?.name || 'Hospital', d: sc.amenity?.detail?.hospital },
   ].filter(ai => mustAmenities.includes(ai.key));
 
   const amenMax = sc.amenity?.max || sc.weight || 20;
@@ -180,11 +182,23 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
 
         {/* Amenity pills */}
         <div className="flex gap-1.5 flex-wrap mb-2">
-          {am.mrt && <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dk3 border border-dk4 text-[0.7rem] text-muted">🚇 {am.mrt} — {am.mrtMin} min</div>}
-          {am.hawker && <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dk3 border border-dk4 text-[0.7rem] text-muted">🍜 {am.hawker}</div>}
-          {am.park && <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dk3 border border-dk4 text-[0.7rem] text-muted">🌳 {am.park}</div>}
-          {am.mall && <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dk3 border border-dk4 text-[0.7rem] text-muted">🛍️ {am.mall}</div>}
-          {am.hospital && <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dk3 border border-dk4 text-[0.7rem] text-muted">🏥 {am.hospital}</div>}
+          {[
+            ['mrt', '🚇', 'MRT Station'],
+            ['hawker', '🍜', 'Hawker Centre'],
+            ['park', '🌳', 'Park'],
+            ['school', '🏫', 'Primary School'],
+            ['mall', '🛍️', 'Shopping Mall'],
+            ['hospital', '🏥', 'Hospital'],
+          ].map(([key, emoji, text]) => {
+            const info = am[key] || {};
+            const name = info.name || text;
+            const mins = info.walk_mins || info.mins || '-';
+            return (
+              <div key={key} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dk3 border border-dk4 text-[0.7rem] text-muted">
+                {emoji} {name} — {mins} min
+              </div>
+            );
+          })}
         </div>
 
         {/* Why text */}

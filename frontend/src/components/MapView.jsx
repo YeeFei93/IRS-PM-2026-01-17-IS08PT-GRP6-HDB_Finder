@@ -7,7 +7,8 @@ import { scoreToColor } from '../engine';
 function MapContent({ recs, highlightedTown }) {
   const map = useMap();
   const markersRef = useRef([]);
-  const amenityMarkersRef = useRef([]);
+  const amenityMarkersRef = useRef([]);          // per-highlight amenity markers
+  const sharedAmenityMarkersRef = useRef([]);    // all rec amenities markers
   const townMarkersRef = useRef({});
 
   const clearAmenityMarkers = useCallback(() => {
@@ -15,38 +16,50 @@ function MapContent({ recs, highlightedTown }) {
     amenityMarkersRef.current = [];
   }, [map]);
 
+  const clearSharedAmenityMarkers = useCallback(() => {
+    sharedAmenityMarkersRef.current.forEach(m => map.removeLayer(m));
+    sharedAmenityMarkersRef.current = [];
+  }, [map]);
+
   const showAmenityMarkers = useCallback((town) => {
     clearAmenityMarkers();
-    const c = COORDS[town];
-    const am = AMENITIES[town];
-    if (!c || !am) return;
+    const rec = recs.find(r => r.town === town);
+    const c = rec?.centroid || COORDS[town];
+    const amenities = rec?.amenities || {};
+    const fallback = AMENITIES[town] || {};
+    if (!c) return;
 
     const amenityDefs = [
-      { icon: '🚇', color: '#3498db', label: am.mrt, mins: am.mrtMin, lat: c.lat + 0.003, lng: c.lng + 0.005 },
-      { icon: '🍜', color: '#e67e22', label: am.hawker, lat: c.lat - 0.003, lng: c.lng + 0.006 },
-      { icon: '🌳', color: '#27ae60', label: am.park, lat: c.lat + 0.007, lng: c.lng - 0.004 },
-      { icon: '🏫', color: '#9b59b6', label: 'Primary School', lat: c.lat - 0.005, lng: c.lng - 0.006 },
+      { key: 'mrt', icon: '🚇', color: '#3498db', label: amenities.mrt?.name || fallback.mrt || 'MRT Station', fallbackLat: c.lat + 0.003, fallbackLng: c.lng + 0.005, fallbackWalk: fallback.mrtMin },
+      { key: 'hawker', icon: '🍜', color: '#f1c40f', label: amenities.hawker?.name || fallback.hawker || 'Hawker Centre', fallbackLat: c.lat - 0.003, fallbackLng: c.lng + 0.006, fallbackWalk: null },
+      { key: 'park', icon: '🌳', color: '#27ae60', label: amenities.park?.name || fallback.park || 'Park', fallbackLat: c.lat + 0.007, fallbackLng: c.lng - 0.004, fallbackWalk: null },
+      { key: 'school', icon: '🏫', color: '#9b59b6', label: amenities.school?.name || 'Primary School', fallbackLat: c.lat - 0.005, fallbackLng: c.lng - 0.006, fallbackWalk: null },
+      { key: 'mall', icon: '🛍️', color: '#f39c12', label: amenities.mall?.name || 'Shopping Mall', fallbackLat: c.lat + 0.005, fallbackLng: c.lng + 0.004, fallbackWalk: null },
+      { key: 'hospital', icon: '🏥', color: '#e74c3c', label: amenities.hospital?.name || 'Hospital', fallbackLat: c.lat + 0.002, fallbackLng: c.lng - 0.005, fallbackWalk: null },
     ];
 
     amenityDefs.forEach(def => {
-      if (!def.label) return;
+      const d = amenities[def.key] || { lat: def.fallbackLat, lng: def.fallbackLng, name: def.label, walk_mins: def.fallbackWalk };
+      if (!d || !d.lat || !d.lng) return;
+      const displayName = d.name || def.label;
       const icon = L.divIcon({
-        html: `<div style="background:${def.color};color:#fff;border-radius:8px;padding:3px 7px;font-size:11px;font-family:'DM Sans',sans-serif;font-weight:600;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);white-space:nowrap;display:flex;align-items:center;gap:4px">${def.icon} ${def.label}${def.mins ? ' · ' + def.mins + 'm' : ''}</div>`,
+        html: `<div style="background:${def.color};color:#fff;border-radius:8px;padding:3px 7px;font-size:11px;font-family:'DM Sans',sans-serif;font-weight:600;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);white-space:nowrap;display:flex;align-items:center;gap:4px">${def.icon} ${displayName}${d.walk_mins ? ' · ' + d.walk_mins + 'm' : ''}</div>`,
         className: '', iconAnchor: [0, 0],
       });
-      const m = L.marker([def.lat, def.lng], { icon }).addTo(map);
+      const m = L.marker([d.lat, d.lng], { icon }).addTo(map);
       const line = L.polyline(
-        [[c.lat, c.lng], [def.lat, def.lng]],
+        [[c.lat, c.lng], [d.lat, d.lng]],
         { color: def.color, weight: 1.5, dashArray: '4 4', opacity: 0.6 }
       ).addTo(map);
       amenityMarkersRef.current.push(m, line);
     });
-  }, [map, clearAmenityMarkers]);
+  }, [map, clearAmenityMarkers, recs]);
 
   // Build markers when recs change
   useEffect(() => {
     markersRef.current.forEach(m => map.removeLayer(m));
     clearAmenityMarkers();
+    clearSharedAmenityMarkers();
     markersRef.current = [];
     townMarkersRef.current = {};
 
@@ -54,10 +67,10 @@ function MapContent({ recs, highlightedTown }) {
     recs.forEach(rec => { scoreByTown[rec.town] = rec; });
 
     ALL_TOWNS.forEach(town => {
-      const c = COORDS[town];
+      const rec = scoreByTown[town];
+      const c = rec?.centroid || COORDS[town];
       if (!c) return;
 
-      const rec = scoreByTown[town];
       const s = rec ? rec.sc.total : null;
       const col = s !== null ? scoreToColor(s) : '#3d3d3d';
       const rank = rec ? recs.indexOf(rec) + 1 : null;
@@ -68,7 +81,22 @@ function MapContent({ recs, highlightedTown }) {
         className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2],
       });
 
-      const am = AMENITIES[town] || {};
+      const am = rec?.amenities || AMENITIES[town] || {};
+      const amenityFallback = {
+        mrt: 'MRT Station',
+        hawker: 'Hawker Centre',
+        park: 'Park',
+        school: 'Primary School',
+        mall: 'Shopping Mall',
+        hospital: 'Hospital',
+      };
+      const amenityRow = (key, emoji) => {
+        const item = am[key] || {};
+        const name = item.name || amenityFallback[key] || key;
+        const mins = item.walk_mins || item.mins || '-';
+        return `<div style="font-size:.72rem;color:#aaa;margin-bottom:2px">${emoji} ${name} — ${mins} min walk</div>`;
+      };
+
       let popupHtml;
       if (rec) {
         const tr = rec.pd.trend12;
@@ -83,9 +111,12 @@ function MapContent({ recs, highlightedTown }) {
             <div><div style="font-size:.62rem;color:#666;text-transform:uppercase;letter-spacing:.8px">12-mo</div>
               <div style="font-family:'JetBrains Mono',monospace;font-size:.82rem;color:${tr > 0 ? '#e67e22' : '#27ae60'}">${tr > 0 ? '▲' : '▼'}${Math.abs(tr)}%</div></div>
           </div>
-          ${am.mrt ? `<div style="font-size:.72rem;color:#aaa;margin-bottom:2px">🚇 ${am.mrt} — ${am.mrtMin} min walk</div>` : ''}
-          ${am.hawker ? `<div style="font-size:.72rem;color:#aaa;margin-bottom:2px">🍜 ${am.hawker}</div>` : ''}
-          ${am.park ? `<div style="font-size:.72rem;color:#aaa;margin-bottom:4px">🌳 ${am.park}</div>` : ''}
+          ${amenityRow('mrt','🚇')}
+          ${amenityRow('hawker','🍜')}
+          ${amenityRow('park','🌳')}
+          ${amenityRow('school','🏫')}
+          ${amenityRow('mall','🛍️')}
+          ${amenityRow('hospital','🏥')}
           <div style="font-size:.6rem;color:#444;margin-top:4px;border-top:1px solid #2c2c2c;padding-top:4px">
             Score breakdown: Budget ${rec.sc.budget.pts}/20 · Amenities ${rec.sc.amenity.pts}/30 · Transport ${rec.sc.transport.pts}/20 · Region ${rec.sc.region.pts}/15 · Flat ${rec.sc.flat.pts}/15
           </div>`;
@@ -102,12 +133,55 @@ function MapContent({ recs, highlightedTown }) {
       townMarkersRef.current[town] = m;
     });
 
-    const resultCoords = recs.filter(r => COORDS[r.town]).map(r => COORDS[r.town]);
+    const resultCoords = recs
+      .map(r => r.centroid || COORDS[r.town])
+      .filter(c => c && c.lat && c.lng);
     if (resultCoords.length) {
       const bounds = L.latLngBounds(resultCoords.map(c => [c.lat, c.lng]));
       map.fitBounds(bounds.pad(0.25));
     }
-  }, [recs, map, clearAmenityMarkers]);
+
+    // Add amenity markers for all recommended towns (top 10 recs)
+    recs.forEach(rec => {
+      const c = rec.centroid || COORDS[rec.town];
+      if (!c) return;
+      const amenities = rec.amenities || {};
+      const fallback = AMENITIES[rec.town] || {};
+      const fallbackAmenity = {
+        mrt: { lat: c.lat + 0.003, lng: c.lng + 0.005, name: fallback.mrt, walk_mins: fallback.mrtMin },
+        hawker: { lat: c.lat - 0.003, lng: c.lng + 0.006, name: fallback.hawker, walk_mins: null },
+        park: { lat: c.lat + 0.007, lng: c.lng - 0.004, name: fallback.park, walk_mins: null },
+        school: { lat: c.lat - 0.005, lng: c.lng - 0.006, name: 'Primary School', walk_mins: null },
+        mall: { lat: c.lat + 0.005, lng: c.lng + 0.004, name: 'Shopping Mall', walk_mins: null },
+        hospital: { lat: c.lat + 0.002, lng: c.lng - 0.005, name: 'Hospital', walk_mins: null },
+      };
+      [
+        { key: 'mrt', icon: '🚇', color: '#3498db' },
+        { key: 'hawker', icon: '🍜', color: '#e67e22' },
+        { key: 'park', icon: '🌳', color: '#27ae60' },
+        { key: 'school', icon: '🏫', color: '#9b59b6' },
+        { key: 'mall', icon: '🛍️', color: '#f39c12' },
+        { key: 'hospital', icon: '🏥', color: '#9b59b6' },
+      ].forEach(def => {
+        const d = amenities[def.key] || fallbackAmenity[def.key];
+        if (!d || !d.lat || !d.lng) return;
+        const marker = L.circleMarker([d.lat, d.lng], {
+          radius: 5,
+          color: def.color,
+          fillColor: def.color,
+          fillOpacity: 0.9,
+        }).addTo(map);
+        marker.bindPopup(`<strong>${rec.town} ${def.key}</strong><br>${d.name || def.key} · ${d.walk_mins || '-'} min walk`);
+        sharedAmenityMarkersRef.current.push(marker);
+
+        const line = L.polyline(
+          [[c.lat, c.lng], [d.lat, d.lng]],
+          { color: def.color, weight: 1.2, dashArray: '3 3', opacity: 0.5 }
+        ).addTo(map);
+        sharedAmenityMarkersRef.current.push(line);
+      });
+    });
+  }, [recs, map, clearAmenityMarkers, clearSharedAmenityMarkers]);
 
   // Handle highlighted town changes
   useEffect(() => {
@@ -150,9 +224,11 @@ export default function MapView({ recs, highlightedTown }) {
           <div className="text-[0.68rem] text-light mb-1.5 font-medium">Amenities Shown</div>
           {[
             ['#3498db', 'MRT Station'],
-            ['#e67e22', 'Hawker Centre'],
+            ['#f1c40f', 'Hawker Centre'],
             ['#27ae60', 'Park'],
             ['#9b59b6', 'School'],
+            ['#f39c12', 'Mall'],
+            ['#e74c3c', 'Hospital'],
           ].map(([color, label]) => (
             <div key={label} className="flex items-center gap-1.5 mb-1 text-[0.68rem]">
               <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />

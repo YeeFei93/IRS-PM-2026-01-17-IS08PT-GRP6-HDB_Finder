@@ -138,10 +138,17 @@ def _nearest(lat: float, lng: float, features: list) -> dict:
                          or props.get("name")
                          or props.get("STN_NAME")
                          or props.get("HOSPITAL_N")
+                         or props.get("MALL_N")
+                         or props.get("SCHOOL_N")
+                         or props.get("SCHOOL_NAME")
+                         or props.get("PLACE_NAME")
+                         or props.get("FACILITY")
                          or "Unknown")
 
     return {
         "name":      best_name,
+        "lat":       f_lat if best_km < float("inf") else None,
+        "lng":       f_lng if best_km < float("inf") else None,
         "walk_mins": km_to_walk_mins(best_km) if best_km < float("inf") else 999,
         "dist_km":   round(best_km * WALKING_BUFFER, 2) if best_km < float("inf") else None,
     }
