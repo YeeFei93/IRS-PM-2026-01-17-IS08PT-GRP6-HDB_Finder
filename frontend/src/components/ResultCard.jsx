@@ -94,8 +94,9 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
     { key: 'hawker', icon: '🍜', label: 'Hawker Centre', d: sc.amenity?.detail?.hawker },
     { key: 'park', icon: '🌳', label: 'Park', d: sc.amenity?.detail?.park },
     { key: 'school', icon: '🏫', label: 'Primary School', d: sc.amenity?.detail?.school },
+    { key: 'mall', icon: '🛍️', label: 'Shopping Mall', d: sc.amenity?.detail?.mall },
     { key: 'hospital', icon: '🏥', label: 'Hospital', d: sc.amenity?.detail?.hospital },
-  ];
+  ].filter(ai => mustAmenities.includes(ai.key));
 
   const amenMax = sc.amenity?.max || sc.weight || 20;
   const amenPtsCls = (sc.amenity?.pts || 0) >= amenMax * 0.75 ? 'text-green' : (sc.amenity?.pts || 0) >= amenMax * 0.5 ? 'text-gold' : 'text-orange';
@@ -182,6 +183,8 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
           {am.mrt && <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dk3 border border-dk4 text-[0.7rem] text-muted">🚇 {am.mrt} — {am.mrtMin} min</div>}
           {am.hawker && <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dk3 border border-dk4 text-[0.7rem] text-muted">🍜 {am.hawker}</div>}
           {am.park && <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dk3 border border-dk4 text-[0.7rem] text-muted">🌳 {am.park}</div>}
+          {am.mall && <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dk3 border border-dk4 text-[0.7rem] text-muted">🛍️ {am.mall}</div>}
+          {am.hospital && <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dk3 border border-dk4 text-[0.7rem] text-muted">🏥 {am.hospital}</div>}
         </div>
 
         {/* Why text */}
@@ -217,7 +220,7 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
               <div className="text-[0.74rem] text-light font-medium">
                 Amenity Score <span className="text-[0.62rem] text-muted font-normal">— {sc.amenity?.pts || 0}/{amenMax} pts total</span>
               </div>
-              <div className="text-[0.67rem] text-muted">Breakdown of all nearby amenities and their contribution</div>
+              <div className="text-[0.67rem] text-muted">Breakdown of selected amenity priorities and their contribution</div>
             </div>
             <div className="text-right shrink-0">
               <div className={`font-mono text-[0.82rem] font-semibold ${amenPtsCls}`}>{sc.amenity?.pts || 0}</div>
