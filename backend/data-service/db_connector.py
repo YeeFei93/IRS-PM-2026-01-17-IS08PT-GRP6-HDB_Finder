@@ -1,11 +1,13 @@
 import mysql.connector
+from mysql.connector.connection import MySQLConnection
 
 class DbConnector:
     def __init__(self):
         self.conn = None
-        self.connect()
+        self.cursor = self.Connect()
+        
 
-    def connect(self):
+    def Connect(self):
         try:
             self.conn = mysql.connector.connect(
                 host="localhost",
@@ -15,13 +17,12 @@ class DbConnector:
             )
             if self.conn.is_connected():
                 print("Connected to MySQL database")
+                return self.conn.cursor()
+            
         except mysql.connector.Error as e:
             print("Error connecting to MySQL:", e)
 
-    def close(self):
+    def Close(self):
         if self.conn and self.conn.is_connected():
             self.conn.close()
             print("Connection closed")
-
-
-DbConnector()
