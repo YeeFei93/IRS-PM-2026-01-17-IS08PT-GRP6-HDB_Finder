@@ -238,8 +238,9 @@ function rawMrt(mins) {
 
 function rawAmenity(town, mustArr) {
   const a = AMENITIES[town] || {};
-  const keys = mustArr.length ? mustArr : ['mrt', 'hawker', 'park', 'school'];
-  const WALK = { mrt: a.mrtMin || 20, hawker: 5, park: 10, school: 8, hospital: 15 };
+  const keys = mustArr.length ? mustArr : [];
+  if (!keys.length) return 0.0;
+  const WALK = { mrt: a.mrtMin || 15, hawker: 10, park: 15, school: 15, mall: 10, hospital: 15 };
   const scores = keys.map(k => {
     const mins = WALK[k] || 15;
     if (mins <= 5) return 1.00;
@@ -319,7 +320,7 @@ function computeSerendipity(inactive, town, pd, budget, mustArr, regions) {
     else if (c === 'region') sub[c] = regions.length ? rawRegion(town, regions) : 0.5;
     else if (c === 'lease') sub[c] = (() => { const e = 75; return e >= 80 ? 1 : e >= 70 ? 0.85 : e >= 60 ? 0.65 : 0.4; })();
     else if (c === 'mrt') sub[c] = rawMrt(a.mrtMin || 20);
-    else if (c === 'amenity') sub[c] = rawAmenity(town, []);
+    else if (c === 'amenity') sub[c] = rawAmenity(town, mustArr);
   }
   const avg = Object.values(sub).reduce((a, b) => a + b, 0) / Object.keys(sub).length;
   return { raw: avg, pts: +(avg * SERENDIPITY_TOTAL).toFixed(2), sub };
@@ -375,29 +376,39 @@ export function computeScore(town, pd, effective, mustArr, maxMrt, selRegions, f
     }
   }
 
-  // Amenity detail
+  // Amenity detail: include all keys but score only selected priorities.
   const amenDetail = {};
-  const amenKeys = ['mrt', 'hawker', 'park', 'school', 'hospital'];
-  const WALK_EST = { mrt: a.mrtMin || 20, hawker: 5, park: 10, school: 8, hospital: 18 };
+  const amenKeys = ['mrt', 'hawker', 'park', 'school', 'mall', 'hospital'];
+  const WALK_EST = { mrt: a.mrtMin || 20, hawker: 5, park: 10, school: 8, mall: 12, hospital: 18 };
+  const selectedAmenities = mustArr.filter(k => amenKeys.includes(k));
+  const perAmenMax = selectedAmenities.length ? weight / selectedAmenities.length : 0;
+  const amenRawMap = Object.fromEntries(
+    selectedAmenities.map(k => [k, rawAmenity(town, [k])])
+  );
+  const amenCompPts = selectedAmenities.reduce((sum, k) => sum + (amenRawMap[k] || 0) * perAmenMax, 0);
+
   for (const k of amenKeys) {
     const mins = WALK_EST[k] || 15;
-    const isMust = mustArr.includes(k);
-    let pts;
-    if (mins <= 5) pts = 6;
-    else if (mins <= 10) pts = 5;
-    else if (mins <= 15) pts = 4;
-    else if (mins <= 20) pts = 2;
-    else if (mins <= 30) pts = 1;
-    else pts = isMust ? -3 : 0;
+    const isMust = selectedAmenities.includes(k);
+    const raw = isMust ? (amenRawMap[k] || 0) : 0;
+    const pts = +((raw * perAmenMax).toFixed(1));
     amenDetail[k] = {
-      pts, max: 6, ok: mins <= 30,
+      pts,
+      max: isMust ? +perAmenMax.toFixed(1) : 0,
+      ok: mins <= 30,
       mins,
-      name: k === 'mrt' ? (a.mrt || null) : k === 'hawker' ? (a.hawker || null) : k === 'park' ? (a.park || null) : null,
+      name: k === 'mrt' ? (a.mrt || null)
+         : k === 'hawker' ? (a.hawker || null)
+         : k === 'park' ? (a.park || null)
+         : k === 'school' ? (a.school || null)
+         : k === 'mall' ? (a.mall || null)
+         : k === 'hospital' ? (a.hospital || null)
+         : null,
     };
   }
 
   const budComp = components['budget'] || { pts: +(rawBudget(pd.median, effective) * weight).toFixed(1) };
-  const amenComp = components['amenity'] || { pts: +(rawAmenity(town, mustArr) * weight).toFixed(1) };
+  const amenComp = components['amenity'] || { pts: +amenCompPts.toFixed(1) };
   const mrtComp = components['mrt'] || { pts: +(rawMrt(mrt) * weight).toFixed(1) };
   const regComp = components['region'] || { pts: +(rawRegion(town, selRegions) * weight).toFixed(1) };
   const flatComp = components['flat'] || { pts: +(rawFlat(pd) * weight).toFixed(1) };
