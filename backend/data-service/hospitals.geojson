@@ -1,0 +1,143 @@
+{
+  "type": "FeatureCollection",
+  "description": "Singapore Public Hospitals — manually curated",
+  "sources": [
+    "MOH Hospital List (assets-au-01.kc-usercontent.com)",
+    "OpenStreetMap / Mapcarta",
+    "latitude.to"
+  ],
+  "last_updated": "2025-03",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Alexandra Hospital",
+        "address": "378 Alexandra Road, Singapore 159964",
+        "cluster": "NUHS",
+        "region": "South"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.8027, 1.2894]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Changi General Hospital",
+        "address": "2 Simei Street 3, Singapore 529889",
+        "cluster": "SingHealth",
+        "region": "East"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.9494, 1.3404]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Khoo Teck Puat Hospital",
+        "address": "90 Yishun Central, Singapore 768828",
+        "cluster": "NHG",
+        "region": "North"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.8383, 1.4246]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "National University Hospital",
+        "address": "5 Lower Kent Ridge Road, Singapore 119074",
+        "cluster": "NUHS",
+        "region": "West"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.7836, 1.2948]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Ng Teng Fong General Hospital",
+        "address": "1 Jurong East Street 21, Singapore 609606",
+        "cluster": "NUHS",
+        "region": "West"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.7469, 1.3330]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Sengkang General Hospital",
+        "address": "110 Sengkang East Way, Singapore 544886",
+        "cluster": "SingHealth",
+        "region": "North-East"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.8925, 1.3952]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Singapore General Hospital",
+        "address": "Outram Road, Singapore 169608",
+        "cluster": "SingHealth",
+        "region": "Central"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.8339, 1.2793]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Woodlands Health",
+        "address": "17 Woodlands Drive 17, Singapore 737628",
+        "cluster": "NHG",
+        "region": "North",
+        "note": "Formerly Woodlands Health Campus. Opened July 2024."
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.7939, 1.4259]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Tan Tock Seng Hospital",
+        "address": "11 Jalan Tan Tock Seng, Singapore 308433",
+        "cluster": "NHG",
+        "region": "Central"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.8456, 1.3213]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "KK Women's and Children's Hospital",
+        "address": "100 Bukit Timah Road, Singapore 229899",
+        "cluster": "SingHealth",
+        "region": "Central"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.8458, 1.3117]
+      }
+    }
+  ]
+}

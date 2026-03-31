@@ -53,7 +53,7 @@ export default function App() {
     const grants = calcGrants(cit, inc, ftype, ftimer, prox, marital);
     const loanAmt = loanCapacity(loan);
     const effective = cash + cpf + grants.total + Math.min(loanAmt, 750000);
-    return { eligibility, grants, effective };
+    return { eligibility, grants, effective, loanAmt };
   }, [formState]);
 
   const runSearch = useCallback(async () => {
@@ -172,6 +172,7 @@ export default function App() {
           eligibility={derived.eligibility}
           grants={derived.grants}
           effective={derived.effective}
+          loanAmt={derived.loanAmt}
           onSearch={runSearch}
           isSearching={phase === 'loading'}
         />
