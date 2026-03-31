@@ -22,7 +22,10 @@ class DbConnector:
         except mysql.connector.Error as e:
             print("Error connecting to MySQL:", e)
 
+    def Commit(self):
+        self.conn.commit()
+
     def Close(self):
         if self.conn and self.conn.is_connected():
             self.conn.close()
-            print("Connection closed")
+            # print("Connection closed")
