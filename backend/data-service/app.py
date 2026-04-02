@@ -1,9 +1,11 @@
 
 
 
-from db_models.resale_flats_model import ResaleFlatsModel
+from db_models.resale_flats_db import ResaleFlatsDB
 from db_connector import DbConnector
 
 db = DbConnector()
-data = ResaleFlatsModel(db).InitializeData()
+resale_flats_db = ResaleFlatsDB(db)
+resale_flats_db.DeleteData()
+data = resale_flats_db.InitializeData()
 db.Close()
