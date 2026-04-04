@@ -135,9 +135,18 @@ def buyer_vector(profile: dict, budget: float = 0.0) -> list[float]:
     ftype = profile.get("ftype", "any")
     vec[0] = FLAT_TYPE_ORD.get(ftype, 0.5)  # "any" → 0.5 (neutral midpoint)
 
-    # 1 — region (1.0 if user selected regions, 0.0 if no preference)
+    # 1 — region (ordinal, same scale as flat_vector dim 1)
+    # Encodes the buyer's preferred region(s) using the same ordinal values used
+    # in flat_vector so cosine can meaningfully compare the two dimensions.
+    # If the buyer selected multiple regions, take the mean ordinal.
+    # If no preference, use 0.6 (neutral midpoint of the 5 ordinal values).
+    _REGION_ORD_B = {"north": 0.2, "east": 0.4, "west": 0.6, "south": 0.8, "central": 1.0}
     regions = profile.get("regions", [])
-    vec[1] = 1.0 if regions else 0.0
+    if regions:
+        ordinals = [_REGION_ORD_B.get(r.lower(), 0.6) for r in regions]
+        vec[1] = round(sum(ordinals) / len(ordinals), 4)
+    else:
+        vec[1] = 0.6  # neutral: no stated preference, mid-scale
 
     # 2 — floor_pref
     floor = profile.get("floor", profile.get("floor_pref", "any"))
