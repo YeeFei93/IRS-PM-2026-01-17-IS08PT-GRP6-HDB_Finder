@@ -119,7 +119,7 @@ export function loanCapacity(monthly, rateAnnual = 0.026, years = 25) {
   return Math.round(monthly * factor);
 }
 
-export function checkEligibility(cit, income, age, marital) {
+export function checkEligibility(cit, income, age, marital, ftimer) {
   let eligible = true, warns = [], notes = [];
 
   const isJointSingle = (cit === 'SC_single' && marital === 'joint');
@@ -145,14 +145,11 @@ export function checkEligibility(cit, income, age, marital) {
   if (isJointSingle) {
     notes.push('Joint Singles Scheme: 2 or more SC singles buying together. Each applicant must be ≥35. EHG uses combined household income (≤$9k).');
   }
-  if (income > 16000) {
-    eligible = false;
-    warns.push('Income >$16k: HDB ineligible.');
-  } else if (income > 14000) {
-    warns.push('Income $14k–$16k: resale only.');
-  } else if (income > 9000 && !isJointSingle) {
-    notes.push('Income >$9k: EHG not applicable. CPF Housing Grant may still apply (≤$14k for some; ≤$7k for singles).');
-  } else if (income > 9000 && isJointSingle) {
+  if (income > 14000) {
+    warns.push('Income >$14k: No HDB grants eligible.');
+  } else if (income > 9000 && !isJointSingle && ftimer === 'first') {
+    notes.push('Income >$9k: EHG not applicable. CPF Housing Grant still applies (≤$14k for some; ≤$7k for singles).');
+  } else if (income > 9000 && isJointSingle && ftimer === 'first') {
     notes.push('JSS: Combined household income >$9k — EHG not applicable. CPF Housing Grant still applies up to $14k combined income.');
   }
 
