@@ -40,7 +40,7 @@ def calc_ehg(cit: str, marital: str, income: float, ftimer: str) -> int:
     Calculate Enhanced Housing Grant (EHG).
     Applies to both BTO and resale first-timer purchases.
     """
-    if ftimer != "first":
+    if ftimer == "second":
         return 0
 
     is_pr = cit == "PR_PR"
@@ -85,9 +85,9 @@ def calc_cpf_housing_grant(cit: str, marital: str, income: float,
             return 0
         return 40000 if large else 70000
 
-    elif ftimer == "mixed":
-        # One first-timer + one second-timer couple
-        if income > 14000:
+    elif cit == "SC_SC" and ftimer == "mixed":
+        # One first-timer + one second-timer couple, counted as first-timer for grant purposes
+        if income > 7000:
             return 0
         return 25000 if large else 40000
 

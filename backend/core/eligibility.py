@@ -40,14 +40,8 @@ def check_eligibility(profile: dict) -> dict:
         warnings.append("Singles Scheme requires all buyers to be ≥35 years old.")
 
     # ── Income ceiling checks ────────────────────────────────────────────────
-    if income > 16000:
-        eligible = False
-        market   = "ineligible"
-        warnings.append("Household income >$16,000/month exceeds HDB eligibility ceiling.")
-    elif income > 14000:
-        market = "resale_only"
-        warnings.append("Income $14,001–$16,000/month: resale flats only. "
-                        "No CPF Housing Grant applicable.")
+    if income > 14000:
+        warnings.append("Income >$14,000/month: CPF Housing Grant not applicable.")
     elif income > 9000:
         notes.append("Income >$9,000/month: EHG not applicable. "
                      "CPF Housing Grant (≤$14,000) may still apply.")
