@@ -33,7 +33,7 @@ class BuyerProfile(BaseModel):
     ftype: str = Field("any", description="any | 2 ROOM | 3 ROOM | 4 ROOM | 5 ROOM | EXECUTIVE")
     regions: list[str] = Field(default_factory=list)
     must_have: list[str] = Field(default_factory=list)
-    max_mrt_mins: int = Field(30, ge=1, le=60)
+    max_mrt_mins: int = Field(30, ge=3, le=30)
     min_lease: int = Field(60, ge=0, le=99)
 
     # Budget

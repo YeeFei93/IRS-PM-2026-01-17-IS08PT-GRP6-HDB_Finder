@@ -1,5 +1,5 @@
 """
-scoring/cosine_scorer.py
+recommendation-scorer-service/cosine_scorer.py
 ========================
 Weighted Cosine Similarity scoring for Content-Based filtering.
 
@@ -10,18 +10,14 @@ The weight vector W amplifies dimensions the buyer actively configured
 so the similarity is driven by what the buyer cares about most while
 still allowing serendipitous matches on unconfigured dimensions.
 
-Requires 10-aligned vectors: buyer_vector (11-dim) has its last
-dimension (has_hospital) dropped to match the flat_vector (10-dim).
-
-Academic basis: Content-Based Filtering with Similarity-Based Reasoning
-(Day 4 slides), with feature weighting per active criterion.
+Both buyer_vector and flat_vector are 10-dim (see vectorizer.py).
 """
 
 from __future__ import annotations
 
 import math
 
-from scoring.weights import (
+from weights import (
     CRITERION_FLAT,
     CRITERION_REGION,
     CRITERION_LEASE,
@@ -29,20 +25,20 @@ from scoring.weights import (
     CRITERION_AMENITY,
 )
 
-# ── Dimension → criterion mapping (10-dim aligned vectors) ──────────────────
-# Each vector dimension maps to one of the 6 MCDM criteria.
+# ── Dimension → criterion mapping (10-dim vectors) ────────────────────────────
+# Each vector dimension maps to one of the 6 criteria.
 # "budget" has no vector dimension — it's a separate hybrid signal.
 _DIM_CRITERION: list[str] = [
     CRITERION_FLAT,     # 0  flat_type
     CRITERION_REGION,   # 1  region
     CRITERION_FLAT,     # 2  floor_pref / floor
-    CRITERION_FLAT,     # 3  flat_area
-    CRITERION_LEASE,    # 4  remaining_lease
-    CRITERION_MRT,      # 5  has_mrt / nearby_mrt
-    CRITERION_AMENITY,  # 6  has_hawker / nearby_hawker
-    CRITERION_AMENITY,  # 7  has_mall / nearby_mall
-    CRITERION_AMENITY,  # 8  has_park / nearby_park
-    CRITERION_AMENITY,  # 9  has_school / nearby_school
+    CRITERION_LEASE,    # 3  remaining_lease
+    CRITERION_MRT,      # 4  has_mrt / nearby_mrt
+    CRITERION_AMENITY,  # 5  has_hawker / nearby_hawker
+    CRITERION_AMENITY,  # 6  has_mall / nearby_mall
+    CRITERION_AMENITY,  # 7  has_park / nearby_park
+    CRITERION_AMENITY,  # 8  has_school / nearby_school
+    CRITERION_AMENITY,  # 9  has_hospital / nearby_hospital
 ]
 
 ACTIVE_WEIGHT   = 1.0
@@ -73,10 +69,8 @@ def _build_weight_vector(active_criteria: list[str]) -> list[float]:
 
 
 def _align_buyer_vector(buyer_vec: list[float]) -> list[float]:
-    """Drop the 11th dimension (has_hospital) to align with 10-dim flat vector."""
-    if len(buyer_vec) == 11:
-        return buyer_vec[:10]
-    return list(buyer_vec)  # already 10-dim or unexpected length
+    """Return buyer vector unchanged — both buyer and flat vectors are 10-dim."""
+    return list(buyer_vec)
 
 
 def _weighted_cosine(a: list[float], b: list[float],
@@ -111,12 +105,12 @@ def score_cb(buyer_vec: list[float],
     Parameters
     ----------
     buyer_vec : list[float]
-        11-dim buyer preference vector from ``vectorizer.buyer_vector()``.
+        10-dim buyer preference vector from ``vectorizer.buyer_vector()``.
     flat_vec : list[float]
         10-dim eligible flat vector from ``vectorizer.flat_vector()``.
     active_criteria : list[str]
         Criterion IDs the buyer actively configured (from
-        ``aggregator.detect_active_criteria()``).
+        ``app.detect_active_criteria()``).
 
     Returns
     -------
