@@ -1,5 +1,5 @@
 """
-scoring/amenity_score.py
+recommendation_scorer_service/amenity_score.py
 ========================
 Proximity to amenities — returns raw score 0.0–1.0.
 

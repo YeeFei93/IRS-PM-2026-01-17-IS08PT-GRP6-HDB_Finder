@@ -6,7 +6,7 @@ Reads from SQLite (via db/queries.py) — no direct CSV I/O here.
 """
 
 import statistics
-from db.queries import get_transactions_for_town
+from db.queries import get_transactions_for_town #Get from ZT db
 
 
 def analyse_town_prices(town: str, ftype: str, months: int = 14) -> dict | None:
@@ -117,15 +117,3 @@ def analyse_town_prices(town: str, ftype: str, months: int = 14) -> dict | None:
     }
 
 
-def effective_budget(profile: dict, grants: dict) -> float:
-    """
-    Compute total purchasing power:
-    cash + CPF savings + all grants + estimated loan capacity.
-    """
-    from budget_estimator_service.loan import loan_capacity
-    cash   = profile.get("cash", 0)
-    cpf    = profile.get("cpf", 0)
-    loan_m = profile.get("loan", 0)   # monthly repayment
-    loan_cap = loan_capacity(loan_m)
-
-    return cash + cpf + grants["total"] + min(loan_cap, 750_000)

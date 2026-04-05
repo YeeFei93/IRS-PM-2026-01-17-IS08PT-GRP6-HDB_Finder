@@ -1,5 +1,5 @@
 """
-scoring/cosine_scorer.py
+recommendation_scorer_service/cosine_scorer.py
 ========================
 Weighted Cosine Similarity scoring for Content-Based filtering.
 
@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import math
 
-from scoring.weights import (
+from recommendation_scorer_service.weights import (
     CRITERION_FLAT,
     CRITERION_REGION,
     CRITERION_LEASE,

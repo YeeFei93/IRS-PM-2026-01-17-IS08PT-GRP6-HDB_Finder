@@ -1,5 +1,5 @@
 """
-scoring/region_score.py
+recommendation_scorer_service/region_score.py
 ========================
 Alignment between estate town and buyer's preferred regions.
 

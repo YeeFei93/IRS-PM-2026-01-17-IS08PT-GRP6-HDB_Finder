@@ -1,5 +1,5 @@
 """
-scoring/aggregator.py
+recommendation_scorer_service/aggregator.py
 =====================
 MCDM + Serendipity scoring aggregator.
 
@@ -29,12 +29,11 @@ Step 5 — Total
 
 This module is the ONLY place that calls across component modules.
 To change scoring behaviour: edit the relevant component file.
-To change weights/allocation: edit scoring/weights.py.
+To change weights/allocation: edit recommendation_scorer_service/weights.py.
 """
 
-from scoring.weights import (
+from recommendation_scorer_service.weights import (
     MCDM_TOTAL,
-    SERENDIPITY_TOTAL,
     ALL_CRITERIA,
     CRITERION_BUDGET,
     CRITERION_FLAT,
@@ -44,14 +43,14 @@ from scoring.weights import (
     CRITERION_AMENITY,
     DEFAULTS,
 )
-from scoring import (
+from recommendation_scorer_service import (
     budget_score,
     amenity_score,
     transport_score,
     region_score,
     flat_score,
 )
-from scoring.serendipity_score import compute as compute_serendipity
+from recommendation_scorer_service.serendipity_score import compute as compute_serendipity
 
 
 # ── Step 1: Detect which criteria the buyer actively set ─────────────────────

@@ -1,8 +1,11 @@
 """
-core/loan.py
+budget_estimator_service/loan.py
 ============
 HDB concessionary loan capacity calculator.
 Rate: 2.6% p.a. (HDB rate = CPF OA rate + 0.1%)
+
+# Need to recompute, up to 30% of income, so need income as input from buyer profile. 
+https://www.mynicehome.gov.sg/get-started/hdb-loans-guide/#2723322f81eafd67f5ec48fc373519e6
 """
 
 

@@ -1,5 +1,5 @@
 """
-scoring/flat_score.py
+recommendation_scorer_service/flat_score.py
 =====================
 Flat attributes: floor area fit vs flat type, and remaining lease.
 
