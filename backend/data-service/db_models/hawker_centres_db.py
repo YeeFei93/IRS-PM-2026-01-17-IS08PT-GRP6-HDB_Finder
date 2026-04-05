@@ -24,7 +24,7 @@ class HawkerCentresDB:
         for item in self.GetRawData()["features"]:  
             item[ID.HAWKER_CENTRE_ID] = str(uuid.uuid4())  
             item[KEY_NAME.LATITUDE] = item["geometry"]["coordinates"][0]
-            item[KEY_NAME.LONGITUDE] = item["geometry"]["coordinates"][0]
+            item[KEY_NAME.LONGITUDE] = item["geometry"]["coordinates"][1]
             item[KEY_NAME.NAME] = item["properties"]["NAME"]
             item[KEY_NAME.PHOTO_URL] = item["properties"]["PHOTOURL"]
             processed = dbc.PreprocessData(item, mapping=hawker_centres_mapping, column_names=column_names)
@@ -39,6 +39,8 @@ class HawkerCentresDB:
         return GeojsonToJson("./raw-data/hawker-centres").data
     
     def DeleteData(self):
-        pass
+        db = self.db
+        dbc = DbController(db)
+        dbc.DeleteData(self.table_name)
         
     
