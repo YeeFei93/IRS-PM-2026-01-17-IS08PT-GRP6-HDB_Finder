@@ -6,5 +6,7 @@ from db_connector import DbConnector
 
 db = DbConnector()
 
-HawkerCentresDB(db).InitialiseData()
+hawker_centre_db = HawkerCentresDB(db)
+hawker_centre_db.DeleteData()
+hawker_centre_db.InitialiseData()
 db.Close()
