@@ -13,7 +13,7 @@ class DbConnector:
                 host="localhost",
                 user="root",
                 password="P@ssw0rd+1",
-                database="ais08-pt-01"
+                database="iss-irs-ai-estate-recommender-01"
             )
             if self.conn.is_connected():
                 print("Connected to MySQL database")
