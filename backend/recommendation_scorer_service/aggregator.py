@@ -1,7 +1,7 @@
 """
-recommendation_scorer_service/aggregator.py
+scoring/aggregator.py
 =====================
-MCDM + Serendipity recommendation_scorer_service aggregator.
+MCDM + Serendipity scoring aggregator.
 
 Formula
 -------
@@ -28,11 +28,11 @@ Step 5 — Total
   Sum of all MCDM component pts + serendipity pts.
 
 This module is the ONLY place that calls across component modules.
-To change recommendation_scorer_service behaviour: edit the relevant component file.
-To change weights/allocation: edit recommendation_scorer_service/weights.py.
+To change scoring behaviour: edit the relevant component file.
+To change weights/allocation: edit scoring/weights.py.
 """
 
-from recommendation_scorer_service.weights import (
+from scoring.weights import (
     MCDM_TOTAL,
     SERENDIPITY_TOTAL,
     ALL_CRITERIA,
@@ -44,14 +44,14 @@ from recommendation_scorer_service.weights import (
     CRITERION_AMENITY,
     DEFAULTS,
 )
-from recommendation_scorer_service import (
+from scoring import (
     budget_score,
     amenity_score,
     transport_score,
     region_score,
     flat_score,
 )
-from recommendation_scorer_service.serendipity_score import compute as compute_serendipity
+from scoring.serendipity_score import compute as compute_serendipity
 
 
 # ── Step 1: Detect which criteria the buyer actively set ─────────────────────
@@ -94,7 +94,7 @@ def detect_active_criteria(profile: dict, budget: float,
     return active
 
 
-# ── Step 2–3: MCDM recommendation_scorer_service ────────────────────────────────────────────────────
+# ── Step 2–3: MCDM scoring ────────────────────────────────────────────────────
 
 def compute_mcdm(active_criteria: list, price_data: dict, amenities: dict,
                  profile: dict, budget: float,

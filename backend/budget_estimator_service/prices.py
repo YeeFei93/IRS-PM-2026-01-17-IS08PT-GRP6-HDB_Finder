@@ -1,5 +1,5 @@
 """
-core/prices.py
+budget_estimator_service/prices.py
 ==============
 Price analysis and forward estimation.
 Reads from SQLite (via db/queries.py) — no direct CSV I/O here.
@@ -122,7 +122,7 @@ def effective_budget(profile: dict, grants: dict) -> float:
     Compute total purchasing power:
     cash + CPF savings + all grants + estimated loan capacity.
     """
-    from core.loan import loan_capacity
+    from budget_estimator_service.loan import loan_capacity
     cash   = profile.get("cash", 0)
     cpf    = profile.get("cpf", 0)
     loan_m = profile.get("loan", 0)   # monthly repayment

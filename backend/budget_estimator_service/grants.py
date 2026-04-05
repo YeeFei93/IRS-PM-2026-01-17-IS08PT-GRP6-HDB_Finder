@@ -1,5 +1,5 @@
 """
-budget_estimator_service/grants.py
+core/grants.py
 ==============
 HDB grant calculation logic — pure functions, no I/O.
 Sources:

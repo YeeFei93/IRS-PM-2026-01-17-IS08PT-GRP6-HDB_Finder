@@ -1,5 +1,5 @@
 """
-budget_estimator_service/loan.py
+core/loan.py
 ============
 HDB concessionary loan capacity calculator.
 Rate: 2.6% p.a. (HDB rate = CPF OA rate + 0.1%)
