@@ -5,7 +5,7 @@ from csv_to_json import CsvToJson
 from db_controller import DbController
 from db_connector import DbConnector
 from env import TABLE_NAME, KEY_NAME, ID
-from configs.hdb_resale_price_mapping import hdb_resale_price_mapping
+from configs.raw_to_db_mappings import resale_flats_mapping
 import uuid
 import threading
 import math
@@ -34,7 +34,7 @@ class ResaleFlatsDB:
         threads = []
 
         for i in range(0,num_threads):
-            t = threading.Thread(target=self.InitializeBatch, args=(raw_data[i * batch_size : (i +1) * batch_size], i + 1))
+            t = threading.Thread(target=self.InitializeBatch, args=(raw_data[i * batch_size : (i +1) * batch_size],))
             threads.append(t)
             t.start()
 
@@ -44,7 +44,7 @@ class ResaleFlatsDB:
       
         
      
-    def InitializeBatch(self, data, thread_num):
+    def InitializeBatch(self, data):
         db = DbConnector()
         dbc = DbController(db)
 
@@ -62,12 +62,12 @@ class ResaleFlatsDB:
 
         counter = 0
         for item in data:
-            processed_estate = dbc.PreprocessData(item, mapping=hdb_resale_price_mapping, column_names=estate_column_names)
+            processed_estate = dbc.PreprocessData(item, mapping=resale_flats_mapping, column_names=estate_column_names)
             processed_flat_type = dbc.PreprocessData(item, column_names=flat_type_column_names)
             processed_flat_model = dbc.PreprocessData(item, column_names=flat_model_column_names)
             processed_resale_flats_geolocation = dbc.PreprocessData(item, column_names=resale_flats_geolocation_column_names)
-            processed_resale_flat = dbc.PreprocessData(item, mapping=hdb_resale_price_mapping, column_names=resale_flat_column_names)
-            processed_resale_flat[ID.RESALE_FLAT_ID] = str(uuid.uuid4()) + f"-{thread_num}"
+            processed_resale_flat = dbc.PreprocessData(item, mapping=resale_flats_mapping, column_names=resale_flat_column_names)
+            processed_resale_flat[ID.RESALE_FLAT_ID] = str(uuid.uuid4())
             if KEY_NAME.STOREY_RANGE in item:
                 temp_str: str = item[KEY_NAME.STOREY_RANGE]
                 storeys = temp_str.split(" TO ")

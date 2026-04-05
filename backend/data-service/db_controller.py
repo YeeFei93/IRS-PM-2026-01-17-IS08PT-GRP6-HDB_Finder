@@ -38,6 +38,8 @@ class DbController:
         query = "SELECT COUNT(*) FROM resale_flats"    
         db.cursor.execute(query)
         db.cursor.fetchone()
+
+        
     def InsertData(self, table_name, data, filters = None):
         db = self.db
         if isinstance(data, dict):
