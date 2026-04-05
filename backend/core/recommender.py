@@ -13,7 +13,7 @@ Flow:
   6. Return top 10 sorted by score
 """
 
-from core.eligibility  import check_eligibility
+from eligibility-checker-service.eligibility  import check_eligibility
 from core.grants       import calc_all_grants
 from core.prices       import analyse_town_prices, effective_budget
 from geo.distances     import nearest_amenities
