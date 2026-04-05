@@ -27,14 +27,14 @@ Inactive criteria → serendipity sub-scores:
   amenity  → average proximity across ALL amenity types (not just must-haves)
 """
 
-from scoring import (
+from recommendation_scorer_service import (
     budget_score,
     amenity_score,
     transport_score,
     region_score,
     flat_score,
 )
-from scoring.weights import (
+from recommendation_scorer_service.weights import (
     SERENDIPITY_TOTAL,
     ALL_CRITERIA,
     CRITERION_BUDGET,

@@ -1,5 +1,5 @@
 """
-scoring/budget_score.py
+recommendation_scorer_service/budget_score.py
 =======================
 How well the estimated flat price fits within effective budget.
 

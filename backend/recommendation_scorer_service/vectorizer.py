@@ -1,5 +1,5 @@
 """
-scoring/vectorizer.py
+recommendation_scorer_service/vectorizer.py
 =====================
 Converts raw user form inputs and flat/town data into normalised
 numeric vectors for Content-Based cosine similarity scoring.
