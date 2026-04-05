@@ -1,5 +1,5 @@
 """
-core/recommender.py
+recommendation_scorer_service/recommender.py
 ===================
 Orchestrates all modules to produce the final ranked recommendation list.
 This is the only module that calls across module boundaries.
@@ -15,22 +15,22 @@ Flow:
 
 from eligibility_checker_service.eligibility  import check_eligibility
 from budget_estimator_service.grants       import calc_all_grants
-from budget_estimator_service.prices       import effective_budget
+from budget_estimator_service.prices       import analyse_town_prices
 from budget_estimator_service.effective_budget       import effective_budget
-from geo.distances     import nearest_amenities #Get from ZT 
-from geo.centroids     import get_centroid #May need to change to summary of top 10 recommended towns and then 
-from recommendation_scorer_service.MCDM.aggregator import compute_scores
-from db.queries        import get_all_towns
+from geo.distances     import nearest_amenities #Get from amenity service. Distance computation already completed in that module.
+from geo.centroids     import get_centroid #May need to change to summary of top 10 recommended flats and then estates
+from recommendation_scorer_service.MCDM.aggregator import compute_scores # to recompute MCDM scores or even cosine similarity scores
+from estate_finder_service.queries        import get_all_towns  #Get from Estate_finder.py
 
 # Town → Region mapping (mirrors front-end)
-REGIONS = {
-    "North":    ["ANG MO KIO","SEMBAWANG","WOODLANDS","YISHUN","SENGKANG","PUNGGOL"],
-    "South":    ["BUONA VISTA","QUEENSTOWN","TOA PAYOH","BISHAN","GEYLANG","KALLANG"],
-    "East":     ["BEDOK","PASIR RIS","TAMPINES","HOUGANG","SERANGOON"],
-    "West":     ["BUKIT BATOK","BUKIT PANJANG","CHOA CHU KANG","CLEMENTI","JURONG EAST","JURONG WEST"],
-    "Central":  ["CENTRAL AREA","BUKIT MERAH","MARINE PARADE"],
-}
 
+REGIONS = {
+    'Central': ['QUEENSTOWN', 'BUKIT MERAH', 'TOA PAYOH', 'CENTRAL AREA', 'MARINE PARADE'],
+    'East': ['TAMPINES', 'BEDOK', 'PASIR RIS', 'GEYLANG', 'KALLANG/WHAMPOA'],
+    'North': ['WOODLANDS', 'SEMBAWANG', 'YISHUN', 'ANG MO KIO', 'BISHAN'],
+    'Northeast': ['SENGKANG', 'PUNGGOL', 'HOUGANG', 'SERANGOON', 'BUANGKOK'],
+    'West': ['JURONG WEST', 'JURONG EAST', 'BUKIT BATOK', 'CHOA CHU KANG', 'CLEMENTI', 'BUKIT PANJANG']
+}
 
 def run_recommendation(profile: dict) -> dict:
     """

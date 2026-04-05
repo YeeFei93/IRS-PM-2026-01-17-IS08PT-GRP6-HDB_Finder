@@ -50,7 +50,7 @@ from recommendation_scorer_service import (
     region_score,
     flat_score,
 )
-from recommendation_scorer_service.serendipity_score import compute as compute_serendipity
+from recommendation_scorer_service.MCDM.serendipity_score import compute as compute_serendipity
 
 
 # ── Step 1: Detect which criteria the buyer actively set ─────────────────────
