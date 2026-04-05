@@ -235,11 +235,11 @@ class TestFlatVector(unittest.TestCase):
         for dim in range(4, 10):
             self.assertAlmostEqual(vec[dim], 0.0, places=3, msg=f"dim {dim}")
 
-    def test_missing_amenity_key_scores_zero(self):
+    def test_missing_amenity_key_scores_neutral(self):
         vec = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_SPARSE)
-        self.assertEqual(vec[5], 0.0)   # hawker has no dist_km
-        self.assertEqual(vec[6], 0.0)   # mall missing entirely
-        self.assertEqual(vec[9], 0.0)   # hospital missing entirely
+        self.assertEqual(vec[5], 0.5)   # hawker has no dist_km → neutral
+        self.assertEqual(vec[6], 0.5)   # mall missing entirely → neutral
+        self.assertEqual(vec[9], 0.5)   # hospital missing entirely → neutral
 
     def test_dim4_is_mrt_not_hawker(self):
         # Regression: before fix, loop started at dim 4 with AMENITY_DIMS (no MRT)

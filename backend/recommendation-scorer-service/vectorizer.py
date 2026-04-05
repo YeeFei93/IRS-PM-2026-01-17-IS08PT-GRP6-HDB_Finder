@@ -232,7 +232,7 @@ def _proximity_score(amenity_key: str, amenities: dict) -> float:
     entry = amenities.get(amenity_key, {})
     dist_km = entry.get("dist_km")
     if dist_km is None:
-        return 0.0
+        return 0.5  # no data → neutral (don't penalise flat for data gaps)
     max_km = _AMENITY_MAX_KM.get(amenity_key, 1.0)
     return max(0.0, round(1.0 - dist_km / max_km, 4))
 
