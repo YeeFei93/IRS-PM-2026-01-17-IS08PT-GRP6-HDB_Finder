@@ -18,7 +18,7 @@ from budget_estimator_service.grants       import calc_all_grants
 from budget_estimator_service.prices       import analyse_town_prices, effective_budget
 from geo.distances     import nearest_amenities #Get from ZT 
 from geo.centroids     import get_centroid #May need to change to summary of top 10 recommended towns and then 
-from scoring.aggregator import compute_score
+from recommendation_scorer_service.aggregator import compute_score
 from db.queries        import get_all_towns
 
 # Town → Region mapping (mirrors front-end)
