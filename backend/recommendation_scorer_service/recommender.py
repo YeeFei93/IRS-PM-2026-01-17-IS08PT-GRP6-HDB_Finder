@@ -18,7 +18,7 @@ from budget_estimator_service.grants       import calc_all_grants
 from budget_estimator_service.prices       import analyse_town_prices
 from budget_estimator_service.effective_budget       import effective_budget
 from geo.distances     import nearest_amenities #Get from amenity service. Distance computation already completed in that module.
-from geo.centroids     import get_centroid #May need to change to summary of top 10 recommended flats and then estates
+from geo.centroids     import get_centroid #Need to change to summary of top 10 recommended flats and then summarize & plot the estates.
 from recommendation_scorer_service.MCDM.aggregator import compute_scores # to recompute MCDM scores or even cosine similarity scores
 from estate_finder_service.queries        import get_all_towns  #Get from Estate_finder.py
 
