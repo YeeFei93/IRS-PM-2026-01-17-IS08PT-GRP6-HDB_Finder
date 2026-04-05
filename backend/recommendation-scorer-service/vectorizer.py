@@ -57,36 +57,41 @@ _AMENITY_MAX_KM: dict[str, float] = {
     "hospital": 2.0,   # 24 min walk — max plausible walk to a hospital
 }
 
-# ── Town → region mapping (mirrors core/recommender.py REGIONS) ─────
-# Values are the canonical region keys used in BuyerProfile.regions.
+# ── Town → region mapping (mirrors frontend/src/constants.js REGIONS) ──────
+# Values must exactly match the region keys the frontend sends in BuyerProfile.regions.
+# Source: frontend REGIONS = { north, northeast, east, west, central }
 _TOWN_TO_REGION: dict[str, str] = {
+    # north
     "ANG MO KIO":       "north",
+    "BISHAN":           "north",
     "SEMBAWANG":        "north",
     "WOODLANDS":        "north",
     "YISHUN":           "north",
-    "SENGKANG":         "north",
-    "PUNGGOL":          "north",
-    "BUONA VISTA":      "south",
-    "QUEENSTOWN":       "south",
-    "TOA PAYOH":        "south",
-    "BISHAN":           "south",
-    "GEYLANG":          "south",
-    "KALLANG":          "south",
-    "KALLANG/WHAMPOA":  "south",
+    # northeast
+    "HOUGANG":          "northeast",
+    "PUNGGOL":          "northeast",
+    "SENGKANG":         "northeast",
+    "SERANGOON":        "northeast",
+    # east
     "BEDOK":            "east",
+    "GEYLANG":          "east",
+    "KALLANG/WHAMPOA":  "east",
     "PASIR RIS":        "east",
     "TAMPINES":         "east",
-    "HOUGANG":          "east",
-    "SERANGOON":        "east",
+    # west
     "BUKIT BATOK":      "west",
     "BUKIT PANJANG":    "west",
     "CHOA CHU KANG":    "west",
     "CLEMENTI":         "west",
     "JURONG EAST":      "west",
     "JURONG WEST":      "west",
-    "CENTRAL AREA":     "central",
+    # central
     "BUKIT MERAH":      "central",
+    "BUKIT TIMAH":      "central",   # in DB but not in frontend town list
+    "CENTRAL AREA":     "central",
     "MARINE PARADE":    "central",
+    "QUEENSTOWN":       "central",
+    "TOA PAYOH":        "central",
 }
 
 # ── Max storey used for floor normalisation ──────────────────────────
