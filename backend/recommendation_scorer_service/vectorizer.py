@@ -1,16 +1,16 @@
 """
-recommendation_scorer_service/vectorizer.py
+recommendation-scorer-service/vectorizer.py
 =====================
 Converts raw user form inputs and flat/town data into normalised
 numeric vectors for Content-Based cosine similarity scoring.
 
-Buyer Preference Vector (11-dim):
-  [flat_type, region, floor_pref, flat_area, remaining_lease,
+Buyer Preference Vector (10-dim):
+  [flat_type, region, floor_pref, remaining_lease,
    has_mrt, has_hawker, has_mall, has_park, has_school, has_hospital]
 
 Eligible Flat Vector (10-dim):
-  [flat_type, region, floor, flat_area, remaining_lease,
-   nearby_mrt, nearby_hawker, nearby_mall, nearby_park, nearby_school]
+  [flat_type, region, floor, remaining_lease,
+   nearby_mrt, nearby_hawker, nearby_mall, nearby_park, nearby_school, nearby_hospital]
 
 All values normalised to 0–1.
 
@@ -19,13 +19,19 @@ Reference: detectActive() and rawForCriterion() in frontend engine.js
 
 from __future__ import annotations
 
-# ── Flat-type ordinal encoding ──────────────────────────────────────
+from weights import CRITERION_MRT, DEFAULTS
+
+
+# 7 types from DB, evenly spaced 1/7 ≈ 0.14 per step.
+# Order reflects size/desirability: 1RM < 2RM < 3RM < 4RM < 5RM < EXEC < MULTIGEN
 FLAT_TYPE_ORD: dict[str, float] = {
-    "2 ROOM":    0.2,
-    "3 ROOM":    0.4,
-    "4 ROOM":    0.6,
-    "5 ROOM":    0.8,
-    "EXECUTIVE": 1.0,
+    "1 ROOM":           round(1/7, 4),   # 0.1429
+    "2 ROOM":           round(2/7, 4),   # 0.2857
+    "3 ROOM":           round(3/7, 4),   # 0.4286
+    "4 ROOM":           round(4/7, 4),   # 0.5714
+    "5 ROOM":           round(5/7, 4),   # 0.7143
+    "EXECUTIVE":        round(6/7, 4),   # 0.8571
+    "MULTI-GENERATION": 1.0,
 }
 
 # ── Floor preference ordinal encoding ───────────────────────────────
@@ -36,65 +42,58 @@ FLOOR_PREF_ORD: dict[str, float] = {
     "any":  0.5,
 }
 
-# ── Expected area midpoints by flat type (sqm) ─────────────────────
-# Used to derive a normalised area preference from flat type.
-_AREA_MID: dict[str, float] = {
-    "2 ROOM":    40.5,   # (36+45)/2
-    "3 ROOM":    67.5,   # (60+75)/2
-    "4 ROOM":    95.0,   # (85+105)/2
-    "5 ROOM":    122.5,  # (110+135)/2
-    "EXECUTIVE": 147.5,  # (130+165)/2
-}
-_AREA_MAX = 165.0  # largest expected area (EXECUTIVE upper bound)
-
 # ── Amenity dimension order (must stay stable) ──────────────────────
-AMENITY_DIMS: list[str] = ["mrt", "hawker", "mall", "park", "school", "hospital"]
-
-# ── Flat vector amenity dims (10-dim vector excludes hospital to keep at 10) ──
-# Order matches Eligible Flat Vector definition in plan.
-FLAT_AMENITY_DIMS: list[str] = ["mrt", "hawker", "mall", "park", "school"]
+# MRT is excluded here — dim 4 is encoded from max_mrt_mins slider, not must_have.
+AMENITY_DIMS: list[str] = ["hawker", "mall", "park", "school", "hospital"]
 
 # ── Max distances used for proximity normalisation (km) ─────────────
 # Beyond these distances the amenity scores to 0.
+# Based on max acceptable walking distance (~5 km/h pace):
+#   1.0 km ≈ 12 min  |  1.5 km ≈ 18 min  |  2.0 km ≈ 24 min
 _AMENITY_MAX_KM: dict[str, float] = {
-    "mrt":      2.0,
-    "hawker":   3.0,
-    "mall":     3.0,
-    "park":     3.0,
-    "school":   3.0,
-    "hospital": 5.0,
+    "mrt":      1.0,   # 12 min walk — standard SG "walking distance" to MRT
+    "hawker":   1.0,   # 12 min walk
+    "mall":     1.5,   # 18 min walk
+    "park":     1.5,   # 18 min walk
+    "school":   1.0,   # 12 min walk
+    "hospital": 2.0,   # 24 min walk — max plausible walk to a hospital
 }
 
-# ── Town → region mapping (mirrors core/recommender.py REGIONS) ─────
-# Values are the canonical region keys used in BuyerProfile.regions.
+# ── Town → region mapping (mirrors frontend/src/constants.js REGIONS) ──────
+# Values must exactly match the region keys the frontend sends in BuyerProfile.regions.
+# Source: frontend REGIONS = { north, northeast, east, west, central }
 _TOWN_TO_REGION: dict[str, str] = {
+    # north
     "ANG MO KIO":       "north",
+    "BISHAN":           "north",
     "SEMBAWANG":        "north",
     "WOODLANDS":        "north",
     "YISHUN":           "north",
-    "SENGKANG":         "north",
-    "PUNGGOL":          "north",
-    "BUONA VISTA":      "south",
-    "QUEENSTOWN":       "south",
-    "TOA PAYOH":        "south",
-    "BISHAN":           "south",
-    "GEYLANG":          "south",
-    "KALLANG":          "south",
-    "KALLANG/WHAMPOA":  "south",
+    # northeast
+    "HOUGANG":          "northeast",
+    "PUNGGOL":          "northeast",
+    "SENGKANG":         "northeast",
+    "SERANGOON":        "northeast",
+    # east
     "BEDOK":            "east",
+    "GEYLANG":          "east",
+    "KALLANG/WHAMPOA":  "east",
     "PASIR RIS":        "east",
     "TAMPINES":         "east",
-    "HOUGANG":          "east",
-    "SERANGOON":        "east",
+    # west
     "BUKIT BATOK":      "west",
     "BUKIT PANJANG":    "west",
     "CHOA CHU KANG":    "west",
     "CLEMENTI":         "west",
     "JURONG EAST":      "west",
     "JURONG WEST":      "west",
-    "CENTRAL AREA":     "central",
+    # central
     "BUKIT MERAH":      "central",
+    "BUKIT TIMAH":      "central",   # in DB but not in frontend town list
+    "CENTRAL AREA":     "central",
     "MARINE PARADE":    "central",
+    "QUEENSTOWN":       "central",
+    "TOA PAYOH":        "central",
 }
 
 # ── Max storey used for floor normalisation ──────────────────────────
@@ -102,18 +101,18 @@ _STOREY_MAX = 50.0  # highest HDB block is ~50 storeys
 
 # ── Vector dimension labels (for explainability) ────────────────────
 BUYER_VEC_LABELS: list[str] = [
-    "flat_type", "region", "floor_pref", "flat_area", "remaining_lease",
-    "has_mrt", "has_hawker", "has_mall", "has_park", "has_school", "has_hospital",
+    "flat_type", "region", "floor_pref", "remaining_lease",
+    "mrt_walk_pref", "has_hawker", "has_mall", "has_park", "has_school", "has_hospital",
 ]
 
 FLAT_VEC_LABELS: list[str] = [
-    "flat_type", "region", "floor", "flat_area", "remaining_lease",
-    "nearby_mrt", "nearby_hawker", "nearby_mall", "nearby_park", "nearby_school",
+    "flat_type", "region", "floor", "remaining_lease",
+    "nearby_mrt", "nearby_hawker", "nearby_mall", "nearby_park", "nearby_school", "nearby_hospital",
 ]
 
 
 def buyer_vector(profile: dict, budget: float = 0.0) -> list[float]:
-    """Convert a BuyerProfile dict into an 11-dim list of floats in [0, 1].
+    """Convert a BuyerProfile dict into a 10-dim list of floats in [0, 1].
 
     Parameters
     ----------
@@ -127,43 +126,50 @@ def buyer_vector(profile: dict, budget: float = 0.0) -> list[float]:
     Returns
     -------
     list[float]
-        Length 11, all values in [0.0, 1.0].
+        Length 10, all values in [0.0, 1.0].
     """
-    vec: list[float] = [0.0] * 11
+    vec: list[float] = [0.0] * 10
 
     # 0 — flat_type
     ftype = profile.get("ftype", "any")
-    vec[0] = FLAT_TYPE_ORD.get(ftype, 0.5)  # "any" → 0.5 (neutral midpoint)
+    vec[0] = FLAT_TYPE_ORD.get(ftype, round(4/7, 4))  # "any" → 4/7≈0.5714 (true midpoint of 7-type scale)
 
-    # 1 — region (ordinal, same scale as flat_vector dim 1)
-    # Encodes the buyer's preferred region(s) using the same ordinal values used
-    # in flat_vector so cosine can meaningfully compare the two dimensions.
-    # If the buyer selected multiple regions, take the mean ordinal.
-    # If no preference, use 0.6 (neutral midpoint of the 5 ordinal values).
-    _REGION_ORD_B = {"north": 0.2, "east": 0.4, "west": 0.6, "south": 0.8, "central": 1.0}
+    # 1 — region: 1.0 if buyer stated ≥1 region preference, 0.5 if no preference.
+    # Paired with flat_vector dim 1 which encodes match/no-match against these regions.
+    # Using binary 1.0/0.5 (not ordinal) ensures cosine rewards matching flats, not
+    # flats that happen to have a large ordinal value on this dimension.
     regions = profile.get("regions", [])
-    if regions:
-        ordinals = [_REGION_ORD_B.get(r.lower(), 0.6) for r in regions]
-        vec[1] = round(sum(ordinals) / len(ordinals), 4)
-    else:
-        vec[1] = 0.6  # neutral: no stated preference, mid-scale
+    vec[1] = 1.0 if regions else 0.5
 
     # 2 — floor_pref
     floor = profile.get("floor", profile.get("floor_pref", "any"))
     vec[2] = FLOOR_PREF_ORD.get(floor, 0.5)
 
-    # 3 — flat_area (derived from ftype: expected_area_midpoint / 165)
-    vec[3] = _AREA_MID.get(ftype, _AREA_MID["4 ROOM"]) / _AREA_MAX
+    # 3 — remaining_lease (min_lease / 99)
+    min_lease = profile.get("min_lease", 20)  # 20 = slider minimum (most permissive)
+    vec[3] = min(max(min_lease / 99.0, 0.0), 1.0)
 
-    # 4 — remaining_lease (min_lease / 99)
-    min_lease = profile.get("min_lease", 60)
-    vec[4] = min(max(min_lease / 99.0, 0.0), 1.0)
+    # 4 — mrt_walk_pref: derived from max_mrt_mins slider (3–30 min, default 30)
+    # Normalised directly against the slider ceiling (30 min) so that any active
+    # preference (< 30 min) produces a positive score and matches the direction of
+    # the flat's nearby_mrt dimension (score = 1 - dist_km / max_km).
+    # Formula: 1 - max_mrt / 30  →  30 min=0.0 (inactive), 3 min=0.9 (strong pref).
+    #
+    # NOTE: Using 30 min as denominator (not _AMENITY_MAX_KM["mrt"]) prevents the
+    # bug where 12–29 min preferences produce 0.0 despite the criterion being active,
+    # which would penalise flats with nearby MRT by inflating their norm without
+    # a matching numerator contribution.
+    max_mrt = profile.get("max_mrt_mins", 30)
+    vec[4] = max(0.0, round(1.0 - max_mrt / float(DEFAULTS[CRITERION_MRT]), 4))
 
-    # 5–10 — amenity binary flags from mustAmenities
+    # 5–9 — amenity dims from mustAmenities (excludes MRT, handled above)
+    # 1.0 = buyer must have this amenity nearby
+    # 0.5 = neutral (no preference — not 0.0 so the flat's amenity richness
+    #        on these dims doesn’t inflate the cosine denominator unfairly)
     must_have: list[str] = profile.get("must_have", [])
     must_set = set(must_have)
     for i, amenity in enumerate(AMENITY_DIMS):
-        vec[5 + i] = 1.0 if amenity in must_set else 0.0
+        vec[5 + i] = 1.0 if amenity in must_set else 0.5
 
     return vec
 
@@ -232,14 +238,15 @@ def _proximity_score(amenity_key: str, amenities: dict) -> float:
     entry = amenities.get(amenity_key, {})
     dist_km = entry.get("dist_km")
     if dist_km is None:
-        return 0.0
-    max_km = _AMENITY_MAX_KM.get(amenity_key, 3.0)
+        return 0.5  # no data → neutral (don't penalise flat for data gaps)
+    max_km = _AMENITY_MAX_KM.get(amenity_key, 1.0)
     return max(0.0, round(1.0 - dist_km / max_km, 4))
 
 
 # ── Main function ────────────────────────────────────────────────────────────
 
-def flat_vector(town: str, price_data: dict, amenities: dict) -> list[float]:
+def flat_vector(town: str, price_data: dict, amenities: dict,
+                buyer_regions: list[str] | None = None) -> list[float]:
     """Convert a town's data into a 10-dim Eligible Flat Vector in [0, 1].
 
     This is the flat-side counterpart to ``buyer_vector()``. One vector is
@@ -266,33 +273,34 @@ def flat_vector(town: str, price_data: dict, amenities: dict) -> list[float]:
 
     Vector layout
     -------------
-    0  flat_type       — ordinal: 2RM=0.2 … EXEC=1.0
-    1  region          — ordinal: north=0.2, east=0.4, west=0.6, south=0.8, central=1.0
+    0  flat_type       — ordinal: 1RM=1/7 … MULTI-GEN=1.0; unknown/any=4/7
+    1  region          — 1.0 if town's region is in buyer_regions, 0.0 if not, 0.5 if no buyer preference
     2  floor           — midpoint of avg storey_range / 50
-    3  flat_area       — avg floor_area_sqm / 165
-    4  remaining_lease — avg remaining lease years / 99
-    5  nearby_mrt      — proximity score (1 - dist/2km)
-    6  nearby_hawker   — proximity score (1 - dist/3km)
-    7  nearby_mall     — proximity score (1 - dist/3km)
-    8  nearby_park     — proximity score (1 - dist/3km)
-    9  nearby_school   — proximity score (1 - dist/3km)
+    3  remaining_lease — avg remaining lease years / 99
+    4  nearby_mrt      — proximity score (1 - dist/1km)
+    5  nearby_hawker   — proximity score (1 - dist/1km)
+    6  nearby_mall     — proximity score (1 - dist/1.5km)
+    7  nearby_park     — proximity score (1 - dist/1.5km)
+    8  nearby_school   — proximity score (1 - dist/1km)
+    9  nearby_hospital — proximity score (1 - dist/2km)
     """
     vec: list[float] = [0.0] * 10
 
     # 0 — flat_type
     ftype = price_data.get("ftype", "4 ROOM")
-    vec[0] = FLAT_TYPE_ORD.get(ftype, 0.5)
+    vec[0] = FLAT_TYPE_ORD.get(ftype, round(4/7, 4))  # unknown type → 4/7 neutral
 
-    # 1 — region (ordinal: encode 5 regions as evenly-spaced 0.2–1.0)
-    _REGION_ORD = {
-        "north":   0.2,
-        "east":    0.4,
-        "west":    0.6,
-        "south":   0.8,
-        "central": 1.0,
-    }
+    # 1 — region: match/no-match against buyer_regions.
+    # 1.0 = flat's region is in buyer's preferred list (reward)
+    # 0.0 = flat's region is NOT in buyer's preferred list (penalise)
+    # 0.5 = buyer stated no preference (neutral for all flats)
     region = _TOWN_TO_REGION.get(town.upper(), "")
-    vec[1] = _REGION_ORD.get(region, 0.5)  # 0.5 if town not mapped
+    if not buyer_regions:
+        vec[1] = 0.5  # no buyer preference → equal for all towns
+    elif region.lower() in {r.lower() for r in buyer_regions}:
+        vec[1] = 1.0  # match
+    else:
+        vec[1] = 0.0  # no match
 
     # 2 — floor (midpoint of avg storey_range / 50)
     # price_data may carry 'storey_range' (most common range string) or
@@ -303,16 +311,15 @@ def flat_vector(town: str, price_data: dict, amenities: dict) -> list[float]:
         avg_storey = _storey_midpoint(storey_range_str)
     vec[2] = min(max(float(avg_storey) / _STOREY_MAX, 0.0), 1.0)
 
-    # 3 — flat_area (avg_area / 165)
-    avg_area = price_data.get("avg_area", 0)
-    vec[3] = min(max(float(avg_area) / _AREA_MAX, 0.0), 1.0)
-
-    # 4 — remaining_lease
+    # 3 — remaining_lease
     lease_years = _parse_lease_years(price_data.get("avg_lease_years", 0))
-    vec[4] = min(max(lease_years / 99.0, 0.0), 1.0)
+    vec[3] = min(max(lease_years / 99.0, 0.0), 1.0)
 
-    # 5–9 — amenity proximity scores (hospital excluded to keep vector at 10-dim)
-    for i, amenity in enumerate(FLAT_AMENITY_DIMS):
+    # 4 — nearby_mrt (matches buyer_vector dim 4: mrt_walk_pref)
+    vec[4] = _proximity_score("mrt", amenities)
+
+    # 5–9 — other amenity proximity scores
+    for i, amenity in enumerate(AMENITY_DIMS):
         vec[5 + i] = _proximity_score(amenity, amenities)
 
     return vec
