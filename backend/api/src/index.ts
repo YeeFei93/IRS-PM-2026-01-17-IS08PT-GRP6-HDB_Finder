@@ -1,4 +1,4 @@
-import express from "express";
+/*import express from "express";
 import recommendationRoutes from "./routes/recommendationRoutes";
 import cors from "cors";
 const app = express();
@@ -9,4 +9,30 @@ app.use(cors());
 app.use("/api/recommendations", recommendationRoutes);
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
+});*/
+
+import express from "express";
+import { connectRedis } from "./redis/client";
+import eligibilityRoute from "./routes/eligibility";
+import { startAdapters } from "./startAdapters";
+
+async function startServer() {
+  await connectRedis();
+  startAdapters();
+
+  const app = express();
+  app.use(express.json());
+
+  app.use(eligibilityRoute);
+
+  const port = Number(process.env.PORT || 3000);
+
+  app.listen(port, () => {
+    console.log(`API running on port ${port}`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });
