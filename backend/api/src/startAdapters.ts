@@ -2,41 +2,61 @@ import { spawn, ChildProcess } from "child_process";
 import path from "path";
 
 declare global {
-  var __eligibilityAdapterStarted__: boolean | undefined;
-  var __eligibilityAdapterProcess__: ChildProcess | undefined;
+  var __adaptersStarted__: boolean | undefined;
+  var __adapterProcesses__: ChildProcess[] | undefined;
 }
 
 export function startAdapters() {
-  if (global.__eligibilityAdapterStarted__) {
+  if (global.__adaptersStarted__) {
     return;
   }
 
   const pythonBin = process.env.PYTHON_BIN || "python";
-  const scriptPath = path.resolve(__dirname, "../../adapters/eligibility_adapter.py");
 
-  const child = spawn(pythonBin, [scriptPath], {
-    stdio: "inherit",
-  });
+  const adapterConfigs = [
+    {
+      name: "eligibility",
+      script: "../../adapters/eligibility_adapter.py",
+    },
+    {
+      name: "recommendation",
+      script: "../../adapters/recommendation_adapter.py",
+    },
+  ];
 
-  child.on("error", (err) => {
-    console.error("Eligibility adapter failed to start:", err);
-  });
+  const processes: ChildProcess[] = [];
 
-  child.on("exit", (code) => {
-    console.error(`Eligibility adapter exited with code ${code}`);
-    global.__eligibilityAdapterStarted__ = false;
-    global.__eligibilityAdapterProcess__ = undefined;
-  });
+  for (const adapter of adapterConfigs) {
+    const scriptPath = path.resolve(__dirname, adapter.script);
 
-  global.__eligibilityAdapterStarted__ = true;
-  global.__eligibilityAdapterProcess__ = child;
+    const child = spawn(pythonBin, [scriptPath], {
+      stdio: "inherit",
+    });
+
+    child.on("error", (err) => {
+      console.error(`${adapter.name} adapter failed to start:`, err);
+    });
+
+    child.on("exit", (code) => {
+      console.error(`${adapter.name} adapter exited with code ${code}`);
+    });
+
+    processes.push(child);
+    console.log(`Started adapter: ${adapter.name}`);
+  }
+
+  global.__adaptersStarted__ = true;
+  global.__adapterProcesses__ = processes;
 
   const stop = () => {
-    if (global.__eligibilityAdapterProcess__) {
-      global.__eligibilityAdapterProcess__.kill();
-      global.__eligibilityAdapterProcess__ = undefined;
-      global.__eligibilityAdapterStarted__ = false;
+    if (global.__adapterProcesses__) {
+      for (const proc of global.__adapterProcesses__) {
+        proc.kill();
+      }
     }
+
+    global.__adapterProcesses__ = undefined;
+    global.__adaptersStarted__ = false;
   };
 
   process.once("SIGINT", stop);
