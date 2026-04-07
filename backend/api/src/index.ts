@@ -14,6 +14,7 @@ app.listen(PORT, () => {
 import express from "express";
 import { connectRedis } from "./redis/client";
 import eligibilityRoute from "./routes/eligibility";
+import recommendationRoute from "./routes/recommendation";
 import { startAdapters } from "./startAdapters";
 
 async function startServer() {
@@ -24,6 +25,7 @@ async function startServer() {
   app.use(express.json());
 
   app.use(eligibilityRoute);
+  app.use(recommendationRoute);
 
   const port = Number(process.env.PORT || 3000);
 
