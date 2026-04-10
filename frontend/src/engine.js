@@ -120,6 +120,7 @@ export function loanCapacity(monthly, rateAnnual = 0.026, years = 25) {
 }
 
 export function checkLoanLimit(monthlyIncome, monthlyRepayment, effectiveBudget, rateAnnual = 0.026, years = 25) {
+  // effectiveBudget should include cash + CPF + grants + loan capacity
   // Cap the maximum monthly repayment at 30% of income
   const maxMonthly = monthlyIncome * 0.30;
   
@@ -145,7 +146,7 @@ export function checkLoanLimit(monthlyIncome, monthlyRepayment, effectiveBudget,
   if (maxLoanFromIncome < maxLoanFromBudget) {
     limitReason = 'your monthly repayment exceeds 30% of your monthly income';
   } else if (maxLoanFromBudget < maxLoanFromIncome) {
-    limitReason = 'your proposed loan amount exceeds 75% of your effective budget';
+    limitReason = 'your max loan principal exceeds 75% of your effective budget';
   } else {
     limitReason = 'both your monthly repayment exceeds 30% of your monthly income and 75% of your effective budget';
   }
@@ -158,7 +159,7 @@ export function checkLoanLimit(monthlyIncome, monthlyRepayment, effectiveBudget,
   if (proposedLoan <= maxLoan) {
     return null; // No warning needed, loan is within limits
   } else {
-    return `WARNING: Your proposed loan amount of $${formattedProposedLoan} exceeds the maximum allowed total loan value of $${formattedLoan}. This limit is because ${limitReason}. To comply with loan regulations, please adjust your monthly repayment to be no more than $${formattedPayment} or ensure that your proposed loan does not exceed $${formattedLoan}.`;
+    return `WARNING: Max Loan Principal of $${formattedProposedLoan} exceeds the maximum allowed loan of $${formattedLoan}. This is because ${limitReason}. Adjust your monthly repayment to be no more than $${formattedPayment} or ensure that your max loan principal does not exceed $${formattedLoan}.`;
   }
 }
 

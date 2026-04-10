@@ -53,7 +53,7 @@ export default function App() {
     const grants = calcGrants(cit, inc, ftype, ftimer, prox, marital);
     const loanAmt = loanCapacity(loan);
     const effective = cash + cpf + grants.total + loanAmt;
-    const loanLimitWarning = checkLoanLimit(inc, loan, grants.total + loanAmt);
+    const loanLimitWarning = checkLoanLimit(inc, loan, cash + cpf + grants.total + loanAmt);
     return { eligibility, grants, effective, loanAmt, loanLimitWarning };
   }, [formState]);
 
