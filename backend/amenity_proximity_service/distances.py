@@ -59,15 +59,21 @@ def _dist_to_walk_mins(dist_km: float) -> int:
 
 
 def _query_min_distance(cursor, junction_table: str, estate: str) -> float | None:
-    """Return the minimum amenity distance (km) across all flats in an estate."""
+    """Return the minimum amenity distance (km) across all flats in an estate.
+    Returns None gracefully if the junction table does not exist yet."""
+    import mysql.connector
     query = f"""
         SELECT MIN(j.distance) AS dist_km
         FROM resale_flats rf
         JOIN `{junction_table}` j ON rf.resale_flat_id = j.resale_flats_id
         WHERE rf.estate = %s
     """
-    cursor.execute(query, (estate,))
-    row = cursor.fetchone()
+    try:
+        cursor.execute(query, (estate,))
+        row = cursor.fetchone()
+    except mysql.connector.Error:
+        # Table does not exist yet — return None so the caller shows no data
+        return None
     if row is None:
         return None
     dist = row.get("dist_km") if isinstance(row, dict) else row[0]

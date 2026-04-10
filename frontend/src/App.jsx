@@ -95,65 +95,30 @@ export default function App() {
     }
 
     if (backendOk) {
-      setLoadMainText('Sending request to recommendation engine…');
+      setLoadMainText('Sending request to recommendation engine… (first run may take up to 60s)');
       try {
         const payload = { ...formState, effective: derived.effective, grants: derived.grants };
         const res = await runSearchBackend(payload);
         clearInterval(loadStepRef.current);
-        const topRecs = (res.recommendations || []).map(normaliseBackendRec).slice(0, 10);
-        setRawCount(res.raw_count || topRecs.length);
-        setLatestMonth(res.latest_month || null);
+        // Express wraps the Python result in { status, result: {...} }
+        const data = res.result ?? res;
+        const topRecs = (data.recommendations || []).map(normaliseBackendRec).slice(0, 10);
+        setRawCount(data.raw_count || topRecs.length);
+        setLatestMonth(data.latest_month || null);
         setRecs(topRecs);
         setPhase(topRecs.length ? 'results' : 'empty');
         return;
       } catch (e) {
-        console.warn('Backend search failed, falling back to data.gov.sg', e);
+        clearInterval(loadStepRef.current);
+        console.error('Backend search failed:', e);
+        setPhase('empty');
+        return;
       }
     }
 
-    // ── Fallback: data.gov.sg direct ──
-    const d = new Date();
-    d.setMonth(d.getMonth() - 14);
-    const cutoff = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-
-    let rawRecords = [];
-    const BATCH = 6;
-    for (let i = 0; i < Math.min(towns.length, 20); i += BATCH) {
-      const batch = towns.slice(i, i + BATCH);
-      setLoadMainText(
-        `Fetching ${batch[0]}… (${i + 1}–${Math.min(i + BATCH, towns.length)} of ${Math.min(towns.length, 20)})`
-      );
-      const results = await Promise.all(batch.map(t => fetchTown(t, ftype, cutoff)));
-      results.forEach(r => rawRecords.push(...r));
-    }
-
+    // No backend configured — show empty state
     clearInterval(loadStepRef.current);
-
-    const { effective, grants } = derived;
-    const { mustAmenities, mrtMax } = formState;
-
-    const seen = new Set();
-    const newRecs = [];
-    for (const town of towns) {
-      if (seen.has(town)) continue;
-      seen.add(town);
-      const pd = analyseRecords(rawRecords, town, ftype);
-      if (!pd) continue;
-      if (pd.p25 > effective * 1.18) continue;
-      const sc = computeScore(town, pd, effective, mustAmenities, mrtMax, selRegions, ftype, minLease, buyerAge);
-      newRecs.push({ town, ftype: ftype === 'any' ? '4 ROOM' : ftype, pd, sc, grants, effective });
-    }
-
-    newRecs.sort((a, b) => b.sc.total - a.sc.total);
-    const topRecs = newRecs.slice(0, 10);
-
-    setRawCount(rawRecords.length);
-    const latest = rawRecords.length
-      ? rawRecords.map(r => r.month).sort().reverse()[0]
-      : null;
-    setLatestMonth(latest);
-    setRecs(topRecs);
-    setPhase(topRecs.length ? 'results' : 'empty');
+    setPhase('empty');
   }, [formState, derived]);
 
   // Cleanup interval on unmount
@@ -197,7 +162,7 @@ export default function App() {
 
           {/* Map Tab */}
           {activeTab === 'map' && (
-            <MapView recs={recs} highlightedTown={highlightedTown} />
+          <MapView recs={recs} highlightedTown={highlightedTown} formState={formState} effectiveBudget={derived.effective} />
           )}
 
           {/* Trends Tab */}
