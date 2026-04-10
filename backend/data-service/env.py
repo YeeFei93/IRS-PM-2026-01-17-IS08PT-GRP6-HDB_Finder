@@ -5,11 +5,13 @@ class TABLE_NAME:
     FLAT_MODELS = "flat_models"
     FLAT_TYPES = "flat_types"
     HAWKER_CENTRES = "hawker_centres"
+    PARKS = "parks"
     RESALE_FLATS = "resale_flats"
     RESALE_FLATS_GEOLOCATION = "resale_flats_geolocation"
 
 class ID:
     HAWKER_CENTRE_ID = "hawker_centre_id"
+    PARK_ID = "park_id"
     RESALE_FLAT_ID = "resale_flat_id"
 
 class KEY_NAME:
