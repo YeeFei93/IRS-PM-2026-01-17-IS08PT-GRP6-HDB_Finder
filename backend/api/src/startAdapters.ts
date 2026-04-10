@@ -22,6 +22,10 @@ export function startAdapters() {
       name: "recommendation",
       script: "../../adapters/recommendation_adapter.py",
     },
+    {
+      name: "flat_lookup",
+      script: "../../adapters/flat_lookup_adapter.py",
+    },
   ];
 
   const processes: ChildProcess[] = [];

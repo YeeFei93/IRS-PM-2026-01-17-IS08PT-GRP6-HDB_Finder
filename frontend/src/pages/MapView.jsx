@@ -1,14 +1,20 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { ALL_TOWNS, COORDS, AMENITIES } from '../constants';
 import { scoreToColor } from '../engine';
+import { runFlatLookup } from '../api';
 
-function MapContent({ recs, highlightedTown }) {
+function MapContent({ recs, highlightedTown, onTownClick }) {
   const map = useMap();
   const markersRef = useRef([]);
   const amenityMarkersRef = useRef([]);
   const townMarkersRef = useRef({});
+
+  // Use a ref so marker click always calls the latest onTownClick without
+  // causing the build-markers effect to re-run on every render.
+  const onTownClickRef = useRef(onTownClick);
+  useEffect(() => { onTownClickRef.current = onTownClick; }, [onTownClick]);
 
   const clearAmenityMarkers = useCallback(() => {
     amenityMarkersRef.current.forEach(m => map.removeLayer(m));
@@ -97,6 +103,7 @@ function MapContent({ recs, highlightedTown }) {
 
       const m = L.marker([c.lat, c.lng], { icon });
       m.bindPopup(popupHtml, { maxWidth: 280 });
+      m.on('click', () => onTownClickRef.current(town));
       m.addTo(map);
       markersRef.current.push(m);
       townMarkersRef.current[town] = m;
@@ -122,7 +129,35 @@ function MapContent({ recs, highlightedTown }) {
   return null;
 }
 
-export default function MapView({ recs, highlightedTown }) {
+export default function MapView({ recs, highlightedTown, formState, effectiveBudget }) {
+  const [drillTown, setDrillTown] = useState(null);
+  const [drillFlats, setDrillFlats] = useState([]);
+  const [drillLoading, setDrillLoading] = useState(false);
+  const [drillError, setDrillError] = useState(null);
+
+  const handleTownClick = useCallback(async (town) => {
+    setDrillTown(town);
+    setDrillFlats([]);
+    setDrillError(null);
+    setDrillLoading(true);
+    try {
+      const result = await runFlatLookup({
+        estate:     town,
+        ftype:      formState?.ftype,
+        floor_pref: formState?.floor,
+        budget:     effectiveBudget,
+        min_lease:  formState?.lease,
+      });
+      // Express wraps Python result: { status, result: { estate, flats } }
+      const data = result.result ?? result;
+      setDrillFlats(data.flats || []);
+    } catch (e) {
+      setDrillError(e.message);
+    } finally {
+      setDrillLoading(false);
+    }
+  }, [formState, effectiveBudget]);
+
   return (
     <div className="h-[calc(100vh-56px)] relative">
       <MapContainer
@@ -137,8 +172,9 @@ export default function MapView({ recs, highlightedTown }) {
           subdomains="abcd"
           maxZoom={19}
         />
-        <MapContent recs={recs} highlightedTown={highlightedTown} />
+        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} />
       </MapContainer>
+
       {/* Legend */}
       <div className="absolute bottom-5 right-5 bg-dk2 border border-dk3 rounded-lg p-3 px-4 z-[900] text-[0.72rem] text-muted pointer-events-none min-w-[160px]">
         <div className="font-serif text-[0.88rem] text-white mb-2">Estate Score</div>
@@ -159,10 +195,94 @@ export default function MapView({ recs, highlightedTown }) {
               {label}
             </div>
           ))}
-          <div className="text-[0.6rem] text-muted mt-1">Click a card to show amenities</div>
+          <div className="text-[0.6rem] text-muted mt-1">Click a marker to view listings</div>
         </div>
         <div className="text-[0.6rem] text-muted mt-2">All estates shown · color = score</div>
       </div>
+
+      {/* Drill-down panel */}
+      {drillTown && (
+        <div style={{
+          position: 'absolute', right: 0, top: 0, bottom: 0,
+          width: '340px', background: '#111', borderLeft: '1px solid #2a2a2a',
+          zIndex: 1000, display: 'flex', flexDirection: 'column',
+          fontFamily: "'DM Sans', sans-serif",
+        }}>
+          {/* Panel header */}
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #2a2a2a', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#e0e0e0' }}>{drillTown}</div>
+              <div style={{ fontSize: '0.72rem', color: '#555', marginTop: 3 }}>
+                {formState?.ftype || 'Any type'} · Sorted by price proximity to your budget
+              </div>
+            </div>
+            <button
+              onClick={() => setDrillTown(null)}
+              style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.1rem', padding: '2px 4px', lineHeight: 1 }}
+            >✕</button>
+          </div>
+
+          {/* Panel body */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
+            {drillLoading && (
+              <div style={{ textAlign: 'center', paddingTop: 48, color: '#444', fontSize: '0.8rem' }}>
+                Loading listings…
+              </div>
+            )}
+            {drillError && (
+              <div style={{ color: '#c0392b', padding: '16px 8px', fontSize: '0.78rem' }}>
+                {drillError}
+              </div>
+            )}
+            {!drillLoading && !drillError && drillFlats.length === 0 && (
+              <div style={{ textAlign: 'center', paddingTop: 48, color: '#444', fontSize: '0.8rem' }}>
+                No listings found for your current filters.
+              </div>
+            )}
+            {drillFlats.map((flat, i) => {
+              const over = effectiveBudget && flat.resale_price > effectiveBudget;
+              const pct = effectiveBudget ? Math.abs(flat.resale_price - effectiveBudget) / effectiveBudget : 1;
+              const nearBudget = pct <= 0.05;
+              return (
+                <div key={i} style={{
+                  background: nearBudget ? '#192419' : '#181818',
+                  border: `1px solid ${nearBudget ? '#2a4a2a' : '#242424'}`,
+                  borderRadius: 8,
+                  padding: '10px 12px',
+                  marginBottom: 8,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#d0d0d0', lineHeight: 1.3 }}>
+                      Blk {flat.block} {flat.street_name}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", color: over ? '#e67e22' : '#27ae60', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      ${flat.resale_price.toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 5, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.67rem', color: '#555' }}>
+                    <span>Floor&nbsp;{flat.storey_range_start}–{flat.storey_range_end}</span>
+                    <span>·</span>
+                    <span>{flat.floor_area_sqm}&nbsp;sqm</span>
+                    <span>·</span>
+                    <span>Lease&nbsp;{flat.remaining_lease_years}y{flat.remaining_lease_months > 0 ? ` ${flat.remaining_lease_months}m` : ''}</span>
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: '0.64rem', color: '#3a3a3a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Sold {flat.sold_date}</span>
+                    {nearBudget && <span style={{ color: '#27ae60', fontWeight: 700 }}>✓ Near budget</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Panel footer */}
+          {!drillLoading && drillFlats.length > 0 && (
+            <div style={{ padding: '8px 16px', borderTop: '1px solid #242424', fontSize: '0.65rem', color: '#3a3a3a' }}>
+              {drillFlats.length} recent transactions shown
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

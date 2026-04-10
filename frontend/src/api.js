@@ -4,63 +4,101 @@ import { AMENITIES } from './constants';
 // ── Backend API support ──
 
 export async function checkBackendHealth() {
-  const delay = 1
-  if (!API_BASE) return false;
-  try {
-    const r = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(delay) });
-    return r.ok;
-  } catch { return false; }
+  // No health endpoint on the Express server — return true if API_BASE is configured.
+  // runSearchBackend handles connection errors gracefully.
+  return !!API_BASE;
 }
 
 export async function runSearchBackend(payload) {
-  const r = await fetch(`${API_BASE}/api/recommend`, {
+  // Map frontend formState keys → backend BuyerProfile keys before sending.
+  const mapped = {
+    ...payload,
+    regions:      payload.selRegions   ?? payload.regions      ?? [],
+    income:       payload.inc          ?? payload.income        ?? 0,
+    must_have:    payload.mustAmenities ?? payload.must_have    ?? [],
+    max_mrt_mins: payload.mrtMax       ?? payload.max_mrt_mins  ?? 30,
+    min_lease:    payload.lease        ?? payload.min_lease      ?? 60,
+  };
+  const r = await fetch(`${API_BASE}/api/top-recommendations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(mapped),
   });
   if (!r.ok) throw new Error(`Backend ${r.status}`);
   return r.json();
 }
 
 export function normaliseBackendRec(r) {
+  // ── price data (price_data dict from backend) ──────────────────────────────
+  const priceData = r.price_data || {};
+  const pd = {
+    median:  priceData.median    ?? 0,
+    p25:     priceData.p25       ?? 0,
+    p75:     priceData.p75       ?? 0,
+    avgArea: priceData.avg_area  ?? 0,
+    psm:     priceData.psm       ?? 0,
+    trend12: priceData.trend_pct ?? 0,
+    mom:     0,
+    conf:    priceData.low_confidence ? 'low' : (priceData.n ?? 0) >= 20 ? 'high' : 'medium',
+    n:       priceData.n         ?? 0,
+  };
+
+  // ── amenity detail (amenities dict from backend) ───────────────────────────
+  const amenities = r.amenities || {};
   const amenDetail = {};
-  for (const k of ['mrt', 'hawker', 'park', 'school', 'hospital']) {
-    const raw = r.amenity_detail?.[k];
-    if (raw) {
+  for (const k of ['mrt', 'hawker', 'park', 'school', 'mall', 'hospital']) {
+    const a = amenities[k];
+    if (a) {
       const thresh = AMENITY_THRESHOLDS[k];
-      amenDetail[k] = {
-        pts: raw.pts ?? 0, max: raw.max ?? 6,
-        ok: thresh ? (raw.mins ?? 99) <= thresh.maxMins : raw.ok ?? false,
-        mins: raw.mins, name: raw.name || null,
-      };
+      const ok = a.within_threshold ?? false;
+      const mins = a.walk_mins ?? null;
+      // pts: 6 if within threshold, 3 if within 2× threshold, else 0
+      const pts = ok ? 6 : (thresh && mins !== null && mins <= thresh.maxMins * 2) ? 3 : 0;
+      amenDetail[k] = { pts, max: 6, ok, mins, name: null };
     } else {
       amenDetail[k] = { pts: 0, max: 6, ok: false, mins: null, name: null };
     }
   }
 
+  // ── cosine score → 0-100 for ResultCard colour thresholds ─────────────────
+  const cosine = r.score ?? 0;
+  const total  = Math.round(cosine * 100);
+  const label  = total >= 75 ? 'Strong Match' : total >= 55 ? 'Good Match' : 'Exploratory';
+
   return {
-    town: r.town,
-    ftype: r.flat_type || r.ftype || '4 ROOM',
-    pd: r.pd || { median: 0, p25: 0, p75: 0, avgArea: 0, psm: 0, trend12: 0, mom: 0, conf: 'low', n: 0 },
+    town:      r.town,
+    ftype:     r.ftype || '4 ROOM',
+    pd,
     sc: {
-      total: r.score ?? r.total ?? 0,
-      label: r.label || 'Exploratory',
-      active: r.active || [],
-      inactive: r.inactive || [],
-      weight: r.weight || 0,
-      mcdm_pts: r.mcdm_pts || 0,
-      serendipity: r.serendipity || { raw: 0, pts: 0, sub: {} },
-      components: r.components || {},
-      budget: r.budget || { pts: 0, max: 0, desc: '' },
-      amenity: { pts: r.amenity?.pts || 0, max: r.amenity?.max || 0, detail: amenDetail },
-      transport: r.transport || { pts: 0, max: 0, desc: '' },
-      region: r.region || { pts: 0, max: 0, desc: '' },
-      flat: r.flat || { pts: 0, max: 0, desc: '' },
-      lease: r.lease || { pts: 0, max: 0, desc: '' },
+      total,
+      label,
+      active:    r.active_criteria || [],
+      amenity:   {
+        pts:    Object.values(amenDetail).reduce((s, d) => s + d.pts, 0),
+        max:    36,
+        detail: amenDetail,
+      },
+      // Cosine scorer returns a single score — no per-criterion breakdown.
+      // UI rows that reference these will show 0/0 and be filtered out.
+      budget:    { pts: 0, max: 0, desc: '' },
+      flat:      { pts: 0, max: 0, desc: '' },
+      region:    { pts: 0, max: 0, desc: '' },
+      lease:     { pts: 0, max: 0, desc: '' },
+      transport: { pts: 0, max: 0, desc: '' },
     },
-    grants: r.grants || { ehg: 0, cpfG: 0, phg: 0, total: 0, notes: [] },
-    effective: r.effective || 0,
+    grants:    r.grants           || { ehg: 0, cpfG: 0, phg: 0, total: 0, notes: [] },
+    effective: r.effective_budget ?? 0,
   };
+}
+
+export async function runFlatLookup(payload) {
+  const r = await fetch(`${API_BASE}/api/flats`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(`Flat lookup ${r.status}`);
+  return r.json();
 }
 
 // ── data.gov.sg fallback API ──

@@ -1,8 +1,8 @@
 export const DATASET = 'd_8b84c4ee58e3cfc0ece0d773c8ca6abc';
 
-// Backend API base URL — set to your FastAPI server when running locally
+// Backend API base URL — Node.js Express server (port 3000)
 // Set to empty string '' to use direct data.gov.sg fallback
-export const API_BASE = 'http://localhost:8000';
+export const API_BASE = 'http://localhost:3000';
 
 // Amenity must-have threshold definitions
 export const AMENITY_THRESHOLDS = {
@@ -19,7 +19,7 @@ export const REGIONS = {
   northeast: ['SENGKANG', 'PUNGGOL', 'HOUGANG', 'SERANGOON', 'BUANGKOK'],
   east: ['TAMPINES', 'BEDOK', 'PASIR RIS', 'GEYLANG', 'KALLANG/WHAMPOA'],
   west: ['JURONG WEST', 'JURONG EAST', 'BUKIT BATOK', 'CHOA CHU KANG', 'CLEMENTI', 'BUKIT PANJANG'],
-  central: ['QUEENSTOWN', 'BUKIT MERAH', 'TOA PAYOH', 'CENTRAL AREA', 'MARINE PARADE'],
+  central: ['QUEENSTOWN', 'BUKIT MERAH', 'TOA PAYOH', 'CENTRAL AREA', 'MARINE PARADE', 'BUKIT TIMAH'],
 };
 export const ALL_TOWNS = Object.values(REGIONS).flat();
 
@@ -37,6 +37,7 @@ export const COORDS = {
   'QUEENSTOWN': { lat: 1.2942, lng: 103.8060 }, 'BUKIT MERAH': { lat: 1.2819, lng: 103.8239 },
   'TOA PAYOH': { lat: 1.3343, lng: 103.8563 }, 'CENTRAL AREA': { lat: 1.2800, lng: 103.8509 },
   'MARINE PARADE': { lat: 1.3025, lng: 103.9067 }, 'BUANGKOK': { lat: 1.3827, lng: 103.8919 },
+  'BUKIT TIMAH': { lat: 1.3294, lng: 103.7759 },
 };
 
 export const AMENITIES = {
@@ -66,4 +67,5 @@ export const AMENITIES = {
   'CENTRAL AREA': { mrt: 'City Hall MRT', mrtMin: 4, hawker: 'Maxwell Food Ctr', park: 'Fort Canning Park' },
   'MARINE PARADE': { mrt: 'Marine Parade MRT', mrtMin: 6, hawker: 'Marine Parade FC', park: 'East Coast Park' },
   'BUANGKOK': { mrt: 'Buangkok MRT', mrtMin: 5, hawker: 'Buangkok Square FC', park: 'Sengkang Riverside' },
+  'BUKIT TIMAH': { mrt: 'Beauty World MRT', mrtMin: 6, hawker: 'Bukit Timah Food Ctr', park: 'Bukit Timah Nature Res' },
 };
