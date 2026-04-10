@@ -18,6 +18,7 @@ lock = threading.Lock()
 class ResaleFlatsHawkerCentresDB:
     def __init__(self, db: DbConnector):
         self.db = db
+        self.processed_count = 0
         self.distance_limit = 1
         self.table_name = TABLE_NAME.RESALE_FLATS_HAWKER_CENTRES
         
@@ -49,9 +50,6 @@ class ResaleFlatsHawkerCentresDB:
         new_data_arr = []
         for a in resale_flats_geos:
             for b in hawker_centres_geo:
-                # print({52: str(a[KEY_NAME.LATITUDE]) + "," + str(a[KEY_NAME.LONGITUDE])})
-                # print({53: str(b[KEY_NAME.LATITUDE]) + "," + str(b[KEY_NAME.LONGITUDE])})
-                # print(b)
                 distance = GeolocationConverter().CalculateDistance(a[KEY_NAME.LATITUDE], a[KEY_NAME.LONGITUDE], b[KEY_NAME.LATITUDE], b[KEY_NAME.LONGITUDE])
                 if(distance <= self.distance_limit):
                     new_data = {ID.RESALE_FLAT_ID: a[ID.RESALE_FLAT_ID], 
@@ -59,8 +57,19 @@ class ResaleFlatsHawkerCentresDB:
                                 KEY_NAME.DISTANCE: distance
                                 }
                     new_data_arr.append(new_data)
+                    with lock:
+                        self.processed_count += 1
+                        print(f"Processing {self.processed_count} resale flats to hawker centres distance...")
+
         dbc.UpsertData(self.table_name, new_data_arr)
+        print("Successfully saved.")
         db.Close()
+
+    def DeleteData(self):
+        db = self.db
+        dbc = DbController(db)
+        dbc.DeleteData(self.table_name)
+        
         
 
       
