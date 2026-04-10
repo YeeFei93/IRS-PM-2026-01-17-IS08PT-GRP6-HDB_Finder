@@ -119,6 +119,49 @@ export function loanCapacity(monthly, rateAnnual = 0.026, years = 25) {
   return Math.round(monthly * factor);
 }
 
+export function checkLoanLimit(monthlyIncome, monthlyRepayment, effectiveBudget, rateAnnual = 0.026, years = 25) {
+  // Cap the maximum monthly repayment at 30% of income
+  const maxMonthly = monthlyIncome * 0.30;
+  
+  // Re-use your existing loan capacity math
+  const r = rateAnnual / 12;
+  const n = years * 12;
+  const factor = ((1 + r) ** n - 1) / (r * (1 + r) ** n);
+  
+  // Calculate the maximum loan value based on the capped monthly payment
+  const maxLoanFromIncome = Math.round(maxMonthly * factor);
+  
+  // Cap the maximum loan at 75% of the effective budget
+  const maxLoanFromBudget = Math.round(effectiveBudget * 0.75);
+  
+  // The overall maximum loan is the minimum of the two caps
+  const maxLoan = Math.min(maxLoanFromIncome, maxLoanFromBudget);
+  
+  // Calculate the proposed loan amount from the monthly repayment
+  const proposedLoan = Math.round(monthlyRepayment * factor);
+  
+  // Determine the limiting factor
+  let limitReason = '';
+  if (maxLoanFromIncome < maxLoanFromBudget) {
+    limitReason = 'your monthly repayment exceeds 30% of your monthly income';
+  } else if (maxLoanFromBudget < maxLoanFromIncome) {
+    limitReason = 'your proposed loan amount exceeds 75% of your effective budget';
+  } else {
+    limitReason = 'both your monthly repayment exceeds 30% of your monthly income and 75% of your effective budget';
+  }
+  
+  // Format numbers with commas for a clean output string
+  const formattedLoan = maxLoan.toLocaleString('en-US');
+  const formattedPayment = Math.round(maxMonthly).toLocaleString('en-US');
+  const formattedProposedLoan = proposedLoan.toLocaleString('en-US');
+
+  if (proposedLoan <= maxLoan) {
+    return null; // No warning needed, loan is within limits
+  } else {
+    return `WARNING: Your proposed loan amount of $${formattedProposedLoan} exceeds the maximum allowed total loan value of $${formattedLoan}. This limit is because ${limitReason}. To comply with loan regulations, please adjust your monthly repayment to be no more than $${formattedPayment} or ensure that your proposed loan does not exceed $${formattedLoan}.`;
+  }
+}
+
 export function checkEligibility(cit, income, age, marital, ftimer) {
   let eligible = true, warns = [], notes = [];
 

@@ -77,7 +77,7 @@ function RegionTag({ label, active, onClick }) {
   );
 }
 
-function EligibilityBadge({ eligible, warns, notes, effective, loanAmt, grants }) {
+function EligibilityBadge({ eligible, warns, notes, effective, loanAmt, grants, loanLimitWarning }) {
   if (!eligible) {
     return (
       <div className="mt-2.5 p-2.5 px-3 rounded-md text-[0.78rem] leading-relaxed border bg-[rgba(192,57,43,0.07)] border-[rgba(192,57,43,0.3)] text-[#ff8080]">
@@ -98,6 +98,7 @@ function EligibilityBadge({ eligible, warns, notes, effective, loanAmt, grants }
       )}
       {warns.length > 0 && <><br /><small>{warns.join(' ')}</small></>}
       {notes.length > 0 && <><br /><small>{notes.join(' ')}</small></>}
+      {loanLimitWarning && <><br /><small className="text-[#ff8080]">⚠️ Loan limit warning active — please check your LoanAmt selection.</small></>}
     </div>
   );
 }
@@ -137,7 +138,7 @@ const FTIMER_OPTIONS = [
 ];
 
 export default function Sidebar({
-  formState, onFormChange, eligibility, grants, effective, loanAmt, onSearch, isSearching,
+  formState, onFormChange, eligibility, grants, effective, loanAmt, loanLimitWarning, onSearch, isSearching,
 }) {
   const {
     cit, age, marital, inc, ftimer, prox,
@@ -295,6 +296,11 @@ export default function Sidebar({
           <input type="range" min={500} max={6000} step={100} value={loan} onChange={setNum('loan')} />
           <RangeLabels left="$500" right="$6,000" />
         </Field>
+        {loanLimitWarning && (
+          <div className="mt-3 p-3 rounded-md border border-red bg-[rgba(192,57,43,0.12)] text-[#ff7070] text-[0.82rem] leading-relaxed">
+            <strong>⚠️ Loan limit:</strong> {loanLimitWarning}
+          </div>
+        )}
       </SidebarSection>
 
       {/* Amenity Priorities */}

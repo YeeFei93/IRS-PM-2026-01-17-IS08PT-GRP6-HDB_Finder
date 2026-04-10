@@ -8,7 +8,7 @@ import ResultsPane from './components/ResultsPane';
 import MapView from './pages//MapView';
 import TrendsView from './pages/TrendsView';
 import { REGIONS, ALL_TOWNS, API_BASE } from './constants';
-import { calcGrants, loanCapacity, checkEligibility, analyseRecords, computeScore } from './engine';
+import { calcGrants, loanCapacity, checkEligibility, checkLoanLimit, analyseRecords, computeScore } from './engine';
 import { fetchTown, checkBackendHealth, runSearchBackend, normaliseBackendRec } from './api';
 import MainView from './pages/MainView';
 
@@ -52,8 +52,9 @@ export default function App() {
     const eligibility = checkEligibility(cit, inc, age, marital);
     const grants = calcGrants(cit, inc, ftype, ftimer, prox, marital);
     const loanAmt = loanCapacity(loan);
-    const effective = cash + cpf + grants.total + Math.min(loanAmt, 750000);
-    return { eligibility, grants, effective, loanAmt };
+    const effective = cash + cpf + grants.total + loanAmt;
+    const loanLimitWarning = checkLoanLimit(inc, loan, grants.total + loanAmt);
+    return { eligibility, grants, effective, loanAmt, loanLimitWarning };
   }, [formState]);
 
   const runSearch = useCallback(async () => {
@@ -173,6 +174,7 @@ export default function App() {
           grants={derived.grants}
           effective={derived.effective}
           loanAmt={derived.loanAmt}
+          loanLimitWarning={derived.loanLimitWarning}
           onSearch={runSearch}
           isSearching={phase === 'loading'}
         />
