@@ -3,12 +3,12 @@ import { callPythonService } from "../redis/requestReply";
 
 const router = Router();
 
-router.post("/api/top-recommendations", async (req: Request, res: Response) => {
+router.post("/api/flats", async (req: Request, res: Response) => {
   try {
     const result = await callPythonService(
-      "queue:recommendation",
+      "queue:flat_lookup",
       req.body,
-      90
+      60
     );
 
     if (result.status === "error") {

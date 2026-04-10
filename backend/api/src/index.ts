@@ -12,9 +12,11 @@ app.listen(PORT, () => {
 });*/
 
 import express from "express";
+import cors from "cors";
 import { connectRedis } from "./redis/client";
 import eligibilityRoute from "./routes/eligibility";
 import recommendationRoute from "./routes/recommendation";
+import flatLookupRoute from "./routes/flatLookup";
 import { startAdapters } from "./startAdapters";
 
 async function startServer() {
@@ -22,10 +24,12 @@ async function startServer() {
   startAdapters();
 
   const app = express();
+  app.use(cors());
   app.use(express.json());
 
   app.use(eligibilityRoute);
   app.use(recommendationRoute);
+  app.use(flatLookupRoute);
 
   const port = Number(process.env.PORT || 3000);
 

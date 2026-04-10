@@ -23,8 +23,13 @@ class ResaleFlatsDB:
     
     def GetGeolocations(self):
         db = self.db
-        dbc = DbController(db)
-        return dbc.GetAll(TABLE_NAME.RESALE_FLATS_GEOLOCATION)
+        query = f"""SELECT * FROM {TABLE_NAME.RESALE_FLATS_GEOLOCATION} a
+                    LEFT JOIN {TABLE_NAME.RESALE_FLATS} b
+                    ON a.{KEY_NAME.BLOCK} = b.{KEY_NAME.BLOCK}
+                    AND a.{KEY_NAME.STREET_NAME} = b.{KEY_NAME.STREET_NAME} """
+        
+        db.cursor.execute(query)
+        return db.cursor.fetchall()
     
     def UpdateGeolocations(self, data):
         db = self.db

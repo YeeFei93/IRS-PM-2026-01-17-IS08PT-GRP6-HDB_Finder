@@ -162,3 +162,69 @@ def get_price_trend(town: str, ftype: str = "any", floor_pref: str = "any") -> d
         "medians": medians,
         "n": len(rows),
     }
+
+
+def get_flats_for_estate(
+    estate: str,
+    ftype: str = "any",
+    floor_pref: str = "any",
+    budget: float = 0,
+    min_lease: int = 0,
+    months: int = 14,
+    limit: int = 20,
+) -> list[dict]:
+    """
+    Return individual flat transaction records for an estate, ordered by
+    price proximity to the buyer's budget (closest first).
+
+    Used by the map drill-down panel to show real recent listings.
+    """
+    # 30.5 = average days per month (365 / 12), avoids calendar-aware month arithmetic
+    cutoff = (datetime.now() - timedelta(days=months * 30.5)).date()
+
+    query = """
+        SELECT block, street_name, flat_type, flat_model,
+               storey_range_start, storey_range_end,
+               floor_area_sqm,
+               remaining_lease_years, remaining_lease_months,
+               resale_price, sold_date
+        FROM resale_flats
+        WHERE estate = %s AND sold_date >= %s
+    """
+    params = [estate, cutoff]
+
+    if ftype and ftype.lower() != "any":
+        query += " AND flat_type = %s"
+        params.append(ftype)
+
+    if floor_pref and floor_pref.lower() in _FLOOR_CLAUSES:
+        query += f" AND {_FLOOR_CLAUSES[floor_pref.lower()]}"
+
+    if min_lease > 0:
+        query += " AND remaining_lease_years >= %s"
+        params.append(min_lease)
+
+    query += " ORDER BY sold_date DESC"
+
+    db = DbConnector()
+    try:
+        db.cursor.execute(query, tuple(params))
+        rows = db.cursor.fetchall()
+    finally:
+        db.Close()
+
+    if not rows:
+        return []
+
+    records = [dict(r) for r in rows]
+
+    # Normalise sold_date to YYYY-MM string
+    for r in records:
+        if hasattr(r.get("sold_date"), "strftime"):
+            r["sold_date"] = r["sold_date"].strftime("%Y-%m")
+
+    # Sort by price proximity to buyer's budget (closest first)
+    if budget > 0:
+        records.sort(key=lambda r: abs(r["resale_price"] - budget))
+
+    return records[:limit]

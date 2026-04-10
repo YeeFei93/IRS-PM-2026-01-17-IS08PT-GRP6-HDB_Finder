@@ -1,0 +1,69 @@
+
+from datetime import datetime
+
+from db_controller import DbController
+from db_connector import DbConnector
+from db_models.hawker_centres_db import HawkerCentresDB
+from db_models.resale_flats_db import ResaleFlatsDB
+from env import TABLE_NAME, KEY_NAME, ID
+import uuid
+import threading
+import math
+import time
+import random
+
+from geolocation_converter import GeolocationConverter
+
+lock = threading.Lock()
+class ResaleFlatsHawkerCentresDB:
+    def __init__(self, db: DbConnector):
+        self.db = db
+        self.distance_limit = 1
+        self.table_name = TABLE_NAME.RESALE_FLATS_HAWKER_CENTRES
+        
+    def InitializeData(self):
+        db = self.db
+        db = DbConnector()
+        resale_flats_geos = ResaleFlatsDB(db).GetGeolocations()
+        hawker_centres_geos= HawkerCentresDB(db).GetAll()
+       
+        num_threads = 4
+        batch_size =  math.ceil(len(resale_flats_geos) / num_threads)
+
+        threads = []
+
+        for i in range(0,num_threads):
+            t = threading.Thread(target=self.InitializeBatch, args=(resale_flats_geos[i * batch_size : (i +1) * batch_size], hawker_centres_geos))
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
+
+      
+        
+     
+    def InitializeBatch(self, resale_flats_geos, hawker_centres_geo):
+        db = DbConnector()
+        dbc = DbController(db)
+        new_data_arr = []
+        for a in resale_flats_geos:
+            for b in hawker_centres_geo:
+                # print({52: str(a[KEY_NAME.LATITUDE]) + "," + str(a[KEY_NAME.LONGITUDE])})
+                # print({53: str(b[KEY_NAME.LATITUDE]) + "," + str(b[KEY_NAME.LONGITUDE])})
+                # print(b)
+                distance = GeolocationConverter().CalculateDistance(a[KEY_NAME.LATITUDE], a[KEY_NAME.LONGITUDE], b[KEY_NAME.LATITUDE], b[KEY_NAME.LONGITUDE])
+                if(distance <= self.distance_limit):
+                    new_data = {ID.RESALE_FLAT_ID: a[ID.RESALE_FLAT_ID], 
+                                ID.HAWKER_CENTRE_ID: b[ID.HAWKER_CENTRE_ID],
+                                KEY_NAME.DISTANCE: distance
+                                }
+                    new_data_arr.append(new_data)
+        dbc.UpsertData(self.table_name, new_data_arr)
+        db.Close()
+        
+
+      
+    
+   
+    

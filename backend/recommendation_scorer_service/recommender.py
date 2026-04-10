@@ -105,9 +105,9 @@ def run_recommendation(profile: dict) -> dict:
     for c in candidates:
         amenities = nearest_amenities(c["town"])
 
-        # Hard filter: MRT max walk (panel slider)
-        mrt_mins = amenities.get("mrt", {}).get("walk_mins", 999)
-        if mrt_mins > max_mrt_mins:
+        # Hard filter: MRT max walk (panel slider) — skip if no MRT data yet
+        mrt_mins = amenities.get("mrt", {}).get("walk_mins")
+        if mrt_mins is not None and mrt_mins > max_mrt_mins:
             continue
 
         # Must-have threshold check (checkboxes)
