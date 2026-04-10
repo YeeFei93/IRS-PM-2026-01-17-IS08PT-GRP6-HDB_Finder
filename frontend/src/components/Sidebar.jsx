@@ -123,11 +123,12 @@ const AMENITY_OPTIONS = [
 // Marital options grouped by citizenship
 const MARITAL_OPTIONS = [
   { value: 'married', label: 'Married', groups: ['SC_SC', 'SC_PR', 'SC_NR', 'PR_PR'] },
-  { value: 'fiancee', label: 'Fiancé / Fiancée', groups: ['SC_SC', 'SC_PR', 'SC_NR'] },
-  { value: 'widowed', label: 'Widowed / Divorced', groups: ['SC_SC', 'SC_PR', 'PR_PR'] },
-  { value: 'single_scheme', label: 'Singapore Single Scheme', groups: ['SC_single'] },
+  { value: 'fiancee', label: 'Fiancé / Fiancée', groups: ['SC_SC', 'SC_PR', 'SC_NR', 'PR_PR'] },
+  { value: 'widowed', label: 'Widowed / Divorced', groups: ['SC_SC', 'SC_PR'] },
+  { value: 'single', label: 'Single', groups: ['SC_single','PR_PR'] },
   { value: 'joint', label: 'Joint Singles Scheme (JSS)', groups: ['SC_single'] },
-  { value: 'with_parents', label: 'Single with Parents', groups: ['SC_single'] },
+  { value: 'with_SC_parents', label: 'Single with SC Parents', groups: ['SC_single','PR_PR'] },
+  { value: 'with_PR_parents', label: 'Single with PR Parents', groups: ['PR_PR'] }
 ];
 
 // First-timer options grouped by citizenship
@@ -192,9 +193,9 @@ export default function Sidebar({
           <select value={cit} onChange={onCitChange}>
             <option value="SC_SC">SC + SC (Couple / Family)</option>
             <option value="SC_PR">SC + SPR Couple</option>
-            <option value="SC_NR">SC + Non-Resident Spouse</option>
+            <option value="SC_NR">SC + Non-Resident Spouse/Family</option>
             <option value="SC_single">SC Single (≥35)</option>
-            <option value="PR_PR">PR + PR Couple</option>
+            <option value="PR_PR">PR + PR (Couple / Family)</option>
           </select>
         </Field>
         <Field label="Age — Youngest Applicant">
