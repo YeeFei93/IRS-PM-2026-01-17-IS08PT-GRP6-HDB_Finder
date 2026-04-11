@@ -11,6 +11,7 @@ Buyer Preference Vector (10-dim):
 Eligible Flat Vector (10-dim):
   [flat_type, region, floor, remaining_lease,
    nearby_mrt, nearby_hawker, nearby_mall, nearby_park, nearby_school, nearby_hospital]
+   #TODO: NEARBY_MALL = HOW MANY WITHIN 1KM, IF NOTHING WITHIN 1KM, SHOULD BE 0, IF 2, MALL IS 2, COUNT()
 
 All values normalised to 0–1.
 
@@ -19,7 +20,7 @@ Reference: detectActive() and rawForCriterion() in frontend engine.js
 
 from __future__ import annotations
 
-from weights import CRITERION_MRT, DEFAULTS
+from weights import DEFAULTS
 
 
 # 7 types from DB, evenly spaced 1/7 ≈ 0.14 per step.
@@ -43,8 +44,7 @@ FLOOR_PREF_ORD: dict[str, float] = {
 }
 
 # ── Amenity dimension order (must stay stable) ──────────────────────
-# MRT is excluded here — dim 4 is encoded from max_mrt_mins slider, not must_have.
-AMENITY_DIMS: list[str] = ["hawker", "mall", "park", "school", "hospital"]
+AMENITY_DIMS: list[str] = ["mrt", "hawker", "mall", "park", "school", "hospital"]
 
 # ── Max distances used for proximity normalisation (km) ─────────────
 # Beyond these distances the amenity scores to 0.
@@ -102,7 +102,7 @@ _STOREY_MAX = 50.0  # highest HDB block is ~50 storeys
 # ── Vector dimension labels (for explainability) ────────────────────
 BUYER_VEC_LABELS: list[str] = [
     "flat_type", "region", "floor_pref", "remaining_lease",
-    "mrt_walk_pref", "has_hawker", "has_mall", "has_park", "has_school", "has_hospital",
+    "has_mrt", "has_hawker", "has_mall", "has_park", "has_school", "has_hospital",
 ]
 
 FLAT_VEC_LABELS: list[str] = [
@@ -149,27 +149,14 @@ def buyer_vector(profile: dict, budget: float = 0.0) -> list[float]:
     min_lease = profile.get("min_lease", 20)  # 20 = slider minimum (most permissive)
     vec[3] = min(max(min_lease / 99.0, 0.0), 1.0)
 
-    # 4 — mrt_walk_pref: derived from max_mrt_mins slider (3–30 min, default 30)
-    # Normalised directly against the slider ceiling (30 min) so that any active
-    # preference (< 30 min) produces a positive score and matches the direction of
-    # the flat's nearby_mrt dimension (score = 1 - dist_km / max_km).
-    # Formula: 1 - max_mrt / 30  →  30 min=0.0 (inactive), 3 min=0.9 (strong pref).
-    #
-    # NOTE: Using 30 min as denominator (not _AMENITY_MAX_KM["mrt"]) prevents the
-    # bug where 12–29 min preferences produce 0.0 despite the criterion being active,
-    # which would penalise flats with nearby MRT by inflating their norm without
-    # a matching numerator contribution.
-    max_mrt = profile.get("max_mrt_mins", 30)
-    vec[4] = max(0.0, round(1.0 - max_mrt / float(DEFAULTS[CRITERION_MRT]), 4))
-
-    # 5–9 — amenity dims from mustAmenities (excludes MRT, handled above)
+    # 4–9 — amenity dims from mustAmenities (mrt, hawker, mall, park, school, hospital)
     # 1.0 = buyer must have this amenity nearby
     # 0.5 = neutral (no preference — not 0.0 so the flat's amenity richness
-    #        on these dims doesn’t inflate the cosine denominator unfairly)
+    #        on these dims doesn't inflate the cosine denominator unfairly)
     must_have: list[str] = profile.get("must_have", [])
     must_set = set(must_have)
     for i, amenity in enumerate(AMENITY_DIMS):
-        vec[5 + i] = 1.0 if amenity in must_set else 0.5
+        vec[4 + i] = 1.0 if amenity in must_set else 0.5
 
     return vec
 
@@ -315,11 +302,9 @@ def flat_vector(town: str, price_data: dict, amenities: dict,
     lease_years = _parse_lease_years(price_data.get("avg_lease_years", 0))
     vec[3] = min(max(lease_years / 99.0, 0.0), 1.0)
 
-    # 4 — nearby_mrt (matches buyer_vector dim 4: mrt_walk_pref)
-    vec[4] = _proximity_score("mrt", amenities)
-
-    # 5–9 — other amenity proximity scores
+    # 4–9 — amenity proximity scores (mrt, hawker, mall, park, school, hospital)
+    # Mirrors buyer_vector dims 4–9 which use must_have flags.
     for i, amenity in enumerate(AMENITY_DIMS):
-        vec[5 + i] = _proximity_score(amenity, amenities)
+        vec[4 + i] = _proximity_score(amenity, amenities)
 
     return vec

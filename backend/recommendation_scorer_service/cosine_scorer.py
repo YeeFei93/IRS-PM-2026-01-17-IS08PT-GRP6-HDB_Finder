@@ -21,7 +21,6 @@ from weights import (
     CRITERION_FLAT,
     CRITERION_REGION,
     CRITERION_LEASE,
-    CRITERION_MRT,
     CRITERION_AMENITY,
 )
 
@@ -33,7 +32,7 @@ _DIM_CRITERION: list[str] = [
     CRITERION_REGION,   # 1  region
     CRITERION_FLAT,     # 2  floor_pref / floor
     CRITERION_LEASE,    # 3  remaining_lease
-    CRITERION_MRT,      # 4  has_mrt / nearby_mrt
+    CRITERION_AMENITY,  # 4  has_mrt / nearby_mrt
     CRITERION_AMENITY,  # 5  has_hawker / nearby_hawker
     CRITERION_AMENITY,  # 6  has_mall / nearby_mall
     CRITERION_AMENITY,  # 7  has_park / nearby_park

@@ -323,11 +323,6 @@ export default function Sidebar({
             Towns that miss a must-have enter serendipity pool only.
           </div>
         </Field>
-        <Field label="Max Walk to MRT (minutes)">
-          <RangeValue>{mrtMax} min</RangeValue>
-          <input type="range" min={3} max={30} value={mrtMax} onChange={setNum('mrtMax')} />
-          <RangeLabels left="3 min" right="30 min" />
-        </Field>
       </SidebarSection>
 
       {/* Search Button */}

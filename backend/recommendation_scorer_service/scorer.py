@@ -2,7 +2,7 @@ from vectorizer import buyer_vector, flat_vector
 from cosine_scorer import score_cb
 from weights import (
     CRITERION_BUDGET, CRITERION_FLAT, CRITERION_REGION,
-    CRITERION_LEASE, CRITERION_MRT, CRITERION_AMENITY,
+    CRITERION_LEASE, CRITERION_AMENITY,
     DEFAULTS,
 )
 
@@ -18,8 +18,6 @@ def detect_active_criteria(profile: dict, budget: float,
         active.append(CRITERION_REGION)
     if profile.get("min_lease", DEFAULTS[CRITERION_LEASE]) > DEFAULTS[CRITERION_LEASE]:
         active.append(CRITERION_LEASE)
-    if profile.get("max_mrt_mins", DEFAULTS[CRITERION_MRT]) < DEFAULTS[CRITERION_MRT]:
-        active.append(CRITERION_MRT)
     if must_have:
         active.append(CRITERION_AMENITY)
     return active
