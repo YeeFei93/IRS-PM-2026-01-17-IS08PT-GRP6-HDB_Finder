@@ -6,7 +6,7 @@ export const API_BASE = 'http://localhost:3000';
 
 // Amenity must-have threshold definitions
 export const AMENITY_THRESHOLDS = {
-  mrt:      { maxMins: 6,  label: '≤500m' },
+  mrt:      { maxMins: 12, label: '≤1km' },
   hawker:   { maxMins: 12, label: '≤1km' },
   school:   { maxMins: 12, label: '≤1km' },
   park:     { maxMins: 12, label: '≤1km' },

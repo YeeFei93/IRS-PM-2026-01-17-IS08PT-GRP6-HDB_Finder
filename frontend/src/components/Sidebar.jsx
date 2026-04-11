@@ -112,7 +112,7 @@ const REGION_OPTIONS = [
 ];
 
 const AMENITY_OPTIONS = [
-  { value: 'mrt', icon: '🚇', label: 'MRT ≤500m' },
+  { value: 'mrt', icon: '🚇', label: 'MRT ≤1km' },
   { value: 'hawker', icon: '🍜', label: 'Hawker ≤1km' },
   { value: 'school', icon: '🏫', label: 'Pri School ≤1km' },
   { value: 'park', icon: '🌳', label: 'Park ≤1km' },
