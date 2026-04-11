@@ -23,10 +23,7 @@ class ResaleFlatsDB:
     
     def GetGeolocations(self):
         db = self.db
-        query = f"""SELECT * FROM {TABLE_NAME.RESALE_FLATS_GEOLOCATION} a
-                    LEFT JOIN {TABLE_NAME.RESALE_FLATS} b
-                    ON a.{KEY_NAME.BLOCK} = b.{KEY_NAME.BLOCK}
-                    AND a.{KEY_NAME.STREET_NAME} = b.{KEY_NAME.STREET_NAME} """
+        query = f"""SELECT * FROM {TABLE_NAME.RESALE_FLATS_GEOLOCATION} a"""
         
         db.cursor.execute(query)
         return db.cursor.fetchall()

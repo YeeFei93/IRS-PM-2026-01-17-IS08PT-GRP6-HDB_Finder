@@ -9,6 +9,6 @@ from db_models.resale_flats_hawker_centres_db import ResaleFlatsHawkerCentresDB
 from geolocation_converter import GeolocationConverter
 
 db = DbConnector()
-ResaleFlatsHawkerCentresDB(db).InitializeData()
-# dist = GeolocationConverter().CalculateDistance(1.30367135, 103.86447866, 1.31190696, 103.75912802)
-# print(dist)
+rf_hc_db = ResaleFlatsHawkerCentresDB(db)
+rf_hc_db.DeleteData()
+rf_hc_db.InitializeData()
