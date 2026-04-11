@@ -52,8 +52,9 @@ class ResaleFlatsParksDB:
             for b in parks_geos:
                 distance = GeolocationConverter().CalculateDistance(a[KEY_NAME.LATITUDE], a[KEY_NAME.LONGITUDE], b[KEY_NAME.LATITUDE], b[KEY_NAME.LONGITUDE])
                 if(distance <= self.distance_limit):
-                    new_data = {ID.RESALE_FLAT_ID: a[ID.RESALE_FLAT_ID], 
-                                ID.PARK_ID: b[ID.PARK_ID],
+                    new_data = {ID.BLOCK: a[ID.BLOCK], 
+                                ID.STREET_NAME: a[ID.STREET_NAME], 
+                                ID.PARK_NAME: b[ID.PARK_NAME],
                                 KEY_NAME.DISTANCE: distance
                                 }
                     new_data_arr.append(new_data)

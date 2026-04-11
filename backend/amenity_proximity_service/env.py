@@ -12,12 +12,13 @@ class TABLE_NAME:
     RESALE_FLATS_PARKS = "resale_flats_parks"
 
 class ID:
+    BLOCK = "block"
     HAWKER_CENTRE_ID = "hawker_centre_id"
-    PARK_ID = "park_id"
+    PARK_NAME = "park_name"
     RESALE_FLAT_ID = "resale_flat_id"
+    STREET_NAME = "street_name"
 
 class KEY_NAME:
-    BLOCK = "block"
     DISTANCE = "distance"
     ESTATE = "estate"
     LATITUDE = "latitude"
@@ -33,5 +34,4 @@ class KEY_NAME:
     STOREY_RANGE = "storey_range"
     STOREY_RANGE_END = "storey_range_end"
     STOREY_RANGE_START = "storey_range_start"
-    STREET_NAME = "street_name"
     TOWN = "town"
