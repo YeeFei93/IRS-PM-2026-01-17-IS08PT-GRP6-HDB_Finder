@@ -40,6 +40,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
   const drillFlatsRef = useRef([]);   // always-current drillFlats for use inside renderGeo
   const activeFlatEstateRef = useRef(null);
   const selectedEstateRef = useRef(null);
+  const selectedFlatRef = useRef(null);
   const flatListRef = useRef([]);     // flat list mirroring flatMarkersRef order
 
   // Expose map instance for external fly-to calls
@@ -47,6 +48,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
   useEffect(() => { drillFlatsRef.current = drillFlats; }, [drillFlats]);
   useEffect(() => { activeFlatEstateRef.current = activeFlatEstate; }, [activeFlatEstate]);
   useEffect(() => { selectedEstateRef.current = selectedEstate; }, [selectedEstate]);
+  useEffect(() => { selectedFlatRef.current = selectedFlat; }, [selectedFlat]);
 
   const onTownClickRef = useRef(onTownClick);
   useEffect(() => { onTownClickRef.current = onTownClick; }, [onTownClick]);
@@ -271,7 +273,8 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
       } else if (hot.has(town)) {
         const isActive = town === activeEstate;
         const isSelected = !activeEstate && town === selEstate;
-        const fillOp = isActive ? 0.65 : isSelected ? 0.55 : 0.32;
+        const inPhase3 = !!selectedFlatRef.current;
+        const fillOp = isActive ? (inPhase3 ? 0.12 : 0.65) : isSelected ? 0.55 : 0.32;
         const w = isActive || isSelected ? 2.5 : 1.8;
         const hotStyle = { fillColor: '#27ae60', fillOpacity: fillOp, color: '#27ae60', weight: w, opacity: 1 };
         layer.setStyle(hotStyle);
@@ -304,6 +307,9 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
       if (bounds.isValid()) map.fitBounds(bounds.pad(0.1), { minZoom: 11, maxZoom: 13, paddingTopLeft: [0, 0], paddingBottomRight: [320, 100] });
     }
   }, [recs, activeFlatEstate, map]);
+
+  // Re-style when a flat is selected/deselected (Phase 3 polygon dimming)
+  useEffect(() => { applyHotStyleRef.current(); }, [selectedFlat]);
 
   // Icon factory for flat markers — supports hover/selected states
   const makeFlatIcon = useCallback((flat, rank, isHovered, isSelected, isDimmed) => {
