@@ -41,15 +41,16 @@ from amenity_proximity_service.db_connector import DbConnector
 
 # ── Amenity config ──────────────────────────────────────────────────────────
 # junction_table  : the MySQL junction table name
+# amenity_fk      : the FK column in the junction table for the amenity PK
 # max_walk_mins   : threshold for within_threshold flag (from constants.js)
 # threshold_km    : distance equivalent (max_walk_mins / 15 min/km)
 _AMENITY_CONFIG: dict[str, dict] = {
-    "mrt":      {"junction_table": "resale_flats_mrt_stations",  "max_walk_mins": 12, "threshold_km": 0.8},
-    "hawker":   {"junction_table": "resale_flats_hawker_centres", "max_walk_mins": 12, "threshold_km": 0.8},
-    "mall":     {"junction_table": "resale_flats_malls",          "max_walk_mins": 18, "threshold_km": 1.2},
-    "park":     {"junction_table": "resale_flats_parks",          "max_walk_mins": 12, "threshold_km": 0.8},
-    "school":   {"junction_table": "resale_flats_schools",        "max_walk_mins": 12, "threshold_km": 0.8},
-    "hospital": {"junction_table": "resale_flats_hospitals",      "max_walk_mins": 36, "threshold_km": 2.4},
+    "mrt":      {"junction_table": "resale_flats_mrt_stations",   "amenity_fk": "mrt_station_id",    "max_walk_mins": 12, "threshold_km": 0.8},
+    "hawker":   {"junction_table": "resale_flats_hawker_centres", "amenity_fk": "hawker_centre_id",  "max_walk_mins": 12, "threshold_km": 0.8},
+    "mall":     {"junction_table": "resale_flats_malls",          "amenity_fk": "mall_id",           "max_walk_mins": 18, "threshold_km": 1.2},
+    "park":     {"junction_table": "resale_flats_parks",          "amenity_fk": "park_id",           "max_walk_mins": 12, "threshold_km": 0.8},
+    "school":   {"junction_table": "resale_flats_schools",        "amenity_fk": "school_id",         "max_walk_mins": 12, "threshold_km": 0.8},
+    "hospital": {"junction_table": "resale_flats_hospitals",      "amenity_fk": "hospital_id",       "max_walk_mins": 36, "threshold_km": 2.4},
 }
 
 # Walking speed: 5 km/h with a 20% buffer → effective 4 km/h
@@ -61,22 +62,26 @@ def _dist_to_walk_mins(dist_km: float) -> int:
     return round(dist_km * _WALK_MINS_PER_KM)
 
 
-def _query_amenity_stats(cursor, junction_table: str, estate: str,
-                         threshold_km: float) -> dict:
-    """Return nearest distance, count within threshold, and avg distance
-    within threshold for an estate.
+def _query_amenity_stats(cursor, junction_table: str, amenity_fk: str,
+                         estate: str, threshold_km: float) -> dict:
+    """Return nearest distance, count of distinct amenities within threshold,
+    and avg distance within threshold for an estate.
 
     Returns dict with keys: min_dist, count_within, avg_dist.
     All values may be None if the junction table doesn't exist or has no data.
+
+    count_within uses COUNT(DISTINCT amenity_fk) to count unique amenities
+    reachable from any flat in the estate, NOT the total number of
+    flat-amenity pairs.
     """
     import mysql.connector
     query = f"""
         SELECT
-            MIN(j.distance)                                    AS min_dist,
-            SUM(j.distance <= %s)                              AS count_within,
-            AVG(CASE WHEN j.distance <= %s THEN j.distance END) AS avg_dist
+            MIN(j.distance)                                                   AS min_dist,
+            COUNT(DISTINCT CASE WHEN j.distance <= %s THEN j.`{amenity_fk}` END) AS count_within,
+            AVG(CASE WHEN j.distance <= %s THEN j.distance END)               AS avg_dist
         FROM resale_flats rf
-        JOIN `{junction_table}` j ON rf.resale_flat_id = j.resale_flats_id
+        JOIN `{junction_table}` j ON rf.resale_flat_id = j.resale_flat_id
         WHERE rf.estate = %s
     """
     try:
@@ -130,7 +135,8 @@ def nearest_amenities(estate: str) -> dict:
     try:
         for amenity_key, config in _AMENITY_CONFIG.items():
             stats = _query_amenity_stats(
-                cursor, config["junction_table"], estate, config["threshold_km"]
+                cursor, config["junction_table"], config["amenity_fk"],
+                estate, config["threshold_km"]
             )
 
             dist_km = stats["min_dist"]
