@@ -61,7 +61,7 @@ export default function ResultsPane({
             <div className="font-serif text-[1.25rem] text-white">Top {recs.length} Recommendations</div>
             <div className="text-[0.74rem] text-muted mt-0.5">
               {rawCount.toLocaleString()} transactions · {latestMonth || '—'} · data.gov.sg
-              {activeCount > 0 && ` · MCDM ${activeCount} criteria + serendipity`}
+              {activeCount > 0 && ` · cosine similarity · ${activeCount} criteria`}
             </div>
           </div>
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[rgba(22,160,133,0.1)] border border-[rgba(22,160,133,0.25)] text-teal text-[0.65rem] font-mono">

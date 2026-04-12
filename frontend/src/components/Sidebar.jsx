@@ -112,7 +112,7 @@ const REGION_OPTIONS = [
 ];
 
 const AMENITY_OPTIONS = [
-  { value: 'mrt', icon: '🚇', label: 'MRT ≤500m' },
+  { value: 'mrt', icon: '🚇', label: 'MRT ≤1km' },
   { value: 'hawker', icon: '🍜', label: 'Hawker ≤1km' },
   { value: 'school', icon: '🏫', label: 'Pri School ≤1km' },
   { value: 'park', icon: '🌳', label: 'Park ≤1km' },
@@ -319,14 +319,8 @@ export default function Sidebar({
             ))}
           </div>
           <div className="text-[0.61rem] text-muted mt-1.5 leading-relaxed">
-            Selected amenities are threshold-checked against real dataset distances.<br />
-            Towns that miss a must-have enter serendipity pool only.
+            Selected amenities are threshold-checked against real dataset distances.
           </div>
-        </Field>
-        <Field label="Max Walk to MRT (minutes)">
-          <RangeValue>{mrtMax} min</RangeValue>
-          <input type="range" min={3} max={30} value={mrtMax} onChange={setNum('mrtMax')} />
-          <RangeLabels left="3 min" right="30 min" />
         </Field>
       </SidebarSection>
 
@@ -337,7 +331,7 @@ export default function Sidebar({
           disabled={isSearching || !eligibility?.eligible}
           className="w-full py-3 bg-gradient-to-br from-red to-gold border-none rounded-[7px] text-white font-sans text-[0.9rem] font-semibold cursor-pointer tracking-wide transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          🔍 Find My HDB Estate
+          🔍 Find My HDB Flat
         </button>
         <p className="text-center text-[0.64rem] text-dk4 mt-2 leading-relaxed">
           Live data · data.gov.sg HDB Resale Dataset<br />

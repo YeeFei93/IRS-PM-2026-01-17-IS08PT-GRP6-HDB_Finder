@@ -6,7 +6,7 @@ export const API_BASE = 'http://localhost:3000';
 
 // Amenity must-have threshold definitions
 export const AMENITY_THRESHOLDS = {
-  mrt:      { maxMins: 6,  label: '≤500m' },
+  mrt:      { maxMins: 12, label: '≤1km' },
   hawker:   { maxMins: 12, label: '≤1km' },
   school:   { maxMins: 12, label: '≤1km' },
   park:     { maxMins: 12, label: '≤1km' },
@@ -16,7 +16,7 @@ export const AMENITY_THRESHOLDS = {
 
 export const REGIONS = {
   north: ['WOODLANDS', 'SEMBAWANG', 'YISHUN', 'ANG MO KIO', 'BISHAN'],
-  northeast: ['SENGKANG', 'PUNGGOL', 'HOUGANG', 'SERANGOON', 'BUANGKOK'],
+  northeast: ['SENGKANG', 'PUNGGOL', 'HOUGANG', 'SERANGOON'],
   east: ['TAMPINES', 'BEDOK', 'PASIR RIS', 'GEYLANG', 'KALLANG/WHAMPOA'],
   west: ['JURONG WEST', 'JURONG EAST', 'BUKIT BATOK', 'CHOA CHU KANG', 'CLEMENTI', 'BUKIT PANJANG'],
   central: ['QUEENSTOWN', 'BUKIT MERAH', 'TOA PAYOH', 'CENTRAL AREA', 'MARINE PARADE', 'BUKIT TIMAH'],

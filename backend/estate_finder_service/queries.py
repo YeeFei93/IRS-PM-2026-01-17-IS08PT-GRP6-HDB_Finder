@@ -164,6 +164,37 @@ def get_price_trend(town: str, ftype: str = "any", floor_pref: str = "any") -> d
     }
 
 
+def _apply_flat_filters(query: str, params: list, ftype: str, floor_pref: str, min_lease: int, alias: str = "rf") -> tuple:
+    """Append optional filter clauses to a flat query. Returns (query, params)."""
+    if ftype and ftype.lower() != "any":
+        query += f" AND {alias}.flat_type = %s"
+        params.append(ftype)
+    if floor_pref and floor_pref.lower() in _FLOOR_CLAUSES:
+        clause = _FLOOR_CLAUSES[floor_pref.lower()].replace("storey_range_start", f"{alias}.storey_range_start")
+        query += f" AND {clause}"
+    if min_lease > 0:
+        query += f" AND {alias}.remaining_lease_years >= %s"
+        params.append(min_lease)
+    return query, params
+
+
+def _normalise_records(rows, budget: float, limit: int) -> list[dict]:
+    """Shared post-processing: normalise dates, sort by budget proximity, slice."""
+    if not rows:
+        return []
+    records = [dict(r) for r in rows]
+    for r in records:
+        if hasattr(r.get("sold_date"), "strftime"):
+            r["sold_date"] = r["sold_date"].strftime("%Y-%m")
+        if r.get("latitude") is not None:
+            r["latitude"] = float(r["latitude"])
+        if r.get("longitude") is not None:
+            r["longitude"] = float(r["longitude"])
+    if budget > 0:
+        records.sort(key=lambda r: abs(r["resale_price"] - budget))
+    return records[:limit]
+
+
 def get_flats_for_estate(
     estate: str,
     ftype: str = "any",
@@ -173,58 +204,170 @@ def get_flats_for_estate(
     months: int = 14,
     limit: int = 20,
 ) -> list[dict]:
-    """
-    Return individual flat transaction records for an estate, ordered by
-    price proximity to the buyer's budget (closest first).
-
-    Used by the map drill-down panel to show real recent listings.
-    """
-    # 30.5 = average days per month (365 / 12), avoids calendar-aware month arithmetic
+    """Return flat transactions for a single estate, sorted by budget proximity."""
     cutoff = (datetime.now() - timedelta(days=months * 30.5)).date()
-
     query = """
-        SELECT block, street_name, flat_type, flat_model,
-               storey_range_start, storey_range_end,
-               floor_area_sqm,
-               remaining_lease_years, remaining_lease_months,
-               resale_price, sold_date
-        FROM resale_flats
-        WHERE estate = %s AND sold_date >= %s
+        SELECT rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
+               rf.storey_range_start, rf.storey_range_end,
+               rf.floor_area_sqm,
+               rf.remaining_lease_years, rf.remaining_lease_months,
+               rf.resale_price, rf.sold_date,
+               g.latitude, g.longitude
+        FROM resale_flats rf
+        LEFT JOIN resale_flats_geolocation g
+               ON g.block = rf.block AND g.street_name = rf.street_name
+        WHERE rf.estate = %s AND rf.sold_date >= %s
     """
     params = [estate, cutoff]
-
-    if ftype and ftype.lower() != "any":
-        query += " AND flat_type = %s"
-        params.append(ftype)
-
-    if floor_pref and floor_pref.lower() in _FLOOR_CLAUSES:
-        query += f" AND {_FLOOR_CLAUSES[floor_pref.lower()]}"
-
-    if min_lease > 0:
-        query += " AND remaining_lease_years >= %s"
-        params.append(min_lease)
-
-    query += " ORDER BY sold_date DESC"
-
+    query, params = _apply_flat_filters(query, params, ftype, floor_pref, min_lease)
+    query += " ORDER BY rf.sold_date DESC"
     db = DbConnector()
     try:
         db.cursor.execute(query, tuple(params))
         rows = db.cursor.fetchall()
     finally:
         db.Close()
+    return _normalise_records(rows, budget, limit)
 
-    if not rows:
+
+def get_top_flats_across_estates(
+    estates: list,
+    ftype: str = "any",
+    floor_pref: str = "any",
+    budget: float = 0,
+    min_lease: int = 0,
+    months: int = 14,
+    limit: int = 20,
+) -> list[dict]:
+    """Return top flats across all recommended estates, sorted by budget proximity.
+
+    Fetches a larger pool (limit * 3 per estate) then re-sorts globally so the
+    final Top-N is the best matches globally, not just the best per estate.
+    """
+    if not estates:
         return []
+    cutoff = (datetime.now() - timedelta(days=months * 30.5)).date()
+    placeholders = ", ".join(["%s"] * len(estates))
+    query = f"""
+        SELECT rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
+               rf.storey_range_start, rf.storey_range_end,
+               rf.floor_area_sqm,
+               rf.remaining_lease_years, rf.remaining_lease_months,
+               rf.resale_price, rf.sold_date,
+               g.latitude, g.longitude
+        FROM resale_flats rf
+        LEFT JOIN resale_flats_geolocation g
+               ON g.block = rf.block AND g.street_name = rf.street_name
+        WHERE rf.estate IN ({placeholders}) AND rf.sold_date >= %s
+    """
+    params = list(estates) + [cutoff]
+    query, params = _apply_flat_filters(query, params, ftype, floor_pref, min_lease)
+    query += " ORDER BY rf.sold_date DESC"
+    db = DbConnector()
+    try:
+        db.cursor.execute(query, tuple(params))
+        rows = db.cursor.fetchall()
+    finally:
+        db.Close()
+    return _normalise_records(rows, budget, limit)
 
-    records = [dict(r) for r in rows]
 
-    # Normalise sold_date to YYYY-MM string
-    for r in records:
-        if hasattr(r.get("sold_date"), "strftime"):
-            r["sold_date"] = r["sold_date"].strftime("%Y-%m")
+def get_parks_for_flat(block: str, street_name: str) -> list[dict]:
+    """Return parks within 1km of a specific flat block, with coordinates."""
+    query = """
+        SELECT p.name AS park_name,
+               p.latitude,
+               p.longitude,
+               rfp.distance
+        FROM resale_flats rf
+        JOIN resale_flats_parks rfp ON rfp.resale_flat_id = rf.resale_flat_id
+        JOIN parks p ON p.park_id = rfp.park_id
+        WHERE rf.block = %s AND rf.street_name = %s
+          AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL
+        GROUP BY p.park_id, p.name, p.latitude, p.longitude, rfp.distance
+        ORDER BY rfp.distance
+    """
+    db = DbConnector()
+    try:
+        db.cursor.execute(query, (block, street_name))
+        rows = db.cursor.fetchall()
+    finally:
+        db.Close()
+    return [
+        {
+            "park_name": r["park_name"],
+            "latitude":  float(r["latitude"]),
+            "longitude": float(r["longitude"]),
+            "distance":  round(float(r["distance"]), 3),
+        }
+        for r in rows
+    ]
 
-    # Sort by price proximity to buyer's budget (closest first)
-    if budget > 0:
-        records.sort(key=lambda r: abs(r["resale_price"] - budget))
 
-    return records[:limit]
+def _get_amenity_for_flat(
+    block: str, street_name: str,
+    join_table: str, amenity_table: str, amenity_id_col: str,
+) -> list[dict]:
+    """
+    Generic amenity query: returns amenities near a flat via a pre-computed
+    distance join table.  Returns [] gracefully if the table does not exist yet.
+
+    Assumes amenity_table has columns: <amenity_id_col>, name, latitude, longitude.
+    Assumes join_table has columns: resale_flat_id, <amenity_id_col>, distance.
+    """
+    query = f"""
+        SELECT a.`name`,
+               a.latitude,
+               a.longitude,
+               j.distance
+        FROM resale_flats rf
+        JOIN `{join_table}` j ON j.resale_flat_id = rf.resale_flat_id
+        JOIN `{amenity_table}` a ON a.`{amenity_id_col}` = j.`{amenity_id_col}`
+        WHERE rf.block = %s AND rf.street_name = %s
+          AND a.latitude IS NOT NULL AND a.longitude IS NOT NULL
+        GROUP BY a.`{amenity_id_col}`, a.`name`, a.latitude, a.longitude, j.distance
+        ORDER BY j.distance
+    """
+    db = DbConnector()
+    try:
+        db.cursor.execute(query, (block, street_name))
+        rows = db.cursor.fetchall()
+    except Exception:
+        return []
+    finally:
+        try:
+            db.Close()
+        except Exception:
+            pass
+    return [
+        {
+            "name":      r["name"],
+            "latitude":  float(r["latitude"]),
+            "longitude": float(r["longitude"]),
+            "distance":  round(float(r["distance"]), 3),
+        }
+        for r in rows
+    ]
+
+
+def get_all_amenities_for_flat(block: str, street_name: str) -> dict:
+    """
+    Return all proximity amenity types for a flat in a single call.
+    Types not yet populated in the DB return empty lists.
+    Distance thresholds are enforced at the DB population stage; all returned
+    rows are already within threshold.
+    """
+    return {
+        "parks":     _get_amenity_for_flat(block, street_name,
+                         "resale_flats_parks",           "parks",           "park_id"),
+        "hawkers":   _get_amenity_for_flat(block, street_name,
+                         "resale_flats_hawker_centres",  "hawker_centres",  "hawker_centre_id"),
+        "mrts":      _get_amenity_for_flat(block, street_name,
+                         "resale_flats_mrt_stations",    "mrt_stations",    "mrt_station_id"),
+        "schools":   _get_amenity_for_flat(block, street_name,
+                         "resale_flats_schools",         "schools",         "school_id"),
+        "malls":     _get_amenity_for_flat(block, street_name,
+                         "resale_flats_malls",           "malls",           "mall_id"),
+        "hospitals": _get_amenity_for_flat(block, street_name,
+                         "resale_flats_hospitals",       "public_hospitals", "hospital_id"),
+    }

@@ -8,7 +8,7 @@ import ResultsPane from './components/ResultsPane';
 import MapView from './pages//MapView';
 import TrendsView from './pages/TrendsView';
 import { REGIONS, ALL_TOWNS, API_BASE } from './constants';
-import { calcGrants, loanCapacity, checkEligibility, checkLoanLimit, analyseRecords, computeScore } from './engine';
+import { calcGrants, loanCapacity, checkEligibility, checkLoanLimit } from './engine';
 import { fetchTown, checkBackendHealth, runSearchBackend, normaliseBackendRec } from './api';
 import MainView from './pages/MainView';
 
@@ -64,7 +64,7 @@ export default function App() {
     }
 
     setPhase('loading');
-    setActiveTab('results');
+    setActiveTab('map');
     const steps = [
       'Connecting to data.gov.sg…',
       'Fetching resale transactions…',
@@ -162,7 +162,7 @@ export default function App() {
 
           {/* Map Tab */}
           {activeTab === 'map' && (
-          <MapView recs={recs} highlightedTown={highlightedTown} formState={formState} effectiveBudget={derived.effective} />
+          <MapView recs={recs} highlightedTown={highlightedTown} formState={formState} effectiveBudget={derived.effective} derived={derived} rawCount={rawCount} latestMonth={latestMonth} />
           )}
 
           {/* Trends Tab */}
