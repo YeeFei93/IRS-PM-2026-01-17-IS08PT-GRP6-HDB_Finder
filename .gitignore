@@ -210,3 +210,4 @@ cython_debug/
 .cursorignore
 .cursorindexingignoredb/iss-irs-ai-estate-recommender-03.sql
 db/iss-irs-ai-estate-recommender-03.sql
+dump.rdb
