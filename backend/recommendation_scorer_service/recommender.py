@@ -29,18 +29,31 @@ _BACKEND_ROOT = os.path.abspath(os.path.join(_SERVICE_ROOT, ".."))
 if _BACKEND_ROOT not in sys.path:
     sys.path.insert(0, _BACKEND_ROOT)
 
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from eligibility_checker_service.eligibility import check_eligibility
 from budget_estimator_service.grants import calc_all_grants
 from budget_estimator_service.prices import analyse_town_prices
 from budget_estimator_service.effective_budget import effective_budget
 from estate_finder_service.queries import get_all_towns
-from amenity_proximity_service.distances import nearest_amenities
+from amenity_proximity_service.distances import nearest_amenities, warm_all_estates
 from scorer import score_payload  # bare import — service dir is on sys.path above
+
+# Pre-warm the amenity cache in the background the moment this module loads
+# so the first recommendation request hits the cache instead of the DB.
+def _bg_warm():
+    try:
+        warm_all_estates()
+    except Exception:
+        pass
+
+threading.Thread(target=_bg_warm, daemon=True, name="amenity-cache-warm").start()
 
 
 # Town → Region mapping (mirrors frontend constants.js REGIONS)
 _REGIONS = {
-    'Central':   ['QUEENSTOWN', 'BUKIT MERAH', 'TOA PAYOH', 'CENTRAL AREA', 'MARINE PARADE'],
+    'Central':   ['QUEENSTOWN', 'BUKIT MERAH', 'TOA PAYOH', 'CENTRAL AREA', 'MARINE PARADE', 'BUKIT TIMAH'],
     'East':      ['TAMPINES', 'BEDOK', 'PASIR RIS', 'GEYLANG', 'KALLANG/WHAMPOA'],
     'North':     ['WOODLANDS', 'SEMBAWANG', 'YISHUN', 'ANG MO KIO', 'BISHAN'],
     'Northeast': ['SENGKANG', 'PUNGGOL', 'HOUGANG', 'SERANGOON', 'BUANGKOK'],
@@ -99,11 +112,23 @@ def run_recommendation(profile: dict) -> dict:
     must_have    = profile.get("must_have", [])
     max_mrt_mins = profile.get("max_mrt_mins", 30)
 
+    # Fetch amenity data for all candidates in parallel (cache hits are O(1))
+    town_amenities: dict[str, dict] = {}
+    if candidates:
+        with ThreadPoolExecutor(max_workers=min(len(candidates), 8)) as executor:
+            futures = {
+                executor.submit(nearest_amenities, c["town"]): c["town"]
+                for c in candidates
+            }
+            for future in as_completed(futures):
+                town = futures[future]
+                town_amenities[town] = future.result()
+
     scored        = []
     fallback_pool = []  # Towns that miss must-have threshold — used as top-up
 
     for c in candidates:
-        amenities = nearest_amenities(c["town"])
+        amenities = town_amenities.get(c["town"], {})
 
         # Hard filter: MRT max walk (panel slider) — skip if no MRT data yet
         mrt_mins = amenities.get("mrt", {}).get("walk_mins")
@@ -111,9 +136,12 @@ def run_recommendation(profile: dict) -> dict:
             continue
 
         # Must-have threshold check (checkboxes)
+        # Only fail if we have distance data AND the amenity is beyond threshold.
+        # If dist_km is None (junction table not yet populated), don't penalise.
         failed_must = [
             k for k in must_have
-            if not amenities.get(k, {}).get("within_threshold", False)
+            if amenities.get(k, {}).get("dist_km") is not None
+            and not amenities.get(k, {}).get("within_threshold", False)
         ]
 
         entry = {**c, "amenities": amenities, "failed_must": failed_must}

@@ -346,7 +346,7 @@ _TOWN_TO_REGION: dict[str, str] = {
     "JURONG WEST":      "west",
     # central
     "BUKIT MERAH":      "central",
-    "BUKIT TIMAH":      "central",   # in DB but not in frontend town list
+    "BUKIT TIMAH":      "central",
     "CENTRAL AREA":     "central",
     "MARINE PARADE":    "central",
     "QUEENSTOWN":       "central",

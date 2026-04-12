@@ -273,7 +273,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
         const isSelected = !activeEstate && town === selEstate;
         const fillOp = isActive ? 0.65 : isSelected ? 0.55 : 0.32;
         const w = isActive || isSelected ? 2.5 : 1.8;
-        const hotStyle = { fillColor: '#d4a843', fillOpacity: fillOp, color: '#d4a843', weight: w, opacity: 1 };
+        const hotStyle = { fillColor: '#27ae60', fillOpacity: fillOp, color: '#27ae60', weight: w, opacity: 1 };
         layer.setStyle(hotStyle);
         layer.on('mouseover', () => layer.setStyle({ ...hotStyle, fillOpacity: Math.min(fillOp + 0.2, 0.85) }));
         layer.on('mouseout', () => layer.setStyle(hotStyle));
@@ -400,7 +400,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
       const isSel = rec.town === selectedEstate;
       const size = isSel ? 34 : 28;
       const icon = L.divIcon({
-        html: `<div style="background:#d4a843;color:#000;border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${isSel?12:11}px;border:${isSel?'2px solid #fff':'2px solid #0f0f0f'};box-shadow:0 ${isSel?4:2}px ${isSel?12:8}px rgba(0,0,0,.8);font-family:'JetBrains Mono',monospace">${i + 1}</div>`,
+        html: `<div style="background:#27ae60;color:#fff;border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${isSel?12:11}px;border:${isSel?'2px solid #fff':'2px solid #0f0f0f'};box-shadow:0 ${isSel?4:2}px ${isSel?12:8}px rgba(0,0,0,.8);font-family:'JetBrains Mono',monospace">${i + 1}</div>`,
         className: '', iconSize: [size, size], iconAnchor: [size/2, size/2],
       });
       const m = L.marker([c.lat, c.lng], { icon });
@@ -559,7 +559,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                 <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#e0e0e0' }}>
                   {activeFlatEstate
                     ? activeFlatEstate
-                    : 'Top 5 Estates'}
+                    : `Top ${Math.min(recs.length, 5)} Estates`}
                 </div>
                 <div style={{ fontSize: '0.68rem', color: '#555', marginTop: 2 }}>
                   {activeFlatEstate
@@ -576,7 +576,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                 {activeFlatEstate && (
                   <button
                     onClick={() => { setActiveFlatEstate(null); setDrillFlats([]); setSelectedFlat(null); setHoveredFlatIdx(null); }}
-                    style={{ background: 'none', border: '1px solid #554400', color: '#d4a843', cursor: 'pointer', fontSize: '0.65rem', padding: '3px 8px', borderRadius: 4, lineHeight: 1, whiteSpace: 'nowrap' }}
+                    style={{ background: 'none', border: '1px solid #1a5c3a', color: '#27ae60', cursor: 'pointer', fontSize: '0.65rem', padding: '3px 8px', borderRadius: 4, lineHeight: 1, whiteSpace: 'nowrap' }}
                   >← Estates</button>
                 )}
               </div>
@@ -631,8 +631,8 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                 <div key={rec.town}
                   onClick={() => setSelectedEstate(rec.town)}
                   style={{
-                    background: isSel ? '#1a1500' : '#181818',
-                    border: `1px solid ${isSel ? '#d4a843' : '#2a2a2a'}`,
+                    background: isSel ? '#0a1f12' : '#181818',
+                    border: `1px solid ${isSel ? '#27ae60' : '#2a2a2a'}`,
                     borderRadius: 8, padding: '10px 12px', marginBottom: 8, cursor: 'pointer', transition: 'border-color 0.15s',
                   }}
                   onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = '#3a3a3a'; }}
@@ -640,7 +640,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                 >
                   {/* Row 1: rank + name + score */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <div style={{ minWidth: 22, height: 22, borderRadius: '50%', background: '#d4a843', color: '#000', fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
+                    <div style={{ minWidth: 22, height: 22, borderRadius: '50%', background: '#27ae60', color: '#fff', fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#e0e0e0' }}>{rec.town}</div>
@@ -693,23 +693,18 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                             </span>
                           );
                         })}
-                        {rec.sc.serendipity?.pts > 0 && (
-                          <span style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: 3, background: '#1e1e1e', color: '#888', border: '1px solid #2a2a2a' }}>
-                            ✨ Serendipity <span style={{ color: '#d4a843', fontWeight: 600 }}>{rec.sc.serendipity.pts}/20</span>
-                          </span>
-                        )}
                       </div>
 
                       {/* Expanded when selected */}
                       {isSel && (
                         <div style={{ marginTop: 8 }}>
                           {/* Why text */}
-                          <div style={{ fontSize: '0.68rem', color: '#888', lineHeight: 1.5, fontStyle: 'italic', padding: '6px 8px', background: '#1a1a1a', borderRadius: 5, borderLeft: '2px solid #d4a843', marginBottom: 8 }}>
+                          <div style={{ fontSize: '0.68rem', color: '#888', lineHeight: 1.5, fontStyle: 'italic', padding: '6px 8px', background: '#1a1a1a', borderRadius: 5, borderLeft: '2px solid #27ae60', marginBottom: 8 }}>
                             {whyText(rec.town, rec.ftype, rec.sc.total, rec.pd, rec.effective)}
                           </div>
                           <button
                             onClick={e => { e.stopPropagation(); setActiveFlatEstate(rec.town); loadFlats({ estate: rec.town }); }}
-                            style={{ width: '100%', background: '#d4a843', color: '#000', border: 'none', borderRadius: 4, padding: '5px 0', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.3px' }}
+                            style={{ width: '100%', background: '#27ae60', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 0', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.3px' }}
                           >View 10 Flats →</button>
                         </div>
                       )}
@@ -775,8 +770,8 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                   onMouseLeave={() => setHoveredFlatIdx(null)}
                   onClick={() => { setSelectedFlat({ ...flat, _idx: i }); if (flat.latitude && flyToFlatRef.current) flyToFlatRef.current(flat); }}
                   style={{
-                    background: isFlatSel ? '#1a1500' : nearBudget ? '#192419' : '#181818',
-                    border: `1px solid ${isFlatSel ? '#d4a843' : nearBudget ? '#2a4a2a' : '#242424'}`,
+                    background: isFlatSel ? '#0a1f12' : nearBudget ? '#192419' : '#181818',
+                    border: `1px solid ${isFlatSel ? '#27ae60' : nearBudget ? '#2a4a2a' : '#242424'}`,
                     borderRadius: 8, padding: '10px 12px', marginBottom: 8, cursor: 'pointer', transition: 'border-color 0.15s',
                   }}
                 >
@@ -804,7 +799,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                             </span>
                           )}
                           {isFlatSel
-                            ? <span style={{ color: '#d4a843', fontWeight: 700 }}>📍 Selected</span>
+                            ? <span style={{ color: '#27ae60', fontWeight: 700 }}>📍 Selected</span>
                             : nearBudget && <span style={{ color: '#27ae60', fontWeight: 700 }}>✓ Near budget</span>}
                         </span>
                       </div>
@@ -820,7 +815,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             <span>
               {activeFlatEstate
                 ? `${filteredFlats.length} flats · click pin for amenities`
-                : `Top 5 of ${recs.length} estates · cosine similarity`}
+                : `Top ${Math.min(recs.length, 5)} of ${recs.length} estates · cosine similarity`}
             </span>
             {latestMonth && <span>{latestMonth} · data.gov.sg</span>}
           </div>

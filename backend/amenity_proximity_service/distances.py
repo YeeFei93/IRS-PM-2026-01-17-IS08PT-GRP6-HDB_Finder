@@ -37,7 +37,14 @@ nearest_amenities(estate: str) -> dict
 
 from __future__ import annotations
 
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from amenity_proximity_service.db_connector import DbConnector
+
+# ── In-memory cache (populated on first call per estate, warm on startup) ──
+_cache: dict[str, dict] = {}
+_cache_lock = threading.Lock()
 
 # ── Amenity config ──────────────────────────────────────────────────────────
 # junction_table  : the MySQL junction table name
@@ -111,8 +118,23 @@ def _query_amenity_stats(cursor, junction_table: str, amenity_fk: str,
     }
 
 
+def _fetch_one_amenity(amenity_key: str, config: dict, estate: str) -> tuple[str, dict, dict]:
+    """Run one amenity query in its own DB connection (thread-safe)."""
+    db = DbConnector()
+    try:
+        stats = _query_amenity_stats(
+            db.cursor, config["junction_table"], config["amenity_fk"],
+            estate, config["threshold_km"]
+        )
+    finally:
+        db.Close()
+    return amenity_key, config, stats
+
+
 def nearest_amenities(estate: str) -> dict:
     """Return amenity stats for every amenity type for an estate.
+
+    Results are cached in memory so repeated lookups are O(1).
 
     Parameters
     ----------
@@ -128,17 +150,20 @@ def nearest_amenities(estate: str) -> dict:
         If no data exists for an amenity, ``dist_km`` is ``None`` and
         ``within_threshold`` is ``False``.
     """
-    db = DbConnector()
-    cursor = db.cursor
+    # Fast path: return cached result
+    if estate in _cache:
+        return _cache[estate]
+
     result: dict = {}
 
-    try:
-        for amenity_key, config in _AMENITY_CONFIG.items():
-            stats = _query_amenity_stats(
-                cursor, config["junction_table"], config["amenity_fk"],
-                estate, config["threshold_km"]
-            )
-
+    # Run all 6 amenity queries in parallel (each with its own DB connection)
+    with ThreadPoolExecutor(max_workers=len(_AMENITY_CONFIG)) as executor:
+        futures = {
+            executor.submit(_fetch_one_amenity, k, v, estate): k
+            for k, v in _AMENITY_CONFIG.items()
+        }
+        for future in as_completed(futures):
+            amenity_key, config, stats = future.result()
             dist_km = stats["min_dist"]
             if dist_km is not None:
                 walk_mins = _dist_to_walk_mins(dist_km)
@@ -158,7 +183,30 @@ def nearest_amenities(estate: str) -> dict:
                     "count_within": 0,
                     "avg_dist_km": None,
                 }
-    finally:
-        db.Close()
 
+    with _cache_lock:
+        _cache[estate] = result
     return result
+
+
+def warm_all_estates() -> None:
+    """Pre-populate the in-memory cache for every estate in the DB.
+
+    Called once in a background thread when the recommendation adapter
+    starts so the first user request gets cached results.
+    """
+    try:
+        db = DbConnector()
+        try:
+            db.cursor.execute("SELECT DISTINCT estate FROM resale_flats ORDER BY estate")
+            rows = db.cursor.fetchall()
+        finally:
+            db.Close()
+        estates = [r["estate"] if isinstance(r, dict) else r[0] for r in rows]
+        # Fetch estates in parallel to finish warm-up quickly
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = {executor.submit(nearest_amenities, e): e for e in estates}
+            for future in as_completed(futures):
+                future.result()  # surface any exceptions to logs
+    except Exception:
+        pass  # warm-up failure must never crash the adapter

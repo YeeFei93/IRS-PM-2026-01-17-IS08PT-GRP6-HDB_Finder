@@ -319,8 +319,7 @@ export default function Sidebar({
             ))}
           </div>
           <div className="text-[0.61rem] text-muted mt-1.5 leading-relaxed">
-            Selected amenities are threshold-checked against real dataset distances.<br />
-            Towns that miss a must-have enter serendipity pool only.
+            Selected amenities are threshold-checked against real dataset distances.
           </div>
         </Field>
       </SidebarSection>

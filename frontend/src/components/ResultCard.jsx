@@ -140,11 +140,7 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
               </div>
             );
           })}
-          {sc.serendipity && (
-            <div className="text-[0.62rem] px-1.5 py-0.5 rounded bg-dk3 text-muted">
-              ✨ Serendipity <span className="text-light">{sc.serendipity.pts}/20</span>
-            </div>
-          )}
+
         </div>
       </div>
 
@@ -199,20 +195,7 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
             {sc.label && <span className="ml-2 normal-case tracking-normal text-gold">{sc.label}</span>}
           </div>
           {scoreRows.map(row => <ScoreRow key={row.label} {...row} />)}
-          {/* Serendipity row */}
-          {sc.serendipity && sc.serendipity.pts > 0 && (
-            <div className="flex items-center px-3 py-1.5 gap-2.5 border-b border-dk4">
-              <div className="text-sm shrink-0 w-5 text-center">✨</div>
-              <div className="flex-1">
-                <div className="text-[0.74rem] text-light font-medium">Serendipity Bonus</div>
-                <div className="text-[0.67rem] text-muted">Bonus from {sc.inactive?.length || 0} unconfigured criteria — rewards hidden strengths</div>
-              </div>
-              <div className="text-right shrink-0">
-                <div className="font-mono text-[0.82rem] font-semibold text-gold">{sc.serendipity.pts}</div>
-                <div className="text-[0.62rem] text-muted">/20</div>
-              </div>
-            </div>
-          )}
+
           {/* Amenity header row */}
           <div className="flex items-center px-3 py-1.5 gap-2.5 border-b border-dk4">
             <div className="text-sm shrink-0 w-5 text-center">📍</div>

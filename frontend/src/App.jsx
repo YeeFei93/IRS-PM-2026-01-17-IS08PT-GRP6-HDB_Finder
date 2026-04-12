@@ -8,7 +8,7 @@ import ResultsPane from './components/ResultsPane';
 import MapView from './pages//MapView';
 import TrendsView from './pages/TrendsView';
 import { REGIONS, ALL_TOWNS, API_BASE } from './constants';
-import { calcGrants, loanCapacity, checkEligibility, checkLoanLimit, analyseRecords, computeScore } from './engine';
+import { calcGrants, loanCapacity, checkEligibility, checkLoanLimit } from './engine';
 import { fetchTown, checkBackendHealth, runSearchBackend, normaliseBackendRec } from './api';
 import MainView from './pages/MainView';
 
