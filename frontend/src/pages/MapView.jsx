@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { ALL_TOWNS, COORDS, AMENITIES } from '../constants';
-import { scoreToColor } from '../engine';
+import { scoreToColor, whyText } from '../engine';
 import { runFlatLookup, runFlatAmenities } from '../api';
 
 // Ray-casting point-in-polygon for GeoJSON ring coordinates [lng, lat]
@@ -413,7 +413,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
   return null;
 }
 
-export default function MapView({ recs, highlightedTown, formState, effectiveBudget }) {
+export default function MapView({ recs, highlightedTown, formState, effectiveBudget, derived, rawCount, latestMonth }) {
   const [drillTown, setDrillTown] = useState(null);
   const [drillFlats, setDrillFlats] = useState([]);
   const [drillLoading, setDrillLoading] = useState(false);
@@ -553,24 +553,59 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
           fontFamily: "'DM Sans', sans-serif",
         }}>
           {/* Header */}
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid #2a2a2a', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#e0e0e0' }}>
-                {activeFlatEstate
-                  ? activeFlatEstate
-                  : 'Top 5 Estates'}
+          <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid #2a2a2a' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#e0e0e0' }}>
+                  {activeFlatEstate
+                    ? activeFlatEstate
+                    : 'Top 5 Estates'}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#555', marginTop: 2 }}>
+                  {activeFlatEstate
+                    ? `${formState?.ftype || ''} · hover card to highlight · click to zoom`
+                    : `${formState?.ftype || 'Any type'} · cosine similarity · ${recs[0]?.sc?.active?.length || 0} criteria`}
+                </div>
               </div>
-              <div style={{ fontSize: '0.72rem', color: '#555', marginTop: 3 }}>
-                {activeFlatEstate
-                  ? `${formState?.ftype || ''} · hover card to highlight pin · click to zoom`
-                  : `${formState?.ftype || 'Any type'} · click estate to highlight · View Flats to drill in`}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                {!activeFlatEstate && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'rgba(22,160,133,0.1)', border: '1px solid rgba(22,160,133,0.25)', color: '#1abc9c', fontSize: '0.6rem', fontFamily: "'JetBrains Mono', monospace" }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#1abc9c' }} /> LIVE
+                  </span>
+                )}
+                {activeFlatEstate && (
+                  <button
+                    onClick={() => { setActiveFlatEstate(null); setDrillFlats([]); setSelectedFlat(null); setHoveredFlatIdx(null); }}
+                    style={{ background: 'none', border: '1px solid #554400', color: '#d4a843', cursor: 'pointer', fontSize: '0.65rem', padding: '3px 8px', borderRadius: 4, lineHeight: 1, whiteSpace: 'nowrap' }}
+                  >← Estates</button>
+                )}
               </div>
             </div>
-            {activeFlatEstate && (
-              <button
-                onClick={() => { setActiveFlatEstate(null); setDrillFlats([]); setSelectedFlat(null); setHoveredFlatIdx(null); }}
-                style={{ background: 'none', border: '1px solid #554400', color: '#d4a843', cursor: 'pointer', fontSize: '0.65rem', padding: '3px 8px', borderRadius: 4, lineHeight: 1, marginTop: 2, whiteSpace: 'nowrap' }}
-              >← Estates</button>
+
+            {/* Compact grant/budget bar */}
+            {derived?.grants && (
+              <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: '6px 8px', background: '#161616', borderRadius: 6, border: '1px solid #1e1e1e' }}>
+                {derived.grants.total > 0 && (
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.56rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Grants</div>
+                    <div style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: '#27ae60', fontWeight: 600 }}>${derived.grants.total.toLocaleString()}</div>
+                  </div>
+                )}
+                {derived.grants.total > 0 && <div style={{ width: 1, height: 20, background: '#2a2a2a' }} />}
+                <div style={{ textAlign: 'center', flex: 1 }}>
+                  <div style={{ fontSize: '0.56rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Effective Budget</div>
+                  <div style={{ fontSize: '0.8rem', fontFamily: "'JetBrains Mono', monospace", color: '#27ae60', fontWeight: 700 }}>~${effectiveBudget?.toLocaleString() || '—'}</div>
+                </div>
+                {rawCount > 0 && (
+                  <>
+                    <div style={{ width: 1, height: 20, background: '#2a2a2a' }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.56rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Transactions</div>
+                      <div style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: '#aaa', fontWeight: 600 }}>{rawCount.toLocaleString()}</div>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
 
@@ -581,6 +616,17 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             {!activeFlatEstate && recs.slice(0, 5).map((rec, i) => {
               const isSel = selectedEstate === rec.town;
               const tr = rec.pd?.trend12;
+              const scCls = rec.sc.total >= 75 ? '#27ae60' : rec.sc.total >= 55 ? '#d4a843' : '#e67e22';
+              const confCol = rec.pd.conf === 'high' ? '#55d98d' : rec.pd.conf === 'medium' ? '#e67e22' : '#ff8080';
+              const activeCrit = rec.sc.active?.length ? rec.sc.active : ['budget', 'flat', 'region', 'mrt', 'amenity'];
+              const CRIT_META = {
+                budget:  { icon: '💰', label: 'Budget',    data: rec.sc.budget },
+                flat:    { icon: '🏠', label: 'Flat',      data: rec.sc.flat },
+                region:  { icon: '🗺️', label: 'Region',    data: rec.sc.region },
+                lease:   { icon: '📅', label: 'Lease',     data: rec.sc.lease },
+                mrt:     { icon: '🚇', label: 'Transport', data: rec.sc.transport },
+                amenity: { icon: '📍', label: 'Amenity',   data: rec.sc.amenity },
+              };
               return (
                 <div key={rec.town}
                   onClick={() => setSelectedEstate(rec.town)}
@@ -592,29 +638,80 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                   onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = '#3a3a3a'; }}
                   onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor = '#2a2a2a'; }}
                 >
+                  {/* Row 1: rank + name + score */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <div style={{ minWidth: 22, height: 22, borderRadius: '50%', background: '#d4a843', color: '#000', fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#e0e0e0' }}>{rec.town}</div>
-                        <div style={{ fontSize: '0.72rem', fontFamily: "'JetBrains Mono', monospace", color: '#d4a843', fontWeight: 700 }}>{rec.sc.total}/100</div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '0.82rem', fontFamily: "'JetBrains Mono', monospace", color: scCls, fontWeight: 700 }}>{rec.sc.total}</span>
+                          <span style={{ fontSize: '0.6rem', color: '#555' }}>/100</span>
+                        </div>
                       </div>
-                      <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.67rem', color: '#666' }}>
+                      {/* Score bar */}
+                      <div style={{ height: 3, background: '#2a2a2a', borderRadius: 2, marginTop: 4, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, #c0392b, #e67e22, #f1c40f, #27ae60)`, width: `${rec.sc.total}%`, transition: 'width 0.4s' }} />
+                      </div>
+                      {/* Label + subtitle */}
+                      <div style={{ marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.62rem', color: scCls, fontWeight: 600 }}>{rec.sc.label || ''}</span>
+                        <span style={{ fontSize: '0.6rem', color: '#444' }}>{rec.pd.n} txn · {rec.pd.conf}</span>
+                      </div>
+
+                      {/* Price + stats row */}
+                      <div style={{ marginTop: 5, display: 'flex', gap: 5, flexWrap: 'wrap', fontSize: '0.65rem', color: '#666' }}>
                         <span style={{ color: '#d4a843' }}>${(rec.pd.p25/1000).toFixed(0)}k–${(rec.pd.p75/1000).toFixed(0)}k</span>
                         <span>·</span>
-                        <span>Median ${(rec.pd.median/1000).toFixed(0)}k</span>
+                        <span>${(rec.pd.median/1000).toFixed(0)}k med</span>
+                        <span>·</span>
+                        <span>${rec.pd.psm.toLocaleString()}/sqm</span>
                         {tr !== undefined && <><span>·</span><span style={{ color: tr > 0 ? '#e67e22' : '#27ae60' }}>{tr > 0 ? '▲' : '▼'}{Math.abs(tr)}%</span></>}
                       </div>
-                      <div style={{ marginTop: 3, display: 'flex', gap: 10, fontSize: '0.64rem', color: '#444' }}>
-                        <span>Budget {rec.sc.budget.pts}/20</span>
-                        <span>Amenity {rec.sc.amenity.pts}/30</span>
-                        <span>Transport {rec.sc.transport.pts}/20</span>
+
+                      {/* Criteria pills — show active as ✓ labels, show pts/max only when max > 0 */}
+                      <div style={{ marginTop: 5, display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                        {activeCrit.map(c => {
+                          const m = CRIT_META[c];
+                          if (!m?.data) return null;
+                          const pts = m.data.pts ?? 0;
+                          const max = m.data.max ?? 0;
+                          if (max > 0) {
+                            // Has real breakdown (e.g. amenity)
+                            const frac = pts / max;
+                            const col = frac >= 0.75 ? '#27ae60' : frac >= 0.5 ? '#d4a843' : '#e67e22';
+                            return (
+                              <span key={c} style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: 3, background: '#1e1e1e', color: '#888', border: '1px solid #2a2a2a' }}>
+                                {m.icon} {m.label} <span style={{ color: col, fontWeight: 600 }}>{pts}/{max}</span>
+                              </span>
+                            );
+                          }
+                          // No breakdown — just show as active criterion
+                          return (
+                            <span key={c} style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: 3, background: '#1e1e1e', color: '#555', border: '1px solid #222' }}>
+                              {m.icon} <span style={{ color: '#888' }}>{m.label}</span> <span style={{ color: '#27ae60' }}>✓</span>
+                            </span>
+                          );
+                        })}
+                        {rec.sc.serendipity?.pts > 0 && (
+                          <span style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: 3, background: '#1e1e1e', color: '#888', border: '1px solid #2a2a2a' }}>
+                            ✨ Serendipity <span style={{ color: '#d4a843', fontWeight: 600 }}>{rec.sc.serendipity.pts}/20</span>
+                          </span>
+                        )}
                       </div>
+
+                      {/* Expanded when selected */}
                       {isSel && (
-                        <button
-                          onClick={e => { e.stopPropagation(); setActiveFlatEstate(rec.town); loadFlats({ estate: rec.town }); }}
-                          style={{ marginTop: 8, width: '100%', background: '#d4a843', color: '#000', border: 'none', borderRadius: 4, padding: '5px 0', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.3px' }}
-                        >View 10 Flats →</button>
+                        <div style={{ marginTop: 8 }}>
+                          {/* Why text */}
+                          <div style={{ fontSize: '0.68rem', color: '#888', lineHeight: 1.5, fontStyle: 'italic', padding: '6px 8px', background: '#1a1a1a', borderRadius: 5, borderLeft: '2px solid #d4a843', marginBottom: 8 }}>
+                            {whyText(rec.town, rec.ftype, rec.sc.total, rec.pd, rec.effective)}
+                          </div>
+                          <button
+                            onClick={e => { e.stopPropagation(); setActiveFlatEstate(rec.town); loadFlats({ estate: rec.town }); }}
+                            style={{ width: '100%', background: '#d4a843', color: '#000', border: 'none', borderRadius: 4, padding: '5px 0', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.3px' }}
+                          >View 10 Flats →</button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -622,7 +719,36 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
               );
             })}
 
-            {/* Phase 2+3: flat cards */}
+            {/* Phase 2+3: estate scorecard at top + flat cards */}
+            {activeFlatEstate && (() => {
+              const estateRec = recs.find(r => r.town === activeFlatEstate);
+              if (!estateRec) return null;
+              const scCol = estateRec.sc.total >= 75 ? '#27ae60' : estateRec.sc.total >= 55 ? '#d4a843' : '#e67e22';
+              return (
+                <div style={{ background: '#161616', border: '1px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e0e0e0' }}>{estateRec.town}</span>
+                      <span style={{ fontSize: '0.6rem', color: scCol, fontWeight: 600 }}>{estateRec.sc.label}</span>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: scCol, fontWeight: 700 }}>{estateRec.sc.total}/100</span>
+                  </div>
+                  <div style={{ height: 2, background: '#2a2a2a', borderRadius: 1, overflow: 'hidden', marginBottom: 5 }}>
+                    <div style={{ height: '100%', background: `linear-gradient(90deg, #c0392b, #e67e22, #f1c40f, #27ae60)`, width: `${estateRec.sc.total}%` }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, fontSize: '0.6rem', color: '#666', flexWrap: 'wrap' }}>
+                    <span>Median <span style={{ color: '#aaa' }}>${(estateRec.pd.median/1000).toFixed(0)}k</span></span>
+                    <span>${estateRec.pd.psm.toLocaleString()}/sqm</span>
+                    <span>{estateRec.pd.n} txn</span>
+                    {estateRec.pd.trend12 !== undefined && (
+                      <span style={{ color: estateRec.pd.trend12 > 0 ? '#e67e22' : '#27ae60' }}>
+                        {estateRec.pd.trend12 > 0 ? '▲' : '▼'}{Math.abs(estateRec.pd.trend12)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
             {activeFlatEstate && drillLoading && (
               <div style={{ textAlign: 'center', paddingTop: 48, color: '#444', fontSize: '0.8rem' }}>Loading flats…</div>
             )}
@@ -638,6 +764,11 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
               const nearBudget = pct <= 0.05;
               const isFlatSel = selectedFlat?._idx === i;
               const col = nearBudget ? '#27ae60' : over ? '#c0392b' : '#d4a843';
+              const psm = flat.floor_area_sqm > 0 ? Math.round(flat.resale_price / flat.floor_area_sqm) : null;
+              const budgetDelta = effectiveBudget ? flat.resale_price - effectiveBudget : null;
+              const budgetPctStr = effectiveBudget ? `${over ? '+' : ''}${((flat.resale_price - effectiveBudget) / effectiveBudget * 100).toFixed(0)}%` : null;
+              // Find the estate rec for this flat to show estate-level score context
+              const estateRec = recs.find(r => r.town === activeFlatEstate);
               return (
                 <div key={i}
                   onMouseEnter={() => setHoveredFlatIdx(i)}
@@ -654,18 +785,28 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
                         <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#d0d0d0', lineHeight: 1.3 }}>Blk {flat.block} {flat.street_name}</div>
-                        <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", color: over ? '#e67e22' : '#27ae60', fontWeight: 700, whiteSpace: 'nowrap' }}>${flat.resale_price.toLocaleString()}</div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", color: over ? '#e67e22' : '#27ae60', fontWeight: 700, whiteSpace: 'nowrap' }}>${flat.resale_price.toLocaleString()}</div>
+                          {psm && <div style={{ fontSize: '0.58rem', color: '#555', fontFamily: "'JetBrains Mono', monospace" }}>${psm}/sqm</div>}
+                        </div>
                       </div>
-                      <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.67rem', color: '#555' }}>
+                      <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.65rem', color: '#555' }}>
                         <span>Floor {flat.storey_range_start}–{flat.storey_range_end}</span>
                         <span>·</span><span>{flat.floor_area_sqm} sqm</span>
                         <span>·</span><span>Lease {flat.remaining_lease_years}y{flat.remaining_lease_months > 0 ? ` ${flat.remaining_lease_months}m` : ''}</span>
                       </div>
-                      <div style={{ marginTop: 3, fontSize: '0.64rem', color: '#3a3a3a', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Sold {flat.sold_date}</span>
-                        {isFlatSel
-                          ? <span style={{ color: '#d4a843', fontWeight: 700 }}>📍 Selected</span>
-                          : nearBudget && <span style={{ color: '#27ae60', fontWeight: 700 }}>✓ Near budget</span>}
+                      <div style={{ marginTop: 3, fontSize: '0.62rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#3a3a3a' }}>Sold {flat.sold_date}</span>
+                        <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          {budgetPctStr && !nearBudget && (
+                            <span style={{ color: over ? '#e67e22' : '#27ae60', fontSize: '0.6rem', fontFamily: "'JetBrains Mono', monospace" }}>
+                              {over ? '▲' : '▼'} {budgetPctStr} budget
+                            </span>
+                          )}
+                          {isFlatSel
+                            ? <span style={{ color: '#d4a843', fontWeight: 700 }}>📍 Selected</span>
+                            : nearBudget && <span style={{ color: '#27ae60', fontWeight: 700 }}>✓ Near budget</span>}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -675,10 +816,13 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
           </div>
 
           {/* Footer */}
-          <div style={{ padding: '8px 16px', borderTop: '1px solid #242424', fontSize: '0.65rem', color: '#3a3a3a' }}>
-            {activeFlatEstate
-              ? `${drillFlats.length} flats in ${activeFlatEstate} · click pin for nearby parks`
-              : `Top 5 estates · click to highlight · View Flats to drill in`}
+          <div style={{ padding: '6px 14px', borderTop: '1px solid #242424', fontSize: '0.6rem', color: '#3a3a3a', display: 'flex', justifyContent: 'space-between' }}>
+            <span>
+              {activeFlatEstate
+                ? `${filteredFlats.length} flats · click pin for amenities`
+                : `Top 5 of ${recs.length} estates · cosine similarity`}
+            </span>
+            {latestMonth && <span>{latestMonth} · data.gov.sg</span>}
           </div>
         </div>
       )}

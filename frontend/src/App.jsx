@@ -162,7 +162,7 @@ export default function App() {
 
           {/* Map Tab */}
           {activeTab === 'map' && (
-          <MapView recs={recs} highlightedTown={highlightedTown} formState={formState} effectiveBudget={derived.effective} />
+          <MapView recs={recs} highlightedTown={highlightedTown} formState={formState} effectiveBudget={derived.effective} derived={derived} rawCount={rawCount} latestMonth={latestMonth} />
           )}
 
           {/* Trends Tab */}

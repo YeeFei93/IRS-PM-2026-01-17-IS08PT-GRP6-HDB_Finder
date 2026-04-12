@@ -52,11 +52,12 @@ export function normaliseBackendRec(r) {
       const thresh = AMENITY_THRESHOLDS[k];
       const ok = a.within_threshold ?? false;
       const mins = a.walk_mins ?? null;
+      const count = a.count_within ?? (ok ? 1 : 0);
       // pts: 6 if within threshold, 3 if within 2× threshold, else 0
       const pts = ok ? 6 : (thresh && mins !== null && mins <= thresh.maxMins * 2) ? 3 : 0;
-      amenDetail[k] = { pts, max: 6, ok, mins, name: null };
+      amenDetail[k] = { pts, max: 6, ok, mins, count, name: null };
     } else {
-      amenDetail[k] = { pts: 0, max: 6, ok: false, mins: null, name: null };
+      amenDetail[k] = { pts: 0, max: 6, ok: false, mins: null, count: 0, name: null };
     }
   }
 
