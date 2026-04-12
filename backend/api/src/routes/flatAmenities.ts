@@ -3,10 +3,10 @@ import { callPythonService } from "../redis/requestReply";
 
 const router = Router();
 
-router.post("/api/flat-parks", async (req: Request, res: Response) => {
+router.post("/api/flat-amenities", async (req: Request, res: Response) => {
   try {
     const result = await callPythonService(
-      "queue:flat_parks",
+      "queue:flat_amenities",
       req.body,
       30
     );

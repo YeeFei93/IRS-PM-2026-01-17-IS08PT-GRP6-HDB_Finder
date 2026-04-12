@@ -302,3 +302,72 @@ def get_parks_for_flat(block: str, street_name: str) -> list[dict]:
         }
         for r in rows
     ]
+
+
+def _get_amenity_for_flat(
+    block: str, street_name: str,
+    join_table: str, amenity_table: str, amenity_id_col: str,
+) -> list[dict]:
+    """
+    Generic amenity query: returns amenities near a flat via a pre-computed
+    distance join table.  Returns [] gracefully if the table does not exist yet.
+
+    Assumes amenity_table has columns: <amenity_id_col>, name, latitude, longitude.
+    Assumes join_table has columns: resale_flat_id, <amenity_id_col>, distance.
+    """
+    query = f"""
+        SELECT a.`name`,
+               a.latitude,
+               a.longitude,
+               j.distance
+        FROM resale_flats rf
+        JOIN `{join_table}` j ON j.resale_flat_id = rf.resale_flat_id
+        JOIN `{amenity_table}` a ON a.`{amenity_id_col}` = j.`{amenity_id_col}`
+        WHERE rf.block = %s AND rf.street_name = %s
+          AND a.latitude IS NOT NULL AND a.longitude IS NOT NULL
+        GROUP BY a.`{amenity_id_col}`, a.`name`, a.latitude, a.longitude, j.distance
+        ORDER BY j.distance
+    """
+    db = DbConnector()
+    try:
+        db.cursor.execute(query, (block, street_name))
+        rows = db.cursor.fetchall()
+    except Exception:
+        return []
+    finally:
+        try:
+            db.Close()
+        except Exception:
+            pass
+    return [
+        {
+            "name":      r["name"],
+            "latitude":  float(r["latitude"]),
+            "longitude": float(r["longitude"]),
+            "distance":  round(float(r["distance"]), 3),
+        }
+        for r in rows
+    ]
+
+
+def get_all_amenities_for_flat(block: str, street_name: str) -> dict:
+    """
+    Return all proximity amenity types for a flat in a single call.
+    Types not yet populated in the DB return empty lists.
+    Distance thresholds are enforced at the DB population stage; all returned
+    rows are already within threshold.
+    """
+    return {
+        "parks":     _get_amenity_for_flat(block, street_name,
+                         "resale_flats_parks",           "parks",           "park_id"),
+        "hawkers":   _get_amenity_for_flat(block, street_name,
+                         "resale_flats_hawker_centres",  "hawker_centres",  "hawker_centre_id"),
+        "mrts":      _get_amenity_for_flat(block, street_name,
+                         "resale_flats_mrt_stations",    "mrt_stations",    "mrt_station_id"),
+        "schools":   _get_amenity_for_flat(block, street_name,
+                         "resale_flats_schools",         "schools",         "school_id"),
+        "malls":     _get_amenity_for_flat(block, street_name,
+                         "resale_flats_malls",           "malls",           "mall_id"),
+        "hospitals": _get_amenity_for_flat(block, street_name,
+                         "resale_flats_hospitals",       "public_hospitals", "hospital_id"),
+    }

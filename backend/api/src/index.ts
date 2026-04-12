@@ -17,7 +17,7 @@ import { connectRedis } from "./redis/client";
 import eligibilityRoute from "./routes/eligibility";
 import recommendationRoute from "./routes/recommendation";
 import flatLookupRoute from "./routes/flatLookup";
-import flatParksRoute from "./routes/flatParks";
+import flatAmenitiesRoute from "./routes/flatAmenities";
 import { startAdapters } from "./startAdapters";
 
 async function startServer() {
@@ -31,7 +31,7 @@ async function startServer() {
   app.use(eligibilityRoute);
   app.use(recommendationRoute);
   app.use(flatLookupRoute);
-  app.use(flatParksRoute);
+  app.use(flatAmenitiesRoute);
 
   const port = Number(process.env.PORT || 3000);
 

@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { ALL_TOWNS, COORDS, AMENITIES } from '../constants';
 import { scoreToColor } from '../engine';
-import { runFlatLookup, runFlatParks } from '../api';
+import { runFlatLookup, runFlatAmenities } from '../api';
 
 // Ray-casting point-in-polygon for GeoJSON ring coordinates [lng, lat]
 function pointInPolygon(lat, lng, ring) {
@@ -35,7 +35,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
   const amenityMarkersRef = useRef([]);
   const flatMarkersRef = useRef([]);
   const estateMarkersRef = useRef([]);  // numbered gold markers for top-5 estates
-  const parkMarkersRef = useRef([]);  // park markers for the selected flat
+  const amenityMarkersPhase3Ref = useRef([]);  // park markers for the selected flat
   const geoDataRef = useRef(null);    // cached GeoJSON
   const drillFlatsRef = useRef([]);   // always-current drillFlats for use inside renderGeo
   const activeFlatEstateRef = useRef(null);
@@ -57,32 +57,53 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
   const recsRef = useRef(recs);
   useEffect(() => { recsRef.current = recs; }, [recs]);
 
-  const clearParkMarkers = useCallback(() => {
-    parkMarkersRef.current.forEach(m => map.removeLayer(m));
-    parkMarkersRef.current = [];
+  const clearFlatAmenityMarkers = useCallback(() => {
+    amenityMarkersPhase3Ref.current.forEach(m => map.removeLayer(m));
+    amenityMarkersPhase3Ref.current = [];
   }, [map]);
 
-  const showParkMarkers = useCallback((parks, flatLat, flatLng) => {
-    clearParkMarkers();
-    parks.forEach(park => {
-      const icon = L.divIcon({
-        html: `<div style="background:#27ae60;color:#fff;border-radius:8px;padding:3px 7px;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:600;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);white-space:nowrap">🌳 ${park.park_name} · ${park.distance.toFixed(2)}km</div>`,
-        className: '', iconAnchor: [0, 0],
+  // Config for each amenity type shown in Phase 3
+  const FLAT_AMENITY_CFG = {
+    parks:     { color: '#27ae60', emoji: '🌳', label: 'Park',      threshold: '1km' },
+    hawkers:   { color: '#e67e22', emoji: '🍜', label: 'Hawker',    threshold: '1km' },
+    mrts:      { color: '#3498db', emoji: '🚇', label: 'MRT',       threshold: '1km' },
+    schools:   { color: '#9b59b6', emoji: '📚', label: 'School',    threshold: '1km' },
+    malls:     { color: '#f39c12', emoji: '🛍️', label: 'Mall',      threshold: '1.5km' },
+    hospitals: { color: '#e74c3c', emoji: '🏥', label: 'Hospital',  threshold: '3km' },
+  };
+
+  const showFlatAmenityMarkers = useCallback((amenities, flatLat, flatLng) => {
+    clearFlatAmenityMarkers();
+    // amenities may be the old { parks: [...] } shape or a flat array (legacy)
+    const byType = Array.isArray(amenities)
+      ? { parks: amenities }
+      : amenities;
+
+    Object.entries(byType).forEach(([type, items]) => {
+      if (!items?.length) return;
+      const cfg = FLAT_AMENITY_CFG[type] || { color: '#888', emoji: '📍', label: type };
+      items.forEach(item => {
+        // support legacy park_name key
+        const name = item.name || item.park_name || '';
+        const icon = L.divIcon({
+          html: `<div style="background:${cfg.color};color:#fff;border-radius:8px;padding:3px 7px;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:600;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);white-space:nowrap">${cfg.emoji} ${name} · ${item.distance.toFixed(2)}km</div>`,
+          className: '', iconAnchor: [0, 0],
+        });
+        const m = L.marker([item.latitude, item.longitude], { icon }).addTo(map);
+        const line = L.polyline(
+          [[flatLat, flatLng], [item.latitude, item.longitude]],
+          { color: cfg.color, weight: 1.5, dashArray: '4 4', opacity: 0.6 }
+        ).addTo(map);
+        amenityMarkersPhase3Ref.current.push(m, line);
       });
-      const m = L.marker([park.latitude, park.longitude], { icon }).addTo(map);
-      const line = L.polyline(
-        [[flatLat, flatLng], [park.latitude, park.longitude]],
-        { color: '#27ae60', weight: 1.5, dashArray: '4 4', opacity: 0.6 }
-      ).addTo(map);
-      parkMarkersRef.current.push(m, line);
     });
-  }, [map, clearParkMarkers]);
+  }, [map, clearFlatAmenityMarkers]);
 
   // Expose showParkMarkers and clearParkMarkers for external use
-  const showParkMarkersRef = useRef(showParkMarkers);
-  const clearParkMarkersRef = useRef(clearParkMarkers);
-  useEffect(() => { showParkMarkersRef.current = showParkMarkers; }, [showParkMarkers]);
-  useEffect(() => { clearParkMarkersRef.current = clearParkMarkers; }, [clearParkMarkers]);
+  const showAmenityMarkersRef = useRef(showFlatAmenityMarkers);
+  const clearAmenityMarkersRef = useRef(clearFlatAmenityMarkers);
+  useEffect(() => { showAmenityMarkersRef.current = showFlatAmenityMarkers; }, [showFlatAmenityMarkers]);
+  useEffect(() => { clearAmenityMarkersRef.current = clearFlatAmenityMarkers; }, [clearFlatAmenityMarkers]);
 
   const flyToFlat = useCallback((flat) => {
     if (!flat.latitude || !flat.longitude) return;
@@ -94,11 +115,14 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
       [[flat.latitude - pad, flat.longitude - pad], [flat.latitude + pad, flat.longitude + pad]],
       { paddingBottomRight: [340, 40], paddingTopLeft: [40, 40], maxZoom: zoom, animate: true, duration: 0.7 }
     );
-    clearParkMarkersRef.current();
-    runFlatParks(flat.block, flat.street_name)
+    clearAmenityMarkersRef.current();
+    runFlatAmenities(flat.block, flat.street_name)
       .then(res => {
         const data = res.result ?? res;
-        if (data.parks?.length) showParkMarkersRef.current(data.parks, flat.latitude, flat.longitude);
+        // data contains { parks, hawkers, mrts, schools, malls, hospitals }
+        const { block: _b, street_name: _s, ...amenities } = data;
+        const hasAny = Object.values(amenities).some(arr => arr?.length);
+        if (hasAny) showAmenityMarkersRef.current(amenities, flat.latitude, flat.longitude);
       })
       .catch(() => {});
   }, [map]);
@@ -301,7 +325,8 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     flatMarkersRef.current.forEach(m => map.removeLayer(m));
     flatMarkersRef.current = [];
     flatListRef.current = [];
-    clearParkMarkers();
+    clearAmenityMarkers();
+    clearFlatAmenityMarkers();
 
     if (!activeFlatEstate) { onFilteredFlats?.([]); return; }
     const flats = drillFlats.filter(f => f.latitude && f.longitude);
@@ -335,7 +360,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     } else {
       map.setView([flats[0].latitude, flats[0].longitude], 15);
     }
-  }, [activeFlatEstate, drillFlats, effectiveBudget, map, clearParkMarkers, flyToFlat, makeFlatIcon, onFilteredFlats]);
+  }, [activeFlatEstate, drillFlats, effectiveBudget, map, clearAmenityMarkers, clearFlatAmenityMarkers, flyToFlat, makeFlatIcon, onFilteredFlats]);
 
   // Phase 3: update flat marker icons on hover/selection without recreating them
   useEffect(() => {

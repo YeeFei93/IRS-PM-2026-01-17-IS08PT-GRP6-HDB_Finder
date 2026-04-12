@@ -101,8 +101,8 @@ export async function runFlatLookup(payload) {
   return r.json();
 }
 
-export async function runFlatParks(block, streetName) {
-  const r = await fetch(`${API_BASE}/api/flat-parks`, {
+export async function runFlatAmenities(block, streetName) {
+  const r = await fetch(`${API_BASE}/api/flat-amenities`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ block, street_name: streetName }),
