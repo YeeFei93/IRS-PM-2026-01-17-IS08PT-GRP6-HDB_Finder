@@ -9,7 +9,7 @@ Threshold-aware scoring:
   Must-have amenities that exceed their threshold are penalised.
 
 Thresholds (matching front-end panel labels):
-  MRT      ≤ 500m  (~6 min walk)
+  MRT      ≤ 1km   (~15 min walk)
   Hawker   ≤ 1km   (~15 min walk)
   Pri Sch  ≤ 1km   (~15 min walk)
   Park     ≤ 1km   (~15 min walk)

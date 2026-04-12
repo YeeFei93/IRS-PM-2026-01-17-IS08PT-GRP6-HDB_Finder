@@ -332,7 +332,7 @@ export default function Sidebar({
           disabled={isSearching || !eligibility?.eligible}
           className="w-full py-3 bg-gradient-to-br from-red to-gold border-none rounded-[7px] text-white font-sans text-[0.9rem] font-semibold cursor-pointer tracking-wide transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          🔍 Find My HDB Estate
+          🔍 Find My HDB Flat
         </button>
         <p className="text-center text-[0.64rem] text-dk4 mt-2 leading-relaxed">
           Live data · data.gov.sg HDB Resale Dataset<br />

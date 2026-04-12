@@ -101,6 +101,16 @@ export async function runFlatLookup(payload) {
   return r.json();
 }
 
+export async function runFlatParks(block, streetName) {
+  const r = await fetch(`${API_BASE}/api/flat-parks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ block, street_name: streetName }),
+  });
+  if (!r.ok) throw new Error(`Flat parks ${r.status}`);
+  return r.json();
+}
+
 // ── data.gov.sg fallback API ──
 
 async function apiCall(town, ftype, limit = 500, offset = 0) {

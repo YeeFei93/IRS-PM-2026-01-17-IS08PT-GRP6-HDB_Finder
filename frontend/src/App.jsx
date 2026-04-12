@@ -64,7 +64,7 @@ export default function App() {
     }
 
     setPhase('loading');
-    setActiveTab('results');
+    setActiveTab('map');
     const steps = [
       'Connecting to data.gov.sg…',
       'Fetching resale transactions…',
