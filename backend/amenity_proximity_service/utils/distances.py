@@ -40,7 +40,7 @@ from __future__ import annotations
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from amenity_proximity_service.db_connector import DbConnector
+from amenity_proximity_service.utils.db_connector import DbConnector
 
 # ── In-memory cache (populated on first call per estate, warm on startup) ──
 _cache: dict[str, dict] = {}

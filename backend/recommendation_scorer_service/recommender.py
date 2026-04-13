@@ -36,7 +36,7 @@ from budget_estimator_service.grants import calc_all_grants
 from budget_estimator_service.prices import analyse_town_prices
 from budget_estimator_service.effective_budget import effective_budget
 from estate_finder_service.queries import get_all_towns
-from amenity_proximity_service.distances import nearest_amenities, warm_all_estates
+from amenity_proximity_service.utils.distances import nearest_amenities, warm_all_estates
 from scorer import score_payload  # bare import — service dir is on sys.path above
 
 # Pre-warm the amenity cache in the background the moment this module loads
