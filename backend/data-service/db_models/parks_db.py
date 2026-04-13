@@ -17,6 +17,11 @@ class ParksDB:
         column_names = dbc.GetColumnNames(self.table_name)
         processed_count = 0
         for item in self.GetRawData()["features"]:  
+            park_name = item["properties"]["NAME"]
+
+            if "PLAYGROUND" in park_name:
+                continue
+            
             item[ID.PARK_NAME] = item["properties"]["NAME"]
             item[KEY_NAME.LATITUDE] = item["geometry"]["coordinates"][1]
             item[KEY_NAME.LONGITUDE] = item["geometry"]["coordinates"][0]
