@@ -7,23 +7,22 @@ Run:  python test_scorer.py
 
 import unittest
 
-from vectorizer import buyer_vector, flat_vector, FLAT_TYPE_ORD, AMENITY_DIMS
+from vectorizer import buyer_vector, flat_vector, AMENITY_DIMS
 from cosine_scorer import score_cb, ACTIVE_WEIGHT, INACTIVE_WEIGHT
 from weights import (
     CRITERION_BUDGET, CRITERION_FLAT, CRITERION_REGION,
-    CRITERION_LEASE, CRITERION_MRT, CRITERION_AMENITY,
+    CRITERION_AMENITY,
     DEFAULTS,
 )
 
 # ── Sample data ──────────────────────────────────────────────────────────────
 
-# Buyer who wants a 4-room flat in the north, close MRT, hawker must-have
+# Buyer who wants a 4-room flat in the north, hawker must-have
 PROFILE_ACTIVE = {
     "ftype":        "4 ROOM",
     "regions":      ["north"],
     "floor":        "mid",
     "min_lease":    70,          # > 60 → lease criterion active
-    "max_mrt_mins": 10,          # < 30 → mrt criterion active
     "must_have":    ["hawker"],
 }
 
@@ -33,7 +32,6 @@ PROFILE_DEFAULT = {
     "regions":      [],
     "floor":        "any",
     "min_lease":    20,
-    "max_mrt_mins": 30,
     "must_have":    [],
 }
 
@@ -96,10 +94,6 @@ def _active(profile, budget=0, must_have=None, regions=None):
         active.append(CRITERION_FLAT)
     if regions:
         active.append(CRITERION_REGION)
-    if profile.get("min_lease", DEFAULTS[CRITERION_LEASE]) > DEFAULTS[CRITERION_LEASE]:
-        active.append(CRITERION_LEASE)
-    if profile.get("max_mrt_mins", DEFAULTS[CRITERION_MRT]) < DEFAULTS[CRITERION_MRT]:
-        active.append(CRITERION_MRT)
     if must_have:
         active.append(CRITERION_AMENITY)
     return active
@@ -111,7 +105,7 @@ class TestBuyerVector(unittest.TestCase):
 
     def test_length(self):
         vec = buyer_vector(PROFILE_ACTIVE)
-        self.assertEqual(len(vec), 10)
+        self.assertEqual(len(vec), 7)
 
     def test_all_in_range(self):
         for profile in [PROFILE_ACTIVE, PROFILE_DEFAULT]:
@@ -120,141 +114,60 @@ class TestBuyerVector(unittest.TestCase):
                 self.assertGreaterEqual(v, 0.0, f"dim {i} < 0")
                 self.assertLessEqual(v, 1.0,    f"dim {i} > 1")
 
-    def test_flat_type_encoding(self):
-        vec = buyer_vector({"ftype": "4 ROOM"})
-        self.assertAlmostEqual(vec[0], FLAT_TYPE_ORD["4 ROOM"])
-
-    def test_flat_type_all_keys(self):
-        for ftype in ["1 ROOM", "2 ROOM", "3 ROOM", "4 ROOM", "5 ROOM", "EXECUTIVE", "MULTI-GENERATION"]:
-            vec = buyer_vector({"ftype": ftype})
-            self.assertAlmostEqual(vec[0], FLAT_TYPE_ORD[ftype], msg=ftype)
-
-    def test_flat_type_ordering(self):
-        # Each successive type must have a strictly higher ordinal
-        types = ["1 ROOM", "2 ROOM", "3 ROOM", "4 ROOM", "5 ROOM", "EXECUTIVE", "MULTI-GENERATION"]
-        vals = [FLAT_TYPE_ORD[t] for t in types]
-        for i in range(len(vals) - 1):
-            self.assertLess(vals[i], vals[i+1], f"{types[i]} should be < {types[i+1]}")
-
-    def test_flat_type_any_is_midpoint(self):
-        # "any" and unknown types → 4/7 (true midpoint of 7-type ordinal scale)
-        vec = buyer_vector({"ftype": "any"})
-        self.assertAlmostEqual(vec[0], round(4/7, 4))
-
-    def test_region_single(self):
-        # any region selected → 1.0 (binary active)
-        vec = buyer_vector({"regions": ["north"]})
-        self.assertAlmostEqual(vec[1], 1.0)
-
-    def test_region_multiple_averages(self):
-        # multiple regions still → 1.0 (any preference stated)
-        vec = buyer_vector({"regions": ["north", "east"]})
-        self.assertAlmostEqual(vec[1], 1.0)
-
-    def test_region_empty_is_midpoint(self):
-        vec = buyer_vector({"regions": []})
-        self.assertAlmostEqual(vec[1], 0.5)
-
-    def test_mrt_default_is_zero(self):
-        # max_mrt_mins=30 → 1 - 30/30 = 0.0 (slider ceiling = inactive)
-        vec = buyer_vector({"max_mrt_mins": 30})
-        self.assertAlmostEqual(vec[4], 0.0)
-
-    def test_mrt_close_preference(self):
-        # max_mrt_mins=6 → 1 - 6/30 = 0.8  (normalised against 30-min ceiling)
-        vec = buyer_vector({"max_mrt_mins": 6})
-        self.assertAlmostEqual(vec[4], round(1.0 - 6/30, 4), places=3)
-
-    def test_mrt_very_close_preference(self):
-        # max_mrt_mins=3 → 1 - 3/30 = 0.9
-        vec = buyer_vector({"max_mrt_mins": 3})
-        self.assertAlmostEqual(vec[4], round(1.0 - 3/30, 4), places=3)
-
-    def test_mrt_mid_range_nonzero(self):
-        # Bug regression: max_mrt_mins=15 must give > 0, not 0.0
-        # Old formula: walk_km=1.25 → 1-1.25/1.0 < 0 → clipped to 0 (wrong)
-        # New formula: 1 - 15/30 = 0.5
-        vec = buyer_vector({"max_mrt_mins": 15})
-        self.assertGreater(vec[4], 0.0, "active MRT preference must give positive buyer dim")
-        self.assertAlmostEqual(vec[4], round(1.0 - 15/30, 4), places=3)
+    def test_floor_pref_encoding(self):
+        for floor, expected in [("low", 0.33), ("mid", 0.66), ("high", 1.0), ("any", 0.5)]:
+            vec = buyer_vector({"floor": floor})
+            self.assertAlmostEqual(vec[0], expected, places=2, msg=floor)
 
     def test_amenity_flags(self):
         vec = buyer_vector({"must_have": ["hawker", "park"]})
-        # AMENITY_DIMS = ["hawker","mall","park","school","hospital"] → dims 5-9
-        self.assertEqual(vec[5], 1.0)   # hawker — must-have
-        self.assertEqual(vec[6], 0.5)   # mall — no preference (neutral)
-        self.assertEqual(vec[7], 1.0)   # park — must-have
-        self.assertEqual(vec[8], 0.5)   # school — no preference
-        self.assertEqual(vec[9], 0.5)   # hospital — no preference
+        # AMENITY_DIMS = ["mrt","hawker","mall","park","school","hospital"] → dims 1-6
+        self.assertEqual(vec[1], 0.5)   # mrt — no preference (neutral)
+        self.assertEqual(vec[2], 1.0)   # hawker — must-have
+        self.assertEqual(vec[3], 0.5)   # mall — no preference (neutral)
+        self.assertEqual(vec[4], 1.0)   # park — must-have
+        self.assertEqual(vec[5], 0.5)   # school — no preference
+        self.assertEqual(vec[6], 0.5)   # hospital — no preference
 
-    def test_min_lease_encoding(self):
-        vec = buyer_vector({"min_lease": 99})
-        self.assertAlmostEqual(vec[3], 1.0, places=3)
-        vec2 = buyer_vector({"min_lease": 20})
-        self.assertAlmostEqual(vec2[3], 20/99, places=3)
 
 
 class TestFlatVector(unittest.TestCase):
 
     def test_length(self):
-        vec = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
-        self.assertEqual(len(vec), 10)
+        vec = flat_vector(PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
+        self.assertEqual(len(vec), 7)
 
     def test_all_in_range(self):
-        vec = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
+        vec = flat_vector(PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
         for i, v in enumerate(vec):
             self.assertGreaterEqual(v, 0.0, f"dim {i} < 0")
             self.assertLessEqual(v, 1.0,    f"dim {i} > 1")
 
-    def test_region_match_scores_one(self):
-        vec = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_GOOD, buyer_regions=["north"])
-        self.assertAlmostEqual(vec[1], 1.0)   # north flat, buyer wants north → match
-
-    def test_region_no_match_scores_zero(self):
-        vec = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_GOOD, buyer_regions=["central"])
-        self.assertAlmostEqual(vec[1], 0.0)   # north flat, buyer wants central → no match
-
-    def test_region_multi_buyer_match(self):
-        # Woodlands is north — should match when buyer selects north+east
-        vec = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_GOOD, buyer_regions=["north", "east"])
-        self.assertAlmostEqual(vec[1], 1.0)
-
-    def test_region_no_buyer_preference_is_midpoint(self):
-        # No buyer regions → all flats neutral 0.5
-        for town, pd in [("WOODLANDS", PRICE_DATA_WOODLANDS), ("BUKIT MERAH", PRICE_DATA_BUKIT_MERAH)]:
-            vec = flat_vector(town, pd, AMENITIES_GOOD, buyer_regions=[])
-            self.assertAlmostEqual(vec[1], 0.5, msg=town)
-
-    def test_unknown_town_no_buyer_preference_is_midpoint(self):
-        vec = flat_vector("UNKNOWN TOWN", PRICE_DATA_WOODLANDS, AMENITIES_GOOD, buyer_regions=[])
-        self.assertAlmostEqual(vec[1], 0.5)
-
-    def test_nearby_mrt_dim4(self):
-        # dist_km=0.30, max=1.0 → score=0.70
-        vec = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
-        self.assertAlmostEqual(vec[4], 0.70, places=3)
+    def test_nearby_mrt_dim1(self):
+        # dist_km=0.30, max_km=1.0, fallback proximity: 1 - 0.30/1.0 = 0.70
+        vec = flat_vector(PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
+        self.assertAlmostEqual(vec[1], 0.70, places=3)
 
     def test_poor_amenities_score_zero(self):
-        vec = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_POOR)
+        vec = flat_vector(PRICE_DATA_WOODLANDS, AMENITIES_POOR)
         # All amenities beyond max_km → all scores 0.0
-        for dim in range(4, 10):
+        for dim in range(1, 7):
             self.assertAlmostEqual(vec[dim], 0.0, places=3, msg=f"dim {dim}")
 
     def test_missing_amenity_key_scores_neutral(self):
-        vec = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_SPARSE)
-        self.assertEqual(vec[5], 0.5)   # hawker has no dist_km → neutral
-        self.assertEqual(vec[6], 0.5)   # mall missing entirely → neutral
-        self.assertEqual(vec[9], 0.5)   # hospital missing entirely → neutral
+        vec = flat_vector(PRICE_DATA_WOODLANDS, AMENITIES_SPARSE)
+        self.assertEqual(vec[2], 0.5)   # hawker has no dist_km → neutral
+        self.assertEqual(vec[3], 0.5)   # mall missing entirely → neutral
+        self.assertEqual(vec[6], 0.5)   # hospital missing entirely → neutral
 
-    def test_dim4_is_mrt_not_hawker(self):
-        # Regression: before fix, loop started at dim 4 with AMENITY_DIMS (no MRT)
-        # causing hawker at dim 4, mall at dim 5, etc.
+    def test_dim1_is_mrt_not_hawker(self):
+        # Regression: verify amenity dimension order is correct
         amenities = {
-            "mrt":    {"dist_km": 0.10, "walk_mins": 1.2},   # should be dim 4, score≈0.9
-            "hawker": {"dist_km": 0.90, "walk_mins": 10.8},  # should be dim 5, score≈0.1
+            "mrt":    {"dist_km": 0.10, "walk_mins": 1.2},   # should be dim 1, score≈0.9
+            "hawker": {"dist_km": 0.90, "walk_mins": 10.8},  # should be dim 2, score≈0.1
         }
-        vec = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, amenities)
-        self.assertGreater(vec[4], vec[5], "dim 4 (mrt, close) should outscore dim 5 (hawker, far)")
+        vec = flat_vector(PRICE_DATA_WOODLANDS, amenities)
+        self.assertGreater(vec[1], vec[2], "dim 1 (mrt, close) should outscore dim 2 (hawker, far)")
 
 
 class TestDetectActiveCriteria(unittest.TestCase):
@@ -279,22 +192,6 @@ class TestDetectActiveCriteria(unittest.TestCase):
         active = _active({"regions": ["north"]})
         self.assertIn(CRITERION_REGION, active)
 
-    def test_lease_above_60_activates(self):
-        active = _active({"min_lease": 70})
-        self.assertIn(CRITERION_LEASE, active)
-
-    def test_lease_at_60_does_not_activate(self):
-        active = _active({"min_lease": 60})
-        self.assertNotIn(CRITERION_LEASE, active)
-
-    def test_mrt_below_30_activates(self):
-        active = _active({"max_mrt_mins": 10})
-        self.assertIn(CRITERION_MRT, active)
-
-    def test_mrt_at_30_does_not_activate(self):
-        active = _active({"max_mrt_mins": 30})
-        self.assertNotIn(CRITERION_MRT, active)
-
     def test_must_have_activates_amenity(self):
         active = _active({"must_have": ["hawker"]})
         self.assertIn(CRITERION_AMENITY, active)
@@ -304,9 +201,31 @@ class TestDetectActiveCriteria(unittest.TestCase):
         self.assertIn(CRITERION_BUDGET,  active)
         self.assertIn(CRITERION_FLAT,    active)
         self.assertIn(CRITERION_REGION,  active)
-        self.assertIn(CRITERION_LEASE,   active)
-        self.assertIn(CRITERION_MRT,     active)
         self.assertIn(CRITERION_AMENITY, active)
+
+
+class TestWeightMapping(unittest.TestCase):
+    """Verify _DIM_CRITERION maps each 7-dim vector slot to the correct criterion."""
+
+    def test_dim_criterion_length_matches_vector(self):
+        from cosine_scorer import _DIM_CRITERION
+        self.assertEqual(len(_DIM_CRITERION), 7,
+                         "_DIM_CRITERION must have exactly 7 entries (one per vector dim)")
+
+    def test_amenity_dims_use_amenity_criterion(self):
+        """Dims 1-6 (all amenity slots) must map to CRITERION_AMENITY."""
+        from cosine_scorer import _DIM_CRITERION
+        for dim in range(1, 7):
+            self.assertEqual(_DIM_CRITERION[dim], CRITERION_AMENITY,
+                             f"dim {dim} should be CRITERION_AMENITY, got {_DIM_CRITERION[dim]}")
+
+    def test_mrt_weight_follows_amenity_not_region(self):
+        """Regression: MRT dim (1) must get ACTIVE_WEIGHT when CRITERION_AMENITY
+        is active, regardless of whether CRITERION_REGION is active."""
+        from cosine_scorer import _build_weight_vector
+        w = _build_weight_vector([CRITERION_AMENITY])
+        self.assertEqual(w[1], ACTIVE_WEIGHT,
+                         "MRT dim should be weighted by amenity, not region")
 
 
 class TestScoreCb(unittest.TestCase):
@@ -319,7 +238,7 @@ class TestScoreCb(unittest.TestCase):
 
     def test_score_in_range(self):
         b_vec = buyer_vector(PROFILE_ACTIVE)
-        f_vec = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
+        f_vec = flat_vector(PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
         active = _active(PROFILE_ACTIVE, budget=600000)
         score = score_cb(b_vec, f_vec, active)
         self.assertGreaterEqual(score, 0.0)
@@ -328,32 +247,22 @@ class TestScoreCb(unittest.TestCase):
     def test_good_amenities_beats_poor(self):
         b_vec = buyer_vector(PROFILE_ACTIVE)
         active = _active(PROFILE_ACTIVE, budget=600000)
-        f_good = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
-        f_poor = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_POOR)
+        f_good = flat_vector(PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
+        f_poor = flat_vector(PRICE_DATA_WOODLANDS, AMENITIES_POOR)
         self.assertGreater(score_cb(b_vec, f_good, active),
                            score_cb(b_vec, f_poor, active))
-
-    def test_matching_region_beats_mismatched(self):
-        # Buyer prefers north → Woodlands (north=match) should outscore Bukit Merah (central=no match)
-        buyer_regions = ["north"]
-        b_vec     = buyer_vector({"regions": buyer_regions})
-        active    = _active({"regions": buyer_regions})
-        f_north   = flat_vector("WOODLANDS",   PRICE_DATA_WOODLANDS,   AMENITIES_GOOD, buyer_regions=buyer_regions)
-        f_central = flat_vector("BUKIT MERAH", PRICE_DATA_BUKIT_MERAH, AMENITIES_GOOD, buyer_regions=buyer_regions)
-        self.assertGreater(score_cb(b_vec, f_north, active),
-                           score_cb(b_vec, f_central, active))
 
     def test_no_active_criteria_still_returns_score(self):
         # With all defaults, all dims weighted 0.25 — score still valid
         b_vec  = buyer_vector(PROFILE_DEFAULT)
-        f_vec  = flat_vector("WOODLANDS", PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
+        f_vec  = flat_vector(PRICE_DATA_WOODLANDS, AMENITIES_GOOD)
         active = []
         score  = score_cb(b_vec, f_vec, active)
         self.assertGreaterEqual(score, 0.0)
         self.assertLessEqual(score, 1.0)
 
     def test_zero_vector_returns_zero(self):
-        zero = [0.0] * 10
+        zero = [0.0] * 7
         score = score_cb(zero, zero, [CRITERION_FLAT])
         self.assertAlmostEqual(score, 0.0)
 
@@ -379,8 +288,6 @@ class TestScorePayload(unittest.TestCase):
         self.assertIn("active_criteria", out)
         self.assertGreaterEqual(out["score"], 0.0)
         self.assertLessEqual(out["score"], 1.0)
-        self.assertIn(CRITERION_MRT,    out["active_criteria"])
-        self.assertIn(CRITERION_LEASE,  out["active_criteria"])
         self.assertIn(CRITERION_AMENITY, out["active_criteria"])
 
     def test_full_pipeline_default_buyer(self):

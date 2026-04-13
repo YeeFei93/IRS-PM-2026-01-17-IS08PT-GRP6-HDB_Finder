@@ -16,7 +16,6 @@ export async function runSearchBackend(payload) {
     regions:      payload.selRegions   ?? payload.regions      ?? [],
     income:       payload.inc          ?? payload.income        ?? 0,
     must_have:    payload.mustAmenities ?? payload.must_have    ?? [],
-    max_mrt_mins: payload.mrtMax       ?? payload.max_mrt_mins  ?? 30,
     min_lease:    payload.lease        ?? payload.min_lease      ?? 60,
   };
   const r = await fetch(`${API_BASE}/api/top-recommendations`, {
@@ -36,6 +35,7 @@ export function normaliseBackendRec(r) {
     p25:     priceData.p25       ?? 0,
     p75:     priceData.p75       ?? 0,
     avgArea: priceData.avg_area  ?? 0,
+    avgLease: priceData.avg_lease_years ?? null,
     psm:     priceData.psm       ?? 0,
     trend12: priceData.trend_pct ?? 0,
     mom:     0,
