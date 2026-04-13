@@ -1,7 +1,7 @@
 from db_models.resale_flats_db import ResaleFlatsDB
-from db_connector import DbConnector
-from geolocation_converter import GeolocationConverter
-from env import KEY_NAME
+from utils.db_connector import DbConnector
+from utils.geolocation_converter import GeolocationConverter
+from env import ID, KEY_NAME
 import threading
 import math
 
@@ -21,7 +21,7 @@ def UpdateGeolocations(data):
     def UpdateGeolocationBatch(data):
         new_data = []
         for item in data:
-            geolocation = GeolocationConverter().GetGeolocation(item[KEY_NAME.BLOCK], item[KEY_NAME.STREET_NAME])
+            geolocation = GeolocationConverter().GetGeolocation(item[ID.BLOCK], item[ID.STREET_NAME])
             for k in geolocation:
                 item[k] = geolocation[k]
             
