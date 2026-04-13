@@ -1,8 +1,10 @@
 import math
+import json
 from time import sleep
 
-import requests
 from typing import Any, Dict, Optional
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 ONEMAP_SEARCH_URL = "https://www.onemap.gov.sg/api/common/elastic/search"
 
@@ -21,36 +23,34 @@ class GeolocationConverter:
             "getAddrDetails": "Y",
             "pageNum": 1
         }
+        request_url = f"{ONEMAP_SEARCH_URL}?{urlencode(params)}"
 
         def fetch_data():
-            resp = requests.get(ONEMAP_SEARCH_URL, params=params, timeout=timeout)
-            if resp.status_code != 200:
-                print(f"Retrying block {block} street_name {street_name}...")
-                sleep(0.5)
-                fetch_data()
+            while True:
+                try:
+                    with urlopen(request_url, timeout=timeout) as resp:
+                        status_code = getattr(resp, "status", 200)
+                        if status_code != 200:
+                            raise ValueError(f"Unexpected status code: {status_code}")
 
-            if not resp.text.strip():
-                print(f"Retrying block {block} street_name {street_name}...")
-                sleep(0.5)
-                fetch_data()
+                        payload = resp.read().decode("utf-8").strip()
+                        if not payload:
+                            raise ValueError("Empty response body")
 
-            content_type = resp.headers.get("Content-Type", "")
-            if "application/json" not in content_type:
-                print(f"Retrying block {block} street_name {street_name}...")
-                sleep(0.5)
-                fetch_data()
-            
-            data = resp.json()
-            results = data.get("results", [])
-            if not results:
-                print(f"No geocoding result found for address: {search_val}")
-            return results
+                    data = json.loads(payload)
+                    results = data.get("results", [])
+                    if not results:
+                        print(f"No geocoding result found for address: {search_val}")
+                    return results
+                except Exception:
+                    print(f"Retrying block {block} street_name {street_name}...")
+                    sleep(0.5)
         try:
             data = fetch_data()
-        except Exception as e:
+        except Exception:
             print(f"Retrying block {block} street_name {street_name}...")
             sleep(0.5)
-            fetch_data()
+            data = fetch_data()
 
         def to_feature(r: Dict[str, Any]) -> Dict[str, Any]:
             longitude = float(r["LONGITUDE"])

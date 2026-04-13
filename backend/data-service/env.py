@@ -8,6 +8,7 @@ class TABLE_NAME:
     PARKS = "parks"
     RESALE_FLATS = "resale_flats"
     RESALE_FLATS_GEOLOCATION = "resale_flats_geolocation"
+    SCHOOLS = "schools"
     SHOPPING_MALLS = "shopping_malls"
 
 class ID:
@@ -15,6 +16,7 @@ class ID:
     HAWKER_CENTRE_NAME = "hawker_centre_name"
     PARK_NAME = "park_name"
     RESALE_FLAT_ID = "resale_flat_id"
+    SCHOOL_NAME = "school_name"
     SHOPPING_MALL_NAME = "shopping_mall_name"
     STREET_NAME = "street_name"
 

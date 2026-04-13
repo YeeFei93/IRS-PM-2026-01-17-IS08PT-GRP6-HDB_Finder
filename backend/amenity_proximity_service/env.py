@@ -10,7 +10,9 @@ class TABLE_NAME:
     RESALE_FLATS_GEOLOCATION = "resale_flats_geolocation"
     RESALE_FLATS_HAWKER_CENTRES = "resale_flats_hawker_centres"
     RESALE_FLATS_PARKS = "resale_flats_parks"
+    RESALE_FLATS_SCHOOLS = "resale_flats_schools"
     RESALE_FLATS_SHOPPING_MALLS = "resale_flats_shopping_malls"
+    SCHOOLS = "schools"
     SHOPPING_MALLS = "shopping_malls"
 
 class ID:
@@ -18,6 +20,7 @@ class ID:
     HAWKER_CENTRE_NAME= "hawker_centre_name"
     PARK_NAME = "park_name"
     RESALE_FLAT_ID = "resale_flat_id"
+    SCHOOL_NAME = "school_name"
     SHOPPING_MALL_NAME = "shopping_mall_name"
     STREET_NAME = "street_name"
 
