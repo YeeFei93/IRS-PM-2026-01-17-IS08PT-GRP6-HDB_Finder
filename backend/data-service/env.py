@@ -8,16 +8,17 @@ class TABLE_NAME:
     PARKS = "parks"
     RESALE_FLATS = "resale_flats"
     RESALE_FLATS_GEOLOCATION = "resale_flats_geolocation"
+    SHOPPING_MALLS = "shopping_malls"
 
 class ID:
     BLOCK = "block"
     HAWKER_CENTRE_NAME = "hawker_centre_name"
     PARK_NAME = "park_name"
     RESALE_FLAT_ID = "resale_flat_id"
+    SHOPPING_MALL_NAME = "shopping_mall_name"
     STREET_NAME = "street_name"
 
 class KEY_NAME:
-    
     ESTATE = "estate"
     LATITUDE = "latitude"
     LONGITUDE = "longitude"
@@ -32,5 +33,4 @@ class KEY_NAME:
     STOREY_RANGE = "storey_range"
     STOREY_RANGE_END = "storey_range_end"
     STOREY_RANGE_START = "storey_range_start"
-   
     TOWN = "town"
