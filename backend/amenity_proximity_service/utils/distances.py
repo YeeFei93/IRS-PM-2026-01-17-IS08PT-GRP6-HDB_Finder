@@ -40,7 +40,7 @@ from __future__ import annotations
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from amenity_proximity_service.db_connector import DbConnector
+from amenity_proximity_service.utils.db_connector import DbConnector
 
 # ── In-memory cache (populated on first call per estate, warm on startup) ──
 _cache: dict[str, dict] = {}
@@ -52,17 +52,17 @@ _cache_lock = threading.Lock()
 # max_walk_mins   : threshold for within_threshold flag (from constants.js)
 # threshold_km    : distance equivalent (max_walk_mins / 15 min/km)
 _AMENITY_CONFIG: dict[str, dict] = {
-    "mrt":      {"junction_table": "resale_flats_mrt_stations",   "amenity_fk": "mrt_station_id",    "max_walk_mins": 12, "threshold_km": 0.8},
-    "hawker":   {"junction_table": "resale_flats_hawker_centres", "amenity_fk": "hawker_centre_id",  "max_walk_mins": 12, "threshold_km": 0.8},
-    "mall":     {"junction_table": "resale_flats_malls",          "amenity_fk": "mall_id",           "max_walk_mins": 18, "threshold_km": 1.2},
-    "park":     {"junction_table": "resale_flats_parks",          "amenity_fk": "park_id",           "max_walk_mins": 12, "threshold_km": 0.8},
-    "school":   {"junction_table": "resale_flats_schools",        "amenity_fk": "school_id",         "max_walk_mins": 12, "threshold_km": 0.8},
-    "hospital": {"junction_table": "resale_flats_hospitals",      "amenity_fk": "hospital_id",       "max_walk_mins": 36, "threshold_km": 2.4},
+    "mrt":      {"junction_table": "resale_flats_mrt_stations",   "amenity_fk": "mrt_station_id",    "max_walk_mins": 12, "threshold_km": 1.0},
+    "hawker":   {"junction_table": "resale_flats_hawker_centres", "amenity_fk": "hawker_centre_id",  "max_walk_mins": 12, "threshold_km": 1.0},
+    "mall":     {"junction_table": "resale_flats_malls",          "amenity_fk": "mall_id",           "max_walk_mins": 18, "threshold_km": 1.5},
+    "park":     {"junction_table": "resale_flats_parks",          "amenity_fk": "park_id",           "max_walk_mins": 12, "threshold_km": 1.0},
+    "school":   {"junction_table": "resale_flats_schools",        "amenity_fk": "school_id",         "max_walk_mins": 12, "threshold_km": 1.0},
+    "hospital": {"junction_table": "resale_flats_hospitals",      "amenity_fk": "hospital_id",       "max_walk_mins": 36, "threshold_km": 3.0},
 }
 
-# Walking speed: 5 km/h with a 20% buffer → effective 4 km/h
-# walk_mins = dist_km * 60 / 4 = dist_km * 15
-_WALK_MINS_PER_KM = 15.0
+# Walking speed: 5 km/h → 12 min/km (matches frontend ≤1km/≤1.5km/≤3km labels)
+# walk_mins = dist_km * 60 / 5 = dist_km * 12
+_WALK_MINS_PER_KM = 12.0
 
 
 def _dist_to_walk_mins(dist_km: float) -> int:

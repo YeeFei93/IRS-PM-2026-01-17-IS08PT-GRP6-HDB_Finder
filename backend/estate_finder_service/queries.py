@@ -19,7 +19,7 @@ MySQL migration notes:
 from datetime import datetime, timedelta
 import statistics
 from collections import defaultdict
-from amenity_proximity_service.db_connector import DbConnector
+from amenity_proximity_service.utils.db_connector import DbConnector
 
 # --- Mapping Configuration ---
 
