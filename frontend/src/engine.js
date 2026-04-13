@@ -115,6 +115,10 @@ export function calcGrants(cit, income, ftype, ftimer, prox, marital) {
   return { ehg, cpfG, phg, total: ehg + cpfG + phg };
 }
 
+// ════════════════════════════════════════════════════════════
+//  LOAN ENGINE
+// ════════════════════════════════════════════════════════════
+
 export function loanCapacity(monthly, rateAnnual = 0.026, years = 25) {
   const r = rateAnnual / 12;
   const n = years * 12;
@@ -147,11 +151,11 @@ export function checkLoanLimit(monthlyIncome, monthlyRepayment, effectiveBudget,
   // Determine the limiting factor
   let limitReason = '';
   if (maxLoanFromIncome < maxLoanFromBudget) {
-    limitReason = 'your monthly repayment exceeds 30% of your monthly income';
+    limitReason = 'Monthly repayment exceeds 30% of your monthly income';
   } else if (maxLoanFromBudget < maxLoanFromIncome) {
-    limitReason = 'your max loan principal exceeds 75% of your effective budget';
+    limitReason = 'Max loan principal exceeds 75% of your effective budget';
   } else {
-    limitReason = 'both your monthly repayment exceeds 30% of your monthly income and 75% of your effective budget';
+    limitReason = 'Both your monthly repayment exceeds 30% of your monthly income and max loan principal exceeds 75% of your effective budget';
   }
   
   // Format numbers with commas for a clean output string
@@ -162,8 +166,16 @@ export function checkLoanLimit(monthlyIncome, monthlyRepayment, effectiveBudget,
   if (proposedLoan <= maxLoan) {
     return null; // No warning needed, loan is within limits
   } else {
-    return `WARNING: Max Loan Principal of $${formattedProposedLoan} exceeds the maximum allowed loan of $${formattedLoan}. This is because ${limitReason}. Adjust your monthly repayment to be no more than $${formattedPayment} or ensure that your max loan principal does not exceed $${formattedLoan}.`;
+    return `${limitReason}. Adjust your monthly repayment to be no more than $${formattedPayment} or ensure that your max loan principal does not exceed $${formattedLoan}. `;
   }
+}
+
+export function checkLeaseAgeCriteria(age, lease) {
+  const combined = age + lease;
+  if (combined < 95) {
+    return `Age + Lease must be at least 95 years (currently ${combined} yrs). If below 95, CPF withdrawal will be pro-rated.`;
+  }
+  return null;
 }
 
 export function checkEligibility(cit, income, age, marital, ftimer) {

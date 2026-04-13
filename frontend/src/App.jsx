@@ -8,7 +8,7 @@ import ResultsPane from './components/ResultsPane';
 import MapView from './pages//MapView';
 import TrendsView from './pages/TrendsView';
 import { REGIONS, ALL_TOWNS, API_BASE } from './constants';
-import { calcGrants, loanCapacity, checkEligibility, checkLoanLimit } from './engine';
+import { calcGrants, loanCapacity, checkEligibility, checkLoanLimit, checkLeaseAgeCriteria } from './engine';
 import { fetchTown, checkBackendHealth, runSearchBackend, normaliseBackendRec } from './api';
 import MainView from './pages/MainView';
 
@@ -48,13 +48,14 @@ export default function App() {
 
   // Derived eligibility/grant/budget calculations
   const derived = useMemo(() => {
-    const { cit, age, inc, ftimer, prox, ftype, cash, cpf, loan, marital } = formState;
+    const { cit, age, inc, ftimer, prox, ftype, cash, cpf, loan, marital, lease } = formState;
     const eligibility = checkEligibility(cit, inc, age, marital);
     const grants = calcGrants(cit, inc, ftype, ftimer, prox, marital);
     const loanAmt = loanCapacity(loan);
     const effective = cash + cpf + grants.total + loanAmt;
     const loanLimitWarning = checkLoanLimit(inc, loan, cash + cpf + grants.total + loanAmt);
-    return { eligibility, grants, effective, loanAmt, loanLimitWarning };
+    const leaseAgeWarning = checkLeaseAgeCriteria(age, lease);
+    return { eligibility, grants, effective, loanAmt, loanLimitWarning, leaseAgeWarning };
   }, [formState]);
 
   const runSearch = useCallback(async () => {
@@ -140,6 +141,7 @@ export default function App() {
           effective={derived.effective}
           loanAmt={derived.loanAmt}
           loanLimitWarning={derived.loanLimitWarning}
+          leaseAgeWarning={derived.leaseAgeWarning}
           onSearch={runSearch}
           isSearching={phase === 'loading'}
         />

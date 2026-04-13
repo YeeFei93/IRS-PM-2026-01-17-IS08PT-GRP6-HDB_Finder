@@ -139,7 +139,7 @@ const FTIMER_OPTIONS = [
 ];
 
 export default function Sidebar({
-  formState, onFormChange, eligibility, grants, effective, loanAmt, loanLimitWarning, onSearch, isSearching,
+  formState, onFormChange, eligibility, grants, effective, loanAmt, loanLimitWarning, leaseAgeWarning, onSearch, isSearching,
 }) {
   const {
     cit, age, marital, inc, ftimer, prox,
@@ -278,6 +278,20 @@ export default function Sidebar({
           <input type="range" min={20} max={99} step={5} value={lease} onChange={setNum('lease')} />
           <RangeLabels left="20 yrs" right="99 yrs" />
         </Field>
+        {leaseAgeWarning && (
+          <div className="mt-3 p-3 rounded-md border border-[#e67e22] bg-[rgba(230,126,34,0.12)] text-[#f0a050] text-[0.82rem] leading-relaxed">
+            <strong>⚠️ CPF Usage Limits:</strong> {leaseAgeWarning}
+            <br />
+            <a 
+              href="https://www.mom.gov.sg/newsroom/press-releases/2019/0509-more-flexibility-to-buy-a-home-for-life" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[#f0a050] underline hover:text-[#ffb380] transition-colors"
+            >
+              Learn more about CPF Usage Limits.
+            </a>
+          </div>
+        )}
       </SidebarSection>
 
       {/* Budget */}
