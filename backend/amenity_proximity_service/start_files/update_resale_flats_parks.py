@@ -1,7 +1,7 @@
 
 
 
-from db_connector import DbConnector
+from utils.db_connector import DbConnector
 from db_models.resale_flats_parks_db import ResaleFlatsParksDB
 
 db = DbConnector()

@@ -1,4 +1,4 @@
-from db_connector import DbConnector
+from utils.db_connector import DbConnector
 import mysql.connector
 from mysql.connector import errorcode
 

@@ -1,3 +1,3 @@
 @echo off
-python save_parks.py
+python -m start_files.save_parks
 pause

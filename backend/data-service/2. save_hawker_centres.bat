@@ -1,3 +1,3 @@
 @echo off
-python save_hawker_centres.py
+python -m start_files.save_hawker_centres
 pause

@@ -5,10 +5,10 @@ from utils.db_controller import DbController
 from env import TABLE_NAME
 
 
-class ParksDB:
+class ShoppingMallsDB:
     def __init__(self, db: DbConnector):
         self.db = db
-        self.table_name = TABLE_NAME.PARKS
+        self.table_name = TABLE_NAME.SHOPPING_MALLS
         
     def GetAll(self):
         db = self.db

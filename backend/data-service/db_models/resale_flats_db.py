@@ -1,9 +1,9 @@
 
 from datetime import datetime
 
-from csv_to_json import CsvToJson
-from db_controller import DbController
-from db_connector import DbConnector
+from utils.csv_to_json import CsvToJson
+from utils.db_controller import DbController
+from utils.db_connector import DbConnector
 from env import TABLE_NAME, KEY_NAME, ID
 from configs.raw_to_db_mappings import resale_flats_mapping
 import uuid

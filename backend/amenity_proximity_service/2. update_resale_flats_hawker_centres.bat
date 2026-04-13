@@ -1,3 +1,3 @@
 @echo off
-python update_resale_flats_hawker_centres.py
+python -m start_files.update_resale_flats_hawker_centres
 pause
