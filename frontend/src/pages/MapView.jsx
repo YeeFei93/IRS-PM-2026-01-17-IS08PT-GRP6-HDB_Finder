@@ -69,7 +69,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     parks:     { color: '#27ae60', emoji: '🌳', label: 'Park',      threshold: '1km' },
     hawkers:   { color: '#e67e22', emoji: '🍜', label: 'Hawker',    threshold: '1km' },
     mrts:      { color: '#3498db', emoji: '🚇', label: 'MRT',       threshold: '1km' },
-    schools:   { color: '#9b59b6', emoji: '📚', label: 'School',    threshold: '1km' },
+    schools:   { color: '#9b59b6', emoji: '🏫', label: 'School',    threshold: '1km' },
     malls:     { color: '#f39c12', emoji: '🛍️', label: 'Mall',      threshold: '1.5km' },
     hospitals: { color: '#e74c3c', emoji: '🏥', label: 'Hospital',  threshold: '3km' },
   };
@@ -142,10 +142,12 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     if (!c || !am) return;
 
     const amenityDefs = [
-      { icon: '🚇', color: '#3498db', label: am.mrt, mins: am.mrtMin, lat: c.lat + 0.003, lng: c.lng + 0.005 },
-      { icon: '🍜', color: '#e67e22', label: am.hawker, lat: c.lat - 0.003, lng: c.lng + 0.006 },
-      { icon: '🌳', color: '#27ae60', label: am.park, lat: c.lat + 0.007, lng: c.lng - 0.004 },
-      { icon: '🏫', color: '#9b59b6', label: 'Primary School', lat: c.lat - 0.005, lng: c.lng - 0.006 },
+      { icon: '🚇', color: '#3498db', label: am.mrt,    mins: am.mrtMin, lat: c.lat + 0.003, lng: c.lng + 0.005 },
+      { icon: '🍜', color: '#e67e22', label: am.hawker,              lat: c.lat - 0.003, lng: c.lng + 0.006 },
+      { icon: '🌳', color: '#27ae60', label: am.park,                lat: c.lat + 0.007, lng: c.lng - 0.004 },
+      { icon: '🏫', color: '#9b59b6', label: 'Primary School',       lat: c.lat - 0.005, lng: c.lng - 0.006 },
+      { icon: '🛍️', color: '#f39c12', label: am.mall,                lat: c.lat + 0.005, lng: c.lng - 0.007 },
+      { icon: '🏥', color: '#e74c3c', label: am.hospital,            lat: c.lat - 0.007, lng: c.lng + 0.003 },
     ];
 
     amenityDefs.forEach(def => {
@@ -535,13 +537,15 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
         <div className="mt-2.5 pt-2 border-t border-dk4">
           <div className="text-[0.68rem] text-light mb-1.5 font-medium">Amenities Shown</div>
           {[
-            ['#3498db', 'MRT Station'],
-            ['#e67e22', 'Hawker Centre'],
-            ['#27ae60', 'Park'],
-            ['#9b59b6', 'School'],
-          ].map(([color, label]) => (
+            ['#3498db', '🚇', 'MRT Station'],
+            ['#e67e22', '🍜', 'Hawker Centre'],
+            ['#27ae60', '🌳', 'Park'],
+            ['#9b59b6', '🏫', 'School'],
+            ['#f39c12', '🛍️', 'Mall'],
+            ['#e74c3c', '🏥', 'Hospital'],
+          ].map(([color, icon, label]) => (
             <div key={label} className="flex items-center gap-1.5 mb-1 text-[0.68rem]">
-              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+              <span style={{ color }}>{icon}</span>
               {label}
             </div>
           ))}
@@ -692,10 +696,12 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                               </span>
                             );
                           }
-                          // No breakdown — just show as active criterion
+                          // Budget: warn if estate median exceeds effective budget
+                          let warn = false;
+                          if (c === 'budget' && rec.effective > 0 && rec.pd.median > rec.effective) warn = true;
                           return (
                             <span key={c} style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: 3, background: '#1e1e1e', color: '#555', border: '1px solid #222' }}>
-                              {m.icon} <span style={{ color: '#888' }}>{m.label}</span> <span style={{ color: '#27ae60' }}>✓</span>
+                              {m.icon} <span style={{ color: '#888' }}>{m.label}</span> <span style={{ color: warn ? '#ff8080' : '#27ae60' }}>{warn ? '⚠' : '✓'}</span>
                             </span>
                           );
                         })}
