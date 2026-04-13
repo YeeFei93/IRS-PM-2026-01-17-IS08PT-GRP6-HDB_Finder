@@ -13,7 +13,7 @@ class TABLE_NAME:
 
 class ID:
     BLOCK = "block"
-    HAWKER_CENTRE_ID = "hawker_centre_id"
+    HAWKER_CENTRE_NAME= "hawker_centre_name"
     PARK_NAME = "park_name"
     RESALE_FLAT_ID = "resale_flat_id"
     STREET_NAME = "street_name"

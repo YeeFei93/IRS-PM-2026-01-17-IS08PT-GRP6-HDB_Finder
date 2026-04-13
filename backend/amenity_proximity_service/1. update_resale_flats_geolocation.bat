@@ -1,3 +1,3 @@
 @echo off
-python update_resale_flats_geolocation.py
+python start-files/update_resale_flats_geolocation.py
 pause
