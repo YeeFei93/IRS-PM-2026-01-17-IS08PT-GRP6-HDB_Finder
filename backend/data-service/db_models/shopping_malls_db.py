@@ -10,10 +10,23 @@ class ShoppingMallsDB:
         self.db = db
         self.table_name = TABLE_NAME.SHOPPING_MALLS
 
+    def EnsureTable(self):
+        query = f"""
+            CREATE TABLE IF NOT EXISTS {self.table_name} (
+                {ID.SHOPPING_MALL_NAME} VARCHAR(256) NOT NULL,
+                {KEY_NAME.LATITUDE} DECIMAL(11, 8) DEFAULT NULL,
+                {KEY_NAME.LONGITUDE} DECIMAL(11, 8) DEFAULT NULL,
+                PRIMARY KEY ({ID.SHOPPING_MALL_NAME})
+            )
+        """
+        self.db.cursor.execute(query)
+        self.db.Commit()
+
     def InitialiseData(self):
         db = self.db
         dbc = DbController(db)
         new_data_arr = []
+        self.EnsureTable()
         column_names = dbc.GetColumnNames(self.table_name)
         processed_count = 0
         for item in self.GetRawData()["features"]:  
@@ -34,6 +47,7 @@ class ShoppingMallsDB:
     def DeleteData(self):
         db = self.db
         dbc = DbController(db)
+        self.EnsureTable()
         dbc.DeleteData(self.table_name)
         
     

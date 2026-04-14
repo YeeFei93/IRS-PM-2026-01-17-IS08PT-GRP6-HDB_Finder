@@ -69,8 +69,8 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     parks:     { color: '#27ae60', emoji: '🌳', label: 'Park',      threshold: '1km' },
     hawkers:   { color: '#e67e22', emoji: '🍜', label: 'Hawker',    threshold: '1km' },
     mrts:      { color: '#3498db', emoji: '🚇', label: 'MRT',       threshold: '1km' },
-    schools:   { color: '#9b59b6', emoji: '🏫', label: 'School',    threshold: '1km' },
-    malls:     { color: '#f39c12', emoji: '🛍️', label: 'Mall',      threshold: '1.5km' },
+    schools:   { color: '#9b59b6', emoji: '📚', label: 'School',    threshold: '1km' },
+    malls:     { color: '#f3e412', emoji: '🛍️', label: 'Mall',      threshold: '1.5km' },
     hospitals: { color: '#e74c3c', emoji: '🏥', label: 'Hospital',  threshold: '3km' },
   };
 
@@ -530,7 +530,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
       </button>
 
       {/* Legend */}
-      <div className="absolute bottom-5 right-5 bg-dk2 border border-dk3 rounded-lg p-3 px-4 z-[900] text-[0.72rem] text-muted pointer-events-none min-w-[160px]">
+      <div className="absolute bottom-5 left-5 bg-dk2 border border-dk3 rounded-lg p-3 px-4 z-[900] text-[0.72rem] text-muted pointer-events-none min-w-[160px]">
         <div className="font-serif text-[0.88rem] text-white mb-2">Estate Score</div>
         <div className="h-2.5 rounded-[5px] bg-gradient-to-r from-[#c0392b] via-[#e67e22] via-50% via-[#f1c40f] to-[#27ae60] mb-1" />
         <div className="flex justify-between text-[0.62rem] text-muted">
@@ -539,13 +539,13 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
         <div className="mt-2.5 pt-2 border-t border-dk4">
           <div className="text-[0.68rem] text-light mb-1.5 font-medium">Amenities Shown</div>
           {[
-            ['#3498db', '🚇', 'MRT Station'],
-            ['#e67e22', '🍜', 'Hawker Centre'],
-            ['#27ae60', '🌳', 'Park'],
-            ['#9b59b6', '🏫', 'School'],
-            ['#f39c12', '🛍️', 'Mall'],
-            ['#e74c3c', '🏥', 'Hospital'],
-          ].map(([color, icon, label]) => (
+            ['#3498db', 'MRT Station'],
+            ['#e67e22', 'Hawker Centre'],
+            ['#27ae60', 'Park'],
+            ['#9b59b6', 'Pri School'],
+            ['#f3e412', 'Mall'],
+            ['#e74c3c', 'Hospital'],
+          ].map(([color, label]) => (
             <div key={label} className="flex items-center gap-1.5 mb-1 text-[0.68rem]">
               <span style={{ color }}>{icon}</span>
               {label}

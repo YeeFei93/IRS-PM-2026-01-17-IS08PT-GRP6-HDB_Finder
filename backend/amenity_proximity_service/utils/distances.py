@@ -12,7 +12,7 @@ Assumes this table/junction naming convention:
   malls                 resale_flats_malls
   parks                 resale_flats_parks
   schools               resale_flats_schools
-  hospitals             resale_flats_hospitals
+  public_hospitals      resale_flats_public_hospitals
 
 Each junction table has:
   resale_flats_id   varchar(36)   FK → resale_flats.resale_flat_id
@@ -118,14 +118,63 @@ def _query_amenity_stats(cursor, junction_table: str, amenity_fk: str,
     }
 
 
+def _query_named_amenity_stats(cursor, junction_table: str, amenity_name_col: str,
+                               estate: str, threshold_km: float) -> dict:
+    """Variant for junction tables keyed by block/street_name + amenity name."""
+    import mysql.connector
+    query = f"""
+        SELECT
+            MIN(j.distance) AS min_dist,
+            COUNT(DISTINCT CASE WHEN j.distance <= %s THEN j.`{amenity_name_col}` END) AS count_within,
+            AVG(CASE WHEN j.distance <= %s THEN j.distance END) AS avg_dist
+        FROM (
+            SELECT DISTINCT estate, block, street_name
+            FROM resale_flats
+            WHERE estate = %s
+        ) rf
+        JOIN `{junction_table}` j
+          ON rf.block = j.block
+         AND rf.street_name = j.street_name
+    """
+    try:
+        cursor.execute(query, (threshold_km, threshold_km, estate))
+        row = cursor.fetchone()
+    except mysql.connector.Error:
+        return {"min_dist": None, "count_within": 0, "avg_dist": None}
+
+    if row is None:
+        return {"min_dist": None, "count_within": 0, "avg_dist": None}
+
+    if isinstance(row, dict):
+        min_dist = row.get("min_dist")
+        count_within = row.get("count_within") or 0
+        avg_dist = row.get("avg_dist")
+    else:
+        min_dist = row[0]
+        count_within = row[1] or 0
+        avg_dist = row[2]
+
+    return {
+        "min_dist": float(min_dist) if min_dist is not None else None,
+        "count_within": int(count_within),
+        "avg_dist": float(avg_dist) if avg_dist is not None else None,
+    }
+
+
 def _fetch_one_amenity(amenity_key: str, config: dict, estate: str) -> tuple[str, dict, dict]:
     """Run one amenity query in its own DB connection (thread-safe)."""
     db = DbConnector()
     try:
-        stats = _query_amenity_stats(
-            db.cursor, config["junction_table"], config["amenity_fk"],
-            estate, config["threshold_km"]
-        )
+        if "amenity_fk" in config:
+            stats = _query_amenity_stats(
+                db.cursor, config["junction_table"], config["amenity_fk"],
+                estate, config["threshold_km"]
+            )
+        else:
+            stats = _query_named_amenity_stats(
+                db.cursor, config["junction_table"], config["amenity_name_col"],
+                estate, config["threshold_km"]
+            )
     finally:
         db.Close()
     return amenity_key, config, stats

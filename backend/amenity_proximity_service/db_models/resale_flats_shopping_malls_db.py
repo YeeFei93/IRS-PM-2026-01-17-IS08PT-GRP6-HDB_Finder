@@ -17,8 +17,22 @@ class ResaleFlatsShoppingMallsDB:
         self.processed_count = 0
         self.distance_limit = 1.5
         self.table_name = TABLE_NAME.RESALE_FLATS_SHOPPING_MALLS
+
+    def EnsureTable(self):
+        query = f"""
+            CREATE TABLE IF NOT EXISTS {self.table_name} (
+                {ID.BLOCK} VARCHAR(16) NOT NULL,
+                {ID.STREET_NAME} VARCHAR(256) NOT NULL,
+                {ID.SHOPPING_MALL_NAME} VARCHAR(256) NOT NULL,
+                {KEY_NAME.DISTANCE} FLOAT DEFAULT NULL,
+                PRIMARY KEY ({ID.BLOCK}, {ID.STREET_NAME}, {ID.SHOPPING_MALL_NAME})
+            )
+        """
+        self.db.cursor.execute(query)
+        self.db.Commit()
         
     def InitializeData(self):
+        self.EnsureTable()
         db = self.db
         db = DbConnector()
         resale_flats_geos = ResaleFlatsDB(db).GetGeolocations()
@@ -37,9 +51,6 @@ class ResaleFlatsShoppingMallsDB:
         for t in threads:
             t.join()
 
-      
-        
-     
     def InitializeBatch(self, resale_flats_geos, x_geos):
         db = DbConnector()
         dbc = DbController(db)
@@ -65,6 +76,7 @@ class ResaleFlatsShoppingMallsDB:
     def DeleteData(self):
         db = self.db
         dbc = DbController(db)
+        self.EnsureTable()
         dbc.DeleteData(self.table_name)
         
         
