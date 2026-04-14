@@ -18,6 +18,12 @@ _HOSPITAL_SEARCH_ALIASES = {
     ],
 }
 
+_HOSPITALS_TO_NEGLECT = [
+    "Communicable Disease Centre",
+    "Institute Of Mental Health",
+    "National Centre For Infectious Diseases",
+]
+
 
 class PublicHospitalsDB:
     def __init__(self, db: DbConnector):
@@ -192,6 +198,8 @@ class PublicHospitalsDB:
                 if not row:
                     continue
                 hospital_name = " ".join(str(row[0]).split())
+                if hospital_name in _HOSPITALS_TO_NEGLECT:
+                    continue
                 if not hospital_name or hospital_name.lower() == "na":
                     continue
                 if hospital_name not in seen:
