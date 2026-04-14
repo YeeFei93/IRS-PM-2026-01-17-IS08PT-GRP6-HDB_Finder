@@ -56,7 +56,7 @@ _AMENITY_CONFIG: dict[str, dict] = {
     "hawker":   {"junction_table": "resale_flats_hawker_centres", "amenity_fk": "hawker_centre_name",  "max_walk_mins": 12, "threshold_km": 1.0},
     "mall":     {"junction_table": "resale_flats_malls",          "amenity_fk": "mall_id",             "max_walk_mins": 18, "threshold_km": 1.5},
     "park":     {"junction_table": "resale_flats_parks",          "amenity_fk": "park_name",           "max_walk_mins": 12, "threshold_km": 1.0},
-    "school":   {"junction_table": "resale_flats_schools",        "amenity_fk": "school_id",         "max_walk_mins": 12, "threshold_km": 1.0},
+    "school":   {"junction_table": "resale_flats_schools",        "amenity_fk": "school_name",         "max_walk_mins": 12, "threshold_km": 1.0},
     "hospital": {"junction_table": "resale_flats_public_hospitals", "amenity_name_col": "hospital_name", "max_walk_mins": 36, "threshold_km": 3.0},
 }
 
