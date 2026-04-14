@@ -9,7 +9,7 @@ A React + Tailwind CSS web app that recommends HDB resale estates based on your 
 - [Node.js](https://nodejs.org/) v18 or later
 - [Python](https://www.python.org/downloads/release/python-3143/) v3.14.3
 - [MySql]
-- [MySql Database] https://drive.google.com/file/d/1V2ggZZK-nnNy4T4pAN5NvpJ36vLVPhzD/view?usp=drive_link
+- [MySql Database] https://drive.google.com/file/d/1VlkZ--Xrlk9NDriW_ifACRz9yQRVV24B/view?usp=sharing
 - npm (comes with Node.js)
 
 ## Getting Started
