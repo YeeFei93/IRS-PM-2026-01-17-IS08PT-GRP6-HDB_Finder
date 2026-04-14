@@ -69,7 +69,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     parks:     { color: '#27ae60', emoji: '🌳', label: 'Park',      threshold: '1km' },
     hawkers:   { color: '#e67e22', emoji: '🍜', label: 'Hawker',    threshold: '1km' },
     mrts:      { color: '#3498db', emoji: '🚇', label: 'MRT',       threshold: '1km' },
-    schools:   { color: '#9b59b6', emoji: '📚', label: 'School',    threshold: '1km' },
+    schools:   { color: '#9b59b6', emoji: '🏫', label: 'School',    threshold: '1km' },
     malls:     { color: '#f3e412', emoji: '🛍️', label: 'Mall',      threshold: '1.5km' },
     hospitals: { color: '#e74c3c', emoji: '🏥', label: 'Hospital',  threshold: '3km' },
   };
@@ -539,15 +539,25 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
         <div className="mt-2.5 pt-2 border-t border-dk4">
           <div className="text-[0.68rem] text-light mb-1.5 font-medium">Amenities Shown</div>
           {[
-            ['#3498db', 'MRT Station'],
-            ['#e67e22', 'Hawker Centre'],
-            ['#27ae60', 'Park'],
-            ['#9b59b6', 'Pri School'],
-            ['#f3e412', 'Mall'],
-            ['#e74c3c', 'Hospital'],
-          ].map(([color, label]) => (
+            ['#3498db', '🚇', 'MRT Station'],
+            ['#e67e22', '🍜', 'Hawker Centre'],
+            ['#27ae60', '🌳', 'Park'],
+            ['#9b59b6', '🏫', 'Pri School'],
+            ['#f3e412', '🛍️', 'Mall'],
+            ['#e74c3c', '🏥', 'Hospital'],
+          ].map(([color, icon, label]) => (
             <div key={label} className="flex items-center gap-1.5 mb-1 text-[0.68rem]">
-              <span style={{ color }}>{icon}</span>
+              <span
+                style={{
+                  backgroundColor: color,
+                  borderRadius: '50%',
+                  width: '8px',
+                  height: '8px',
+                  display: 'inline-block',
+                  flexShrink: 0,
+                }}
+              ></span>
+              <span>{icon}</span>
               {label}
             </div>
           ))}
