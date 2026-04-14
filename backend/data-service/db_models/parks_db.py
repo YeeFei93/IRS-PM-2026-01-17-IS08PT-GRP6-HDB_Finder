@@ -19,6 +19,15 @@ class ParksDB:
         for item in self.GetRawData()["features"]:  
             park_name = item["properties"]["NAME"]
 
+            if " PG" in park_name:
+                continue
+
+            if " OS" in park_name:
+                continue
+
+            if " FC" in park_name:
+                continue
+            
             if "PLAYGROUND" in park_name:
                 continue
             
