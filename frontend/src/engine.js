@@ -108,10 +108,8 @@ export function calcGrants(cit, income, ftype, ftimer, prox, marital) {
   let phg = 0;
   if ((!isPR || isPRWithSCParents) && cit !== 'SC_NR') {
     const isSinglesPhg = isSingleScheme || isWithSCParents || isPRWithSCParents;
-    let base = prox === 'same' ? 30000 : prox === 'near' ? 20000 : 0;
-    if (!isFirst) base /= 2;           // second-timer: half
-    if (isSinglesPhg) base /= 2;       // singles: half
-    phg = base;
+    if (prox === 'same') phg = isSinglesPhg ? 15000 : 30000;
+    else if (prox === 'near') phg = isSinglesPhg ? 10000 : 20000;
   }
 
   return { ehg, cpfG, phg, total: ehg + cpfG + phg };

@@ -106,25 +106,18 @@ def calc_cpf_housing_grant(cit: str, marital: str, income: float,
     return 0
 
 
-def calc_phg(cit: str, prox: str, ftimer: str = "first") -> int:
+def calc_phg(cit: str, prox: str) -> int:
     """
     Calculate Proximity Housing Grant (resale flats only).
     No income ceiling. Cannot be used for BTO.
-    First-timer families: $30k (same) / $20k (near)
-    Second-timer families: $15k (same) / $10k (near)
-    Singles (SC_single): half of the applicable tier
     """
     if cit == "PR_PR":
         return 0
-    if prox not in ("same", "near"):
-        return 0
-
-    base = 30000 if prox == "same" else 20000
-    if ftimer == "second":
-        base //= 2
-    if cit == "SC_single":
-        base //= 2
-    return base
+    if prox == "same":
+        return 30000
+    if prox == "near":
+        return 20000
+    return 0
 
 
 def calc_all_grants(profile: dict) -> dict:
@@ -141,7 +134,7 @@ def calc_all_grants(profile: dict) -> dict:
 
     ehg  = calc_ehg(cit, marital, income, ftimer)
     cpfg = calc_cpf_housing_grant(cit, marital, income, ftype, ftimer)
-    phg  = calc_phg(cit, prox, ftimer)
+    phg  = calc_phg(cit, prox)
 
     return {
         "ehg":   ehg,
