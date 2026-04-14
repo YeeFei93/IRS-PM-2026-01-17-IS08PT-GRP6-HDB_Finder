@@ -27,6 +27,26 @@ class ResaleFlatsDB:
         
         db.cursor.execute(query)
         return db.cursor.fetchall()
+
+    def GetAllWithGeolocations(self):
+        db = self.db
+        query = f"""
+            SELECT DISTINCT
+                rf.{ID.RESALE_FLAT_ID},
+                rf.{ID.BLOCK},
+                rf.{ID.STREET_NAME},
+                g.{KEY_NAME.LATITUDE},
+                g.{KEY_NAME.LONGITUDE}
+            FROM {TABLE_NAME.RESALE_FLATS} rf
+            JOIN {TABLE_NAME.RESALE_FLATS_GEOLOCATION} g
+              ON g.{ID.BLOCK} = rf.{ID.BLOCK}
+             AND g.{ID.STREET_NAME} = rf.{ID.STREET_NAME}
+            WHERE g.{KEY_NAME.LATITUDE} IS NOT NULL
+              AND g.{KEY_NAME.LONGITUDE} IS NOT NULL
+        """
+
+        db.cursor.execute(query)
+        return db.cursor.fetchall()
     
     def UpdateGeolocations(self, data):
         db = self.db

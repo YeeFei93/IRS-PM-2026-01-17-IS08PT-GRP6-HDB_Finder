@@ -1,6 +1,6 @@
 import json
 from time import sleep
-from typing import Any, Dict
+from typing import Any, Dict, List
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -8,7 +8,7 @@ ONEMAP_SEARCH_URL = "https://www.onemap.gov.sg/api/common/elastic/search"
 
 
 class GeolocationConverter:
-    def GetGeolocation(self, search_val: str) -> Dict[str, Any]:
+    def SearchGeolocations(self, search_val: str) -> List[Dict[str, Any]]:
         timeout: int = 15
         cleaned_search_val = " ".join(str(search_val).split())
         params = {
@@ -47,11 +47,17 @@ class GeolocationConverter:
             sleep(0.5)
             data = fetch_data()
 
+        return data or []
+
+    def ToGeolocation(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "latitude": float(result["LATITUDE"]),
+            "longitude": float(result["LONGITUDE"]),
+        }
+
+    def GetGeolocation(self, search_val: str) -> Dict[str, Any]:
+        data = self.SearchGeolocations(search_val)
         if not data:
             return {}
 
-        first_result = data[0]
-        return {
-            "latitude": float(first_result["LATITUDE"]),
-            "longitude": float(first_result["LONGITUDE"]),
-        }
+        return self.ToGeolocation(data[0])

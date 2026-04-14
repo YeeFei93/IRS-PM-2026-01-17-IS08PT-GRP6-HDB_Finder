@@ -6,6 +6,7 @@ class TABLE_NAME:
     FLAT_TYPES = "flat_types"
     HAWKER_CENTRES = "hawker_centres"
     PARKS = "parks"
+    PUBLIC_HOSPITALS = "public_hospitals"
     RESALE_FLATS = "resale_flats"
     RESALE_FLATS_GEOLOCATION = "resale_flats_geolocation"
     SCHOOLS = "schools"
@@ -14,6 +15,8 @@ class TABLE_NAME:
 class ID:
     BLOCK = "block"
     HAWKER_CENTRE_NAME = "hawker_centre_name"
+    HOSPITAL_ID = "hospital_id"
+    HOSPITAL_NAME = "hospital_name"
     PARK_NAME = "park_name"
     RESALE_FLAT_ID = "resale_flat_id"
     SCHOOL_NAME = "school_name"
