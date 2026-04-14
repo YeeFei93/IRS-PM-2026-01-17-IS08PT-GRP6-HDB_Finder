@@ -1,7 +1,7 @@
 
 
-from db_connector import DbConnector
-from db_controller import DbController
+from utils.db_connector import DbConnector
+from utils.db_controller import DbController
 from env import TABLE_NAME
 
 

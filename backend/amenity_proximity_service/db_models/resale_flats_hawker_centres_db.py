@@ -1,8 +1,7 @@
 
 from datetime import datetime
-
-from db_controller import DbController
-from db_connector import DbConnector
+from utils.db_controller import DbController
+from utils.db_connector import DbConnector
 from db_models.hawker_centres_db import HawkerCentresDB
 from db_models.resale_flats_db import ResaleFlatsDB
 from env import TABLE_NAME, KEY_NAME, ID
@@ -12,7 +11,7 @@ import math
 import time
 import random
 
-from geolocation_converter import GeolocationConverter
+from utils.geolocation_converter import GeolocationConverter
 
 lock = threading.Lock()
 class ResaleFlatsHawkerCentresDB:
@@ -52,8 +51,9 @@ class ResaleFlatsHawkerCentresDB:
             for b in hawker_centres_geo:
                 distance = GeolocationConverter().CalculateDistance(a[KEY_NAME.LATITUDE], a[KEY_NAME.LONGITUDE], b[KEY_NAME.LATITUDE], b[KEY_NAME.LONGITUDE])
                 if(distance <= self.distance_limit):
-                    new_data = {ID.RESALE_FLAT_ID: a[ID.RESALE_FLAT_ID], 
-                                ID.HAWKER_CENTRE_ID: b[ID.HAWKER_CENTRE_ID],
+                    new_data = {ID.BLOCK: a[ID.BLOCK], 
+                                ID.STREET_NAME: a[ID.STREET_NAME], 
+                                ID.HAWKER_CENTRE_NAME: b[ID.HAWKER_CENTRE_NAME],
                                 KEY_NAME.DISTANCE: distance
                                 }
                     new_data_arr.append(new_data)

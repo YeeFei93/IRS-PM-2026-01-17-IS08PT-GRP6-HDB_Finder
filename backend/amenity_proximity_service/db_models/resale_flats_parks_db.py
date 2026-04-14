@@ -1,8 +1,8 @@
 
 from datetime import datetime
 
-from db_controller import DbController
-from db_connector import DbConnector
+from utils.db_controller import DbController
+from utils.db_connector import DbConnector
 from db_models.parks_db import ParksDB
 from db_models.resale_flats_db import ResaleFlatsDB
 from env import TABLE_NAME, KEY_NAME, ID
@@ -12,7 +12,7 @@ import math
 import time
 import random
 
-from geolocation_converter import GeolocationConverter
+from utils.geolocation_converter import GeolocationConverter
 
 lock = threading.Lock()
 class ResaleFlatsParksDB:

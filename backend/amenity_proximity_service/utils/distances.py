@@ -12,7 +12,7 @@ Assumes this table/junction naming convention:
   malls                 resale_flats_malls
   parks                 resale_flats_parks
   schools               resale_flats_schools
-  hospitals             resale_flats_hospitals
+  public_hospitals      resale_flats_public_hospitals
 
 Each junction table has:
   resale_flats_id   varchar(36)   FK → resale_flats.resale_flat_id
@@ -40,7 +40,7 @@ from __future__ import annotations
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from amenity_proximity_service.db_connector import DbConnector
+from amenity_proximity_service.utils.db_connector import DbConnector
 
 # ── In-memory cache (populated on first call per estate, warm on startup) ──
 _cache: dict[str, dict] = {}
@@ -52,17 +52,17 @@ _cache_lock = threading.Lock()
 # max_walk_mins   : threshold for within_threshold flag (from constants.js)
 # threshold_km    : distance equivalent (max_walk_mins / 15 min/km)
 _AMENITY_CONFIG: dict[str, dict] = {
-    "mrt":      {"junction_table": "resale_flats_mrt_stations",   "amenity_fk": "mrt_station_id",    "max_walk_mins": 12, "threshold_km": 0.8},
-    "hawker":   {"junction_table": "resale_flats_hawker_centres", "amenity_fk": "hawker_centre_id",  "max_walk_mins": 12, "threshold_km": 0.8},
-    "mall":     {"junction_table": "resale_flats_malls",          "amenity_fk": "mall_id",           "max_walk_mins": 18, "threshold_km": 1.2},
-    "park":     {"junction_table": "resale_flats_parks",          "amenity_fk": "park_id",           "max_walk_mins": 12, "threshold_km": 0.8},
-    "school":   {"junction_table": "resale_flats_schools",        "amenity_fk": "school_id",         "max_walk_mins": 12, "threshold_km": 0.8},
-    "hospital": {"junction_table": "resale_flats_hospitals",      "amenity_fk": "hospital_id",       "max_walk_mins": 36, "threshold_km": 2.4},
+    "mrt":      {"junction_table": "resale_flats_mrt_stations",   "amenity_fk": "mrt_station_id",    "max_walk_mins": 12, "threshold_km": 1.0},
+    "hawker":   {"junction_table": "resale_flats_hawker_centres", "amenity_fk": "hawker_centre_name",  "max_walk_mins": 12, "threshold_km": 1.0},
+    "mall":     {"junction_table": "resale_flats_malls",          "amenity_fk": "mall_id",             "max_walk_mins": 18, "threshold_km": 1.5},
+    "park":     {"junction_table": "resale_flats_parks",          "amenity_fk": "park_name",           "max_walk_mins": 12, "threshold_km": 1.0},
+    "school":   {"junction_table": "resale_flats_schools",        "amenity_fk": "school_name",         "max_walk_mins": 12, "threshold_km": 1.0},
+    "hospital": {"junction_table": "resale_flats_public_hospitals", "amenity_name_col": "hospital_name", "max_walk_mins": 36, "threshold_km": 3.0},
 }
 
-# Walking speed: 5 km/h with a 20% buffer → effective 4 km/h
-# walk_mins = dist_km * 60 / 4 = dist_km * 15
-_WALK_MINS_PER_KM = 15.0
+# Walking speed: 5 km/h → 12 min/km (matches frontend ≤1km/≤1.5km/≤3km labels)
+# walk_mins = dist_km * 60 / 5 = dist_km * 12
+_WALK_MINS_PER_KM = 12.0
 
 
 def _dist_to_walk_mins(dist_km: float) -> int:
@@ -118,14 +118,63 @@ def _query_amenity_stats(cursor, junction_table: str, amenity_fk: str,
     }
 
 
+def _query_named_amenity_stats(cursor, junction_table: str, amenity_name_col: str,
+                               estate: str, threshold_km: float) -> dict:
+    """Variant for junction tables keyed by block/street_name + amenity name."""
+    import mysql.connector
+    query = f"""
+        SELECT
+            MIN(j.distance) AS min_dist,
+            COUNT(DISTINCT CASE WHEN j.distance <= %s THEN j.`{amenity_name_col}` END) AS count_within,
+            AVG(CASE WHEN j.distance <= %s THEN j.distance END) AS avg_dist
+        FROM (
+            SELECT DISTINCT estate, block, street_name
+            FROM resale_flats
+            WHERE estate = %s
+        ) rf
+        JOIN `{junction_table}` j
+          ON rf.block = j.block
+         AND rf.street_name = j.street_name
+    """
+    try:
+        cursor.execute(query, (threshold_km, threshold_km, estate))
+        row = cursor.fetchone()
+    except mysql.connector.Error:
+        return {"min_dist": None, "count_within": 0, "avg_dist": None}
+
+    if row is None:
+        return {"min_dist": None, "count_within": 0, "avg_dist": None}
+
+    if isinstance(row, dict):
+        min_dist = row.get("min_dist")
+        count_within = row.get("count_within") or 0
+        avg_dist = row.get("avg_dist")
+    else:
+        min_dist = row[0]
+        count_within = row[1] or 0
+        avg_dist = row[2]
+
+    return {
+        "min_dist": float(min_dist) if min_dist is not None else None,
+        "count_within": int(count_within),
+        "avg_dist": float(avg_dist) if avg_dist is not None else None,
+    }
+
+
 def _fetch_one_amenity(amenity_key: str, config: dict, estate: str) -> tuple[str, dict, dict]:
     """Run one amenity query in its own DB connection (thread-safe)."""
     db = DbConnector()
     try:
-        stats = _query_amenity_stats(
-            db.cursor, config["junction_table"], config["amenity_fk"],
-            estate, config["threshold_km"]
-        )
+        if "amenity_fk" in config:
+            stats = _query_amenity_stats(
+                db.cursor, config["junction_table"], config["amenity_fk"],
+                estate, config["threshold_km"]
+            )
+        else:
+            stats = _query_named_amenity_stats(
+                db.cursor, config["junction_table"], config["amenity_name_col"],
+                estate, config["threshold_km"]
+            )
     finally:
         db.Close()
     return amenity_key, config, stats

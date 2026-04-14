@@ -145,7 +145,7 @@ export default function Sidebar({
     cit, age, marital, inc, ftimer, prox,
     ftype, selRegions, floor, lease,
     cash, cpf, loan,
-    mustAmenities, mrtMax,
+    mustAmenities,
   } = formState;
 
   const set = (key) => (e) => onFormChange(key, e.target.value);

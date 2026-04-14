@@ -27,7 +27,6 @@ const INITIAL_FORM = {
   cpf: 80000,
   loan: 1800,
   mustAmenities: [],
-  mrtMax: 10,
 };
 
 export default function App() {

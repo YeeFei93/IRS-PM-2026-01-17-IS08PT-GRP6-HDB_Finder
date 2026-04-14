@@ -8,10 +8,9 @@ Flow:
   1. Eligibility check
   2. Grant calculation + effective budget
   3. Determine candidate towns (from selected regions, or all)
-  4. For each town: price analysis + budget filter (p25 <= 1.18 x budget)
-  5. For each passing town: amenity distances + hard filters
-       - MRT max walk (slider)
-       - Must-have threshold check (checkboxes)
+  4. For each town: price analysis + budget filter (p25 <= 1.05 x budget)
+       + lease filter (avg_lease >= min_lease)
+  5. For each passing town: amenity distances + must-have threshold check
   6. CB cosine scoring via score_payload()
   7. Return top 10 sorted by score
 """
@@ -37,7 +36,7 @@ from budget_estimator_service.grants import calc_all_grants
 from budget_estimator_service.prices import analyse_town_prices
 from budget_estimator_service.effective_budget import effective_budget
 from estate_finder_service.queries import get_all_towns
-from amenity_proximity_service.distances import nearest_amenities, warm_all_estates
+from amenity_proximity_service.utils.distances import nearest_amenities, warm_all_estates
 from scorer import score_payload  # bare import — service dir is on sys.path above
 
 # Pre-warm the amenity cache in the background the moment this module loads
@@ -96,21 +95,24 @@ def run_recommendation(profile: dict) -> dict:
     else:
         towns = get_all_towns()
 
-    # ── 4. Price analysis + budget filter ────────────────────────────────────
+    # ── 4. Price analysis + budget/lease filter ─────────────────────────────
+    min_lease = profile.get("min_lease", 0)
     candidates = []
     for town in towns:
         price_data = analyse_town_prices(town, ftype)
         if price_data is None:
             continue
-        # Filter: p25 must be within 118% of effective budget
-        if price_data["p25"] > budget * 1.18:
+        # Filter: p25 must be within 105% of effective budget
+        if price_data["p25"] > budget * 1.05:
+            continue
+        # Filter: average remaining lease must meet buyer's minimum
+        if min_lease > 0 and price_data.get("avg_lease_years", 99) < min_lease:
             continue
         price_data["estate"] = town  # needed by flat_vector() via score_payload
         candidates.append({"town": town, "ftype": ftype, "price_data": price_data})
 
     # ── 5. Amenity distances + hard filters ──────────────────────────────────
     must_have    = profile.get("must_have", [])
-    max_mrt_mins = profile.get("max_mrt_mins", 30)
 
     # Fetch amenity data for all candidates in parallel (cache hits are O(1))
     town_amenities: dict[str, dict] = {}
@@ -129,11 +131,6 @@ def run_recommendation(profile: dict) -> dict:
 
     for c in candidates:
         amenities = town_amenities.get(c["town"], {})
-
-        # Hard filter: MRT max walk (panel slider) — skip if no MRT data yet
-        mrt_mins = amenities.get("mrt", {}).get("walk_mins")
-        if mrt_mins is not None and mrt_mins > max_mrt_mins:
-            continue
 
         # Must-have threshold check (checkboxes)
         # Only fail if we have distance data AND the amenity is beyond threshold.

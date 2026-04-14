@@ -85,8 +85,10 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
       if (!items?.length) return;
       const cfg = FLAT_AMENITY_CFG[type] || { color: '#888', emoji: '📍', label: type };
       items.forEach(item => {
-        // support legacy park_name key
-        const name = item.name || item.park_name || '';
+        // support legacy park_name key; for hawkers show only the text inside () if present
+        const rawName = item.name || item.park_name || '';
+        const parenMatch = type === 'hawkers' && rawName.match(/\(([^)]+)\)/);
+        const name = parenMatch ? parenMatch[1] : rawName;
         const icon = L.divIcon({
           html: `<div style="background:${cfg.color};color:#fff;border-radius:8px;padding:3px 7px;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:600;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);white-space:nowrap">${cfg.emoji} ${name} · ${item.distance.toFixed(2)}km</div>`,
           className: '', iconAnchor: [0, 0],
@@ -142,10 +144,12 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     if (!c || !am) return;
 
     const amenityDefs = [
-      { icon: '🚇', color: '#3498db', label: am.mrt, mins: am.mrtMin, lat: c.lat + 0.003, lng: c.lng + 0.005 },
-      { icon: '🍜', color: '#e67e22', label: am.hawker, lat: c.lat - 0.003, lng: c.lng + 0.006 },
-      { icon: '🌳', color: '#27ae60', label: am.park, lat: c.lat + 0.007, lng: c.lng - 0.004 },
-      { icon: '🏫', color: '#9b59b6', label: 'Primary School', lat: c.lat - 0.005, lng: c.lng - 0.006 },
+      { icon: '🚇', color: '#3498db', label: am.mrt,    mins: am.mrtMin, lat: c.lat + 0.003, lng: c.lng + 0.005 },
+      { icon: '🍜', color: '#e67e22', label: am.hawker,              lat: c.lat - 0.003, lng: c.lng + 0.006 },
+      { icon: '🌳', color: '#27ae60', label: am.park,                lat: c.lat + 0.007, lng: c.lng - 0.004 },
+      { icon: '🏫', color: '#9b59b6', label: 'Primary School',       lat: c.lat - 0.005, lng: c.lng - 0.006 },
+      { icon: '🛍️', color: '#f39c12', label: am.mall,                lat: c.lat + 0.005, lng: c.lng - 0.007 },
+      { icon: '🏥', color: '#e74c3c', label: am.hospital,            lat: c.lat - 0.007, lng: c.lng + 0.003 },
     ];
 
     amenityDefs.forEach(def => {
@@ -537,13 +541,11 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
           {[
             ['#3498db', 'MRT Station'],
             ['#e67e22', 'Hawker Centre'],
-            ['#9b59b6', 'Pri School'],
             ['#27ae60', 'Park'],
-            ['#f3e412', 'Mall'],
-            ['#e74c3c', 'Hospital'],
+            ['#9b59b6', 'School'],
           ].map(([color, label]) => (
             <div key={label} className="flex items-center gap-1.5 mb-1 text-[0.68rem]">
-              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+              <span style={{ color }}>{icon}</span>
               {label}
             </div>
           ))}
@@ -694,10 +696,12 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                               </span>
                             );
                           }
-                          // No breakdown — just show as active criterion
+                          // Budget: warn if estate median exceeds effective budget
+                          let warn = false;
+                          if (c === 'budget' && rec.effective > 0 && rec.pd.median > rec.effective) warn = true;
                           return (
                             <span key={c} style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: 3, background: '#1e1e1e', color: '#555', border: '1px solid #222' }}>
-                              {m.icon} <span style={{ color: '#888' }}>{m.label}</span> <span style={{ color: '#27ae60' }}>✓</span>
+                              {m.icon} <span style={{ color: '#888' }}>{m.label}</span> <span style={{ color: warn ? '#ff8080' : '#27ae60' }}>{warn ? '⚠' : '✓'}</span>
                             </span>
                           );
                         })}

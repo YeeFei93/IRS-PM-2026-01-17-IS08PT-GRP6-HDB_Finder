@@ -1,10 +1,10 @@
 
 from datetime import datetime
-from db_controller import DbController
-from db_connector import DbConnector
+from utils.db_controller import DbController
+from utils.db_connector import DbConnector
 from env import TABLE_NAME, KEY_NAME, ID
 import uuid
-from geojson_to_json import GeojsonToJson
+from utils.geojson_to_json import GeojsonToJson
 class ParksDB:
     def __init__(self, db: DbConnector):
         self.db = db
@@ -17,10 +17,23 @@ class ParksDB:
         column_names = dbc.GetColumnNames(self.table_name)
         processed_count = 0
         for item in self.GetRawData()["features"]:  
-            item[ID.PARK_ID] = str(uuid.uuid4())  
+            park_name = item["properties"]["NAME"]
+
+            if " PG" in park_name:
+                continue
+
+            if " OS" in park_name:
+                continue
+
+            if " FC" in park_name:
+                continue
+            
+            if "PLAYGROUND" in park_name:
+                continue
+            
+            item[ID.PARK_NAME] = item["properties"]["NAME"]
             item[KEY_NAME.LATITUDE] = item["geometry"]["coordinates"][1]
             item[KEY_NAME.LONGITUDE] = item["geometry"]["coordinates"][0]
-            item[KEY_NAME.NAME] = item["properties"]["NAME"]
             processed = dbc.PreprocessData(item, column_names=column_names)
 
             new_data_arr.append(processed)

@@ -1,3 +1,3 @@
 @echo off
-python save_resale_flats.py
+python -m start_files.save_resale_flats
 pause

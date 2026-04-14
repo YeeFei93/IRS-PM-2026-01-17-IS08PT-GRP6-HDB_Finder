@@ -1,8 +1,8 @@
 
 from datetime import datetime
 
-from db_controller import DbController
-from db_connector import DbConnector
+from utils.db_controller import DbController
+from utils.db_connector import DbConnector
 from env import TABLE_NAME, KEY_NAME, ID
 import uuid
 import threading
@@ -25,6 +25,26 @@ class ResaleFlatsDB:
         db = self.db
         query = f"""SELECT * FROM {TABLE_NAME.RESALE_FLATS_GEOLOCATION} a"""
         
+        db.cursor.execute(query)
+        return db.cursor.fetchall()
+
+    def GetAllWithGeolocations(self):
+        db = self.db
+        query = f"""
+            SELECT DISTINCT
+                rf.{ID.RESALE_FLAT_ID},
+                rf.{ID.BLOCK},
+                rf.{ID.STREET_NAME},
+                g.{KEY_NAME.LATITUDE},
+                g.{KEY_NAME.LONGITUDE}
+            FROM {TABLE_NAME.RESALE_FLATS} rf
+            JOIN {TABLE_NAME.RESALE_FLATS_GEOLOCATION} g
+              ON g.{ID.BLOCK} = rf.{ID.BLOCK}
+             AND g.{ID.STREET_NAME} = rf.{ID.STREET_NAME}
+            WHERE g.{KEY_NAME.LATITUDE} IS NOT NULL
+              AND g.{KEY_NAME.LONGITUDE} IS NOT NULL
+        """
+
         db.cursor.execute(query)
         return db.cursor.fetchall()
     

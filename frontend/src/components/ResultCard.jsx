@@ -87,7 +87,8 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
         pts: m.data?.pts ?? 0, max: m.data?.max ?? sc.weight ?? 20,
         desc: m.data?.desc || '',
       };
-    });
+    })
+    .filter(row => row.max > 0);  // skip criteria with no numeric breakdown (cosine scorer)
 
   const amenItems = [
     { key: 'mrt', icon: '🚇', label: 'MRT Station', d: sc.amenity?.detail?.mrt },
@@ -96,7 +97,7 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
     { key: 'school', icon: '🏫', label: 'Primary School', d: sc.amenity?.detail?.school },
     { key: 'mall', icon: '🛍️', label: 'Shopping Mall', d: sc.amenity?.detail?.mall },
     { key: 'hospital', icon: '🏥', label: 'Hospital', d: sc.amenity?.detail?.hospital },
-  ].filter(ai => mustAmenities.includes(ai.key));
+  ];  // show all 6 — must-haves highlighted, rest shown as secondary context
 
   const amenMax = sc.amenity?.max || sc.weight || 20;
   const amenPtsCls = (sc.amenity?.pts || 0) >= amenMax * 0.75 ? 'text-green' : (sc.amenity?.pts || 0) >= amenMax * 0.5 ? 'text-gold' : 'text-orange';
@@ -134,6 +135,16 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
             if (!m) return null;
             const pts = m.data?.pts ?? 0;
             const max = m.data?.max ?? sc.weight ?? 20;
+            // Budget: warn if median exceeds effective budget
+            const budgetWarn = c === 'budget' && rec.effective > 0 && pd.median > rec.effective;
+            if (max === 0) {
+              // No breakdown — show as ✓ or ⚠
+              return (
+                <div key={c} className={`text-[0.62rem] px-1.5 py-0.5 rounded bg-dk3 ${budgetWarn ? 'text-[#ff8080]' : 'text-muted'}`}>
+                  {m.label} <span className={budgetWarn ? 'text-[#ff8080]' : 'text-green'}>{budgetWarn ? '⚠' : '✓'}</span>
+                </div>
+              );
+            }
             return (
               <div key={c} className="text-[0.62rem] px-1.5 py-0.5 rounded bg-dk3 text-muted">
                 {m.label} <span className="text-light">{pts}/{max}</span>
@@ -213,6 +224,9 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
           {amenItems.map(ai => (
             <AmenityRow key={ai.key} icon={ai.icon} label={ai.label} d={ai.d} isMust={mustAmenities.includes(ai.key)} amenKey={ai.key} />
           ))}
+          {amenItems.length === 0 && (
+            <div className="px-3 py-2 text-[0.68rem] text-muted italic">No amenity preferences selected — all 6 amenity dims weighted 0.25</div>
+          )}
         </div>
 
         {/* Grant pills */}
