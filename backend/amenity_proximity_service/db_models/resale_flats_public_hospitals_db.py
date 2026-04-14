@@ -11,7 +11,7 @@ from utils.geolocation_converter import GeolocationConverter
 lock = threading.Lock()
 
 
-class ResaleFlatsHospitalsDB:
+class ResaleFlatsPublicHospitalsDB:
     def __init__(self, db: DbConnector):
         self.db = db
         self.processed_count = 0
