@@ -85,8 +85,10 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
       if (!items?.length) return;
       const cfg = FLAT_AMENITY_CFG[type] || { color: '#888', emoji: '📍', label: type };
       items.forEach(item => {
-        // support legacy park_name key
-        const name = item.name || item.park_name || '';
+        // support legacy park_name key; for hawkers show only the text inside () if present
+        const rawName = item.name || item.park_name || '';
+        const parenMatch = type === 'hawkers' && rawName.match(/\(([^)]+)\)/);
+        const name = parenMatch ? parenMatch[1] : rawName;
         const icon = L.divIcon({
           html: `<div style="background:${cfg.color};color:#fff;border-radius:8px;padding:3px 7px;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:600;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);white-space:nowrap">${cfg.emoji} ${name} · ${item.distance.toFixed(2)}km</div>`,
           className: '', iconAnchor: [0, 0],

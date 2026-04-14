@@ -16,7 +16,8 @@ MySQL migration notes:
   - Placeholders: %s (MySQL) instead of ? (SQLite)
 """
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+import re
 import statistics
 from collections import defaultdict
 from amenity_proximity_service.utils.db_connector import DbConnector
@@ -31,6 +32,9 @@ TOWN_REGION_MAP = {
     'JURONG WEST': 'West', 'JURONG EAST': 'West', 'BUKIT BATOK': 'West', 'CHOA CHU KANG': 'West', 'CLEMENTI': 'West', 'BUKIT PANJANG': 'West',
     'QUEENSTOWN': 'Central', 'BUKIT MERAH': 'Central', 'TOA PAYOH': 'Central', 'CENTRAL AREA': 'Central', 'MARINE PARADE': 'Central'
 }
+
+# Only show flats sold after this date (Oct 2025 onwards)
+_MIN_SOLD_DATE = date(2025, 10, 1)
 
 # Floor preference → storey_range_start SQL clause (MySQL int columns replace storey_range strings)
 _FLOOR_CLAUSES = {
@@ -205,7 +209,7 @@ def get_flats_for_estate(
     limit: int = 20,
 ) -> list[dict]:
     """Return flat transactions for a single estate, sorted by budget proximity."""
-    cutoff = (datetime.now() - timedelta(days=months * 30.5)).date()
+    cutoff = max((datetime.now() - timedelta(days=months * 30.5)).date(), _MIN_SOLD_DATE)
     query = """
         SELECT rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
                rf.storey_range_start, rf.storey_range_end,
@@ -246,7 +250,7 @@ def get_top_flats_across_estates(
     """
     if not estates:
         return []
-    cutoff = (datetime.now() - timedelta(days=months * 30.5)).date()
+    cutoff = max((datetime.now() - timedelta(days=months * 30.5)).date(), _MIN_SOLD_DATE)
     placeholders = ", ".join(["%s"] * len(estates))
     query = f"""
         SELECT rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
@@ -273,29 +277,62 @@ def get_top_flats_across_estates(
 
 
 def get_parks_for_flat(block: str, street_name: str) -> list[dict]:
-    """Return parks within 1km of a specific flat block, with coordinates."""
+    """Return non-playground parks within threshold of a flat block, with coordinates."""
     query = """
-        SELECT p.name AS park_name,
+        SELECT p.park_name,
                p.latitude,
                p.longitude,
                rfp.distance
-        FROM resale_flats rf
-        JOIN resale_flats_parks rfp ON rfp.resale_flat_id = rf.resale_flat_id
-        JOIN parks p ON p.park_id = rfp.park_id
-        WHERE rf.block = %s AND rf.street_name = %s
+        FROM resale_flats_parks rfp
+        JOIN parks p ON p.park_name = rfp.park_name
+        WHERE rfp.block = %s AND rfp.street_name = %s
           AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL
-        GROUP BY p.park_id, p.name, p.latitude, p.longitude, rfp.distance
+          AND p.park_name NOT REGEXP '( PG| OS| FC|PLAYGROUND)$'
         ORDER BY rfp.distance
     """
     db = DbConnector()
     try:
         db.cursor.execute(query, (block, street_name))
         rows = db.cursor.fetchall()
+    except Exception:
+        return []
     finally:
         db.Close()
     return [
         {
-            "park_name": r["park_name"],
+            "name":      r["park_name"],
+            "latitude":  float(r["latitude"]),
+            "longitude": float(r["longitude"]),
+            "distance":  round(float(r["distance"]), 3),
+        }
+        for r in rows
+    ]
+
+
+def _get_hawkers_for_flat(block: str, street_name: str) -> list[dict]:
+    """Return hawker centres within threshold of a flat block, with coordinates."""
+    query = """
+        SELECT h.hawker_centre_name AS name,
+               h.latitude,
+               h.longitude,
+               rfh.distance
+        FROM resale_flats_hawker_centres rfh
+        JOIN hawker_centres h ON h.hawker_centre_name = rfh.hawker_centre_name
+        WHERE rfh.block = %s AND rfh.street_name = %s
+          AND h.latitude IS NOT NULL AND h.longitude IS NOT NULL
+        ORDER BY rfh.distance
+    """
+    db = DbConnector()
+    try:
+        db.cursor.execute(query, (block, street_name))
+        rows = db.cursor.fetchall()
+    except Exception:
+        return []
+    finally:
+        db.Close()
+    return [
+        {
+            "name":      r["name"],
             "latitude":  float(r["latitude"]),
             "longitude": float(r["longitude"]),
             "distance":  round(float(r["distance"]), 3),
@@ -358,10 +395,8 @@ def get_all_amenities_for_flat(block: str, street_name: str) -> dict:
     rows are already within threshold.
     """
     return {
-        "parks":     _get_amenity_for_flat(block, street_name,
-                         "resale_flats_parks",           "parks",           "park_id"),
-        "hawkers":   _get_amenity_for_flat(block, street_name,
-                         "resale_flats_hawker_centres",  "hawker_centres",  "hawker_centre_id"),
+        "parks":     get_parks_for_flat(block, street_name),
+        "hawkers":   _get_hawkers_for_flat(block, street_name),
         "mrts":      _get_amenity_for_flat(block, street_name,
                          "resale_flats_mrt_stations",    "mrt_stations",    "mrt_station_id"),
         "schools":   _get_amenity_for_flat(block, street_name,
