@@ -75,7 +75,7 @@ class SchoolsDB:
 
     def GetRawData(self):
         data = []
-        with open("./raw-data/schools.csv", mode="r", encoding="utf-8") as file:
+        with open("./raw-data/schools/schools.csv", mode="r", encoding="utf-8") as file:
             csv_reader = csv.DictReader(file)
             for row in csv_reader:
                 data.append(row)
