@@ -542,7 +542,9 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             ['#3498db', 'MRT Station'],
             ['#e67e22', 'Hawker Centre'],
             ['#27ae60', 'Park'],
-            ['#9b59b6', 'School'],
+            ['#9b59b6', 'Pri School'],
+            ['#f3e412', 'Mall'],
+            ['#e74c3c', 'Hospital'],
           ].map(([color, label]) => (
             <div key={label} className="flex items-center gap-1.5 mb-1 text-[0.68rem]">
               <span style={{ color }}>{icon}</span>
