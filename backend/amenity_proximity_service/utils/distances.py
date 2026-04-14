@@ -52,12 +52,12 @@ _cache_lock = threading.Lock()
 # max_walk_mins   : threshold for within_threshold flag (from constants.js)
 # threshold_km    : distance equivalent (max_walk_mins / 15 min/km)
 _AMENITY_CONFIG: dict[str, dict] = {
-    "mrt":      {"junction_table": "resale_flats_mrt_stations",   "amenity_fk": "mrt_station_id",    "max_walk_mins": 12, "threshold_km": 1.0},
-    "hawker":   {"junction_table": "resale_flats_hawker_centres", "amenity_fk": "hawker_centre_name",  "max_walk_mins": 12, "threshold_km": 1.0},
-    "mall":     {"junction_table": "resale_flats_malls",          "amenity_fk": "mall_id",             "max_walk_mins": 18, "threshold_km": 1.5},
-    "park":     {"junction_table": "resale_flats_parks",          "amenity_fk": "park_name",           "max_walk_mins": 12, "threshold_km": 1.0},
-    "school":   {"junction_table": "resale_flats_schools",        "amenity_fk": "school_name",         "max_walk_mins": 12, "threshold_km": 1.0},
-    "hospital": {"junction_table": "resale_flats_public_hospitals", "amenity_name_col": "hospital_name", "max_walk_mins": 36, "threshold_km": 3.0},
+    "mrt":      {"junction_table": "resale_flats_mrt_stations",      "amenity_fk": "mrt_station_id",    "max_walk_mins": 12, "threshold_km": 1.0},
+    "hawker":   {"junction_table": "resale_flats_hawker_centres",     "amenity_fk": "hawker_centre_name","max_walk_mins": 12, "threshold_km": 1.0},
+    "mall":     {"junction_table": "resale_flats_shopping_malls",     "amenity_fk": "shopping_mall_name","max_walk_mins": 18, "threshold_km": 1.5},
+    "park":     {"junction_table": "resale_flats_parks",              "amenity_fk": "park_name",         "max_walk_mins": 12, "threshold_km": 1.0},
+    "school":   {"junction_table": "resale_flats_schools",            "amenity_fk": "school_name",       "max_walk_mins": 12, "threshold_km": 1.0},
+    "hospital": {"junction_table": "resale_flats_public_hospitals",   "amenity_fk": "hospital_name",     "max_walk_mins": 36, "threshold_km": 3.0},
 }
 
 # Walking speed: 5 km/h → 12 min/km (matches frontend ≤1km/≤1.5km/≤3km labels)
