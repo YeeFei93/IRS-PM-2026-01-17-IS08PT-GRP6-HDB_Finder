@@ -231,6 +231,28 @@ def run_recommendation(profile: dict) -> dict:
     # Sort estates by avg score of top flats (primary), qualifying flats as tiebreaker
     estate_results = sorted(estate_map.values(), key=lambda e: (e["avg_score"], e["qualifying_flats"]), reverse=True)
 
+    # ── Baseline rankings for academic comparison ─────────────────────────────
+    # Baseline 1 — Price proximity: rank by |median_price − effective_budget| ascending
+    #   Represents a naive "closest-to-budget" recommender with no preference modelling.
+    price_sorted = sorted(
+        estate_results,
+        key=lambda e: abs(e["price_data"]["median"] - budget),
+    )
+    price_rank_map = {e["town"]: i + 1 for i, e in enumerate(price_sorted)}
+
+    # Baseline 2 — Popularity: rank by transaction count (market liquidity signal)
+    #   Represents a non-personalised popularity-based recommender.
+    pop_sorted = sorted(
+        estate_results,
+        key=lambda e: e["price_data"]["n"],
+        reverse=True,
+    )
+    pop_rank_map = {e["town"]: i + 1 for i, e in enumerate(pop_sorted)}
+
+    for estate in estate_results:
+        estate["baseline_price_rank"] = price_rank_map[estate["town"]]
+        estate["baseline_pop_rank"]   = pop_rank_map[estate["town"]]
+
     return {
         "eligible":         True,
         "warnings":         elig["warnings"],

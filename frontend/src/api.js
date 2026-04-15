@@ -92,6 +92,8 @@ export function normaliseBackendRec(r) {
     qualifying_flats: r.qualifying_flats || 0,
     avg_score:      r.avg_score      ?? 0,
     strong_matches: r.strong_matches ?? 0,
+    baseline_price_rank: r.baseline_price_rank ?? null,
+    baseline_pop_rank:   r.baseline_pop_rank   ?? null,
     top_flats: (r.top_flats || []).map((f, i) => ({ ...f, _idx: i })),
   };
 }
