@@ -254,3 +254,19 @@ export function scoreToColor(score) {
     return `rgb(${red},174,67)`;
   }
 }
+
+// Colour by rank position (1 = best = green, n = worst = red)
+// rank: 1-based rank; total: total number of estates
+export function rankToColor(rank, total) {
+  const t = total <= 1 ? 1 : 1 - (rank - 1) / (total - 1); // 1.0 for rank 1, 0.0 for rank N
+  // gradient: red(192,57,43) → gold(192,174,43) → green(39,174,67)
+  if (t <= 0.5) {
+    const s = t * 2;
+    const green = Math.round(57 + s * (174 - 57));
+    return `rgb(192,${green},43)`;
+  } else {
+    const s = (t - 0.5) * 2;
+    const red = Math.round(192 - s * (192 - 39));
+    return `rgb(${red},174,67)`;
+  }
+}

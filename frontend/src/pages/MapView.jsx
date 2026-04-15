@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { ALL_TOWNS, COORDS, AMENITIES } from '../constants';
-import { scoreToColor, whyText } from '../engine';
+import { rankToColor, whyText } from '../engine';
 import { runFlatLookup, runFlatAmenities } from '../api';
 
 // Ray-casting point-in-polygon for GeoJSON ring coordinates [lng, lat]
@@ -69,7 +69,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     parks:     { color: '#27ae60', emoji: '🌳', label: 'Park',      threshold: '1km' },
     hawkers:   { color: '#e67e22', emoji: '🍜', label: 'Hawker',    threshold: '1km' },
     mrts:      { color: '#3498db', emoji: '🚇', label: 'MRT',       threshold: '1km' },
-    schools:   { color: '#9b59b6', emoji: '📚', label: 'School',    threshold: '1km' },
+    schools:   { color: '#9b59b6', emoji: '🏫', label: 'School',    threshold: '1km' },
     malls:     { color: '#f3e412', emoji: '🛍️', label: 'Mall',      threshold: '1.5km' },
     hospitals: { color: '#e74c3c', emoji: '🏥', label: 'Hospital',  threshold: '3km' },
   };
@@ -184,16 +184,16 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
       geoData.features.forEach(feat => {
         const town = feat.properties.estate;
         const rec = scoreByTown[town];
-        const s = rec ? rec.sc.total : null;
-        const col = s !== null ? scoreToColor(s) : '#3d3d3d';
         const rank = rec ? recs.indexOf(rec) + 1 : null;
+        const total = recs.length;
+        const col = rank !== null ? rankToColor(rank, total) : '#3d3d3d';
 
         const baseStyle = {
           fillColor: '#3d3d3d',
-          fillOpacity: s !== null ? 0.15 : 0.08,
+          fillOpacity: rec ? 0.15 : 0.08,
           color: '#444',
-          weight: s !== null ? 1.0 : 0.6,
-          opacity: s !== null ? 0.5 : 0.3,
+          weight: rec ? 1.0 : 0.6,
+          opacity: rec ? 0.5 : 0.3,
         };
         const layer = L.geoJSON(feat, { style: baseStyle, interactive: true });
 
@@ -203,7 +203,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
           const tr = rec.pd.trend12;
           popupHtml = `
             <div style="font-size:.9rem;font-weight:600;margin-bottom:3px">#${rank} ${town}</div>
-            <div style="font-size:.72rem;color:#888;margin-bottom:8px">${rec.ftype} · Score: <strong style="color:${col}">${s}/100</strong></div>
+            <div style="font-size:.72rem;color:#888;margin-bottom:8px">${rec.ftype} · Rank: <strong style="color:${col}">#${rank} of ${total}</strong></div>
             <div style="display:flex;gap:10px;margin-bottom:6px">
               <div><div style="font-size:.62rem;color:#666;text-transform:uppercase;letter-spacing:.8px">Price Range</div>
                 <div style="font-family:'JetBrains Mono',monospace;font-size:.82rem;color:#d4a843">$${(rec.pd.p25/1000).toFixed(0)}k–$${(rec.pd.p75/1000).toFixed(0)}k</div></div>
@@ -264,7 +264,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     // Phase 1: top-5 gold (selected = brighter). Phase 2: active estate only.
     const hot = activeEstate
       ? new Set([activeEstate])
-      : new Set(recsRef.current.slice(0, 5).map(r => r.town));
+      : new Set(recsRef.current.map(r => r.town));
     Object.entries(geoLayerByTownRef.current).forEach(([town, { layer, baseStyle }]) => {
       layer.off('click');
       layer.off('mouseover');
@@ -280,7 +280,10 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
         const inPhase3 = !!selectedFlatRef.current;
         const fillOp = isActive ? (inPhase3 ? 0.12 : 0.65) : isSelected ? 0.55 : 0.32;
         const w = isActive || isSelected ? 2.5 : 1.8;
-        const hotStyle = { fillColor: '#27ae60', fillOpacity: fillOp, color: '#27ae60', weight: w, opacity: 1 };
+        const recsArr = recsRef.current;
+        const rankIdx = recsArr.findIndex(r => r.town === town);
+        const estCol = rankIdx >= 0 ? rankToColor(rankIdx + 1, recsArr.length) : '#27ae60';
+        const hotStyle = { fillColor: estCol, fillOpacity: fillOp, color: estCol, weight: w, opacity: 1 };
         layer.setStyle(hotStyle);
         layer.on('mouseover', () => layer.setStyle({ ...hotStyle, fillOpacity: Math.min(fillOp + 0.2, 0.85) }));
         layer.on('mouseout', () => layer.setStyle(hotStyle));
@@ -297,7 +300,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     applyHotStyle();
 
     // In overview mode (no active estate), fit map to top-5 recommended estates
-    const hotTowns = activeFlatEstate ? [activeFlatEstate] : recs.slice(0, 5).map(r => r.town);
+    const hotTowns = activeFlatEstate ? [activeFlatEstate] : recs.map(r => r.town);
     if (hotTowns.length > 0 && !activeFlatEstate) {
       const bounds = L.latLngBounds();
       hotTowns.forEach(town => {
@@ -320,7 +323,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     const pct = effectiveBudget ? Math.abs(flat.resale_price - effectiveBudget) / effectiveBudget : 1;
     const nearBudget = pct <= 0.05;
     const over = effectiveBudget && flat.resale_price > effectiveBudget;
-    const col = nearBudget ? '#27ae60' : over ? '#c0392b' : '#d4a843';
+    const col = nearBudget ? '#d4a843' : over ? '#c0392b' : '#27ae60';
     const size = isSelected ? 34 : isHovered ? 30 : 26;
     const border = isSelected ? '2px solid #fff' : '2px solid #0f0f0f';
     const opacity = isDimmed ? 0.25 : 1;
@@ -348,7 +351,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
       const pct = effectiveBudget ? Math.abs(flat.resale_price - effectiveBudget) / effectiveBudget : 1;
       const nearBudget = pct <= 0.05;
       const over = effectiveBudget && flat.resale_price > effectiveBudget;
-      const col = nearBudget ? '#27ae60' : over ? '#c0392b' : '#d4a843';
+      const col = nearBudget ? '#d4a843' : over ? '#c0392b' : '#27ae60';
       const icon = makeFlatIcon(flat, i + 1, false, false);
       const popupHtml = `
         <div style="font-size:.82rem;font-weight:600;margin-bottom:2px">Blk ${flat.block} ${flat.street_name}</div>
@@ -404,13 +407,14 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     estateMarkersRef.current.forEach(m => map.removeLayer(m));
     estateMarkersRef.current = [];
     if (activeFlatEstate) return; // Phase 2+: hide estate markers
-    recs.slice(0, 5).forEach((rec, i) => {
+    recs.forEach((rec, i) => {
       const c = COORDS[rec.town];
       if (!c) return;
       const isSel = rec.town === selectedEstate;
       const size = isSel ? 34 : 28;
+      const pinCol = rankToColor(i + 1, recs.length);
       const icon = L.divIcon({
-        html: `<div style="background:#27ae60;color:#fff;border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${isSel?12:11}px;border:${isSel?'2px solid #fff':'2px solid #0f0f0f'};box-shadow:0 ${isSel?4:2}px ${isSel?12:8}px rgba(0,0,0,.8);font-family:'JetBrains Mono',monospace">${i + 1}</div>`,
+        html: `<div style="background:${pinCol};color:#fff;border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${isSel?12:11}px;border:${isSel?'2px solid #fff':'2px solid #0f0f0f'};box-shadow:0 ${isSel?4:2}px ${isSel?12:8}px rgba(0,0,0,.8);font-family:'JetBrains Mono',monospace">${i + 1}</div>`,
         className: '', iconSize: [size, size], iconAnchor: [size/2, size/2],
       });
       const m = L.marker([c.lat, c.lng], { icon });
@@ -466,8 +470,9 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   const handleTownClick = useCallback((town) => {
     setSelectedEstate(town);
     setActiveFlatEstate(town);
-    loadFlats({ estate: town });
-  }, [loadFlats]);
+    const r = recs.find(x => x.town === town);
+    setDrillFlats(r?.top_flats || []);
+  }, [recs]);
 
   // Stable ref for auto-load effect
   const loadFlatsRef = useRef(loadFlats);
@@ -517,7 +522,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
           subdomains="abcd"
           maxZoom={19}
         />
-        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={(town) => { setActiveFlatEstate(town); loadFlats({ estate: town }); }} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} />
+        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={(town) => { const r = recs.find(x => x.town === town); setActiveFlatEstate(town); setDrillFlats(r?.top_flats || []); }} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} />
       </MapContainer>
 
       {/* Zoom-out button */}
@@ -531,29 +536,29 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
 
       {/* Legend */}
       <div className="absolute bottom-5 left-5 bg-dk2 border border-dk3 rounded-lg p-3 px-4 z-[900] text-[0.72rem] text-muted pointer-events-none min-w-[160px]">
-        <div className="font-serif text-[0.88rem] text-white mb-2">Estate Score</div>
+        <div className="font-serif text-[0.88rem] text-white mb-2">Estate Rank</div>
         <div className="h-2.5 rounded-[5px] bg-gradient-to-r from-[#c0392b] via-[#e67e22] via-50% via-[#f1c40f] to-[#27ae60] mb-1" />
         <div className="flex justify-between text-[0.62rem] text-muted">
-          <span>0 Low</span><span>50</span><span>100 High</span>
+          <span>#N Last</span><span>#1 Best</span>
         </div>
-        <div className="mt-2.5 pt-2 border-t border-dk4">
-          <div className="text-[0.68rem] text-light mb-1.5 font-medium">Amenities Shown</div>
-          {[
-            ['#3498db', 'MRT Station'],
-            ['#e67e22', 'Hawker Centre'],
-            ['#27ae60', 'Park'],
-            ['#9b59b6', 'Pri School'],
-            ['#f3e412', 'Mall'],
-            ['#e74c3c', 'Hospital'],
-          ].map(([color, label]) => (
-            <div key={label} className="flex items-center gap-1.5 mb-1 text-[0.68rem]">
-              <span style={{ color }}>{icon}</span>
-              {label}
-            </div>
-          ))}
-          <div className="text-[0.6rem] text-muted mt-1">Click a marker to view listings</div>
-        </div>
-        <div className="text-[0.6rem] text-muted mt-2">All estates shown · color = score</div>
+        {selectedFlat && (
+          <div className="mt-2.5 pt-2 border-t border-dk4">
+            <div className="text-[0.68rem] text-light mb-1.5 font-medium">Amenities Shown</div>
+            {[
+              ['#3498db', '🚇', 'MRT Station'],
+              ['#e67e22', '🍜', 'Hawker Centre'],
+              ['#27ae60', '🌳', 'Park'],
+              ['#9b59b6', '🏫', 'Pri School'],
+              ['#f3e412', '🛍️', 'Mall'],
+              ['#e74c3c', '🏥', 'Hospital'],
+            ].map(([color, icon, label]) => (
+              <div key={label} className="flex items-center gap-1.5 mb-1 text-[0.68rem]">
+                <span style={{ color }}>{icon}</span>
+                {label}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Results panel — always visible once recs arrive */}
@@ -571,7 +576,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                 <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#e0e0e0' }}>
                   {activeFlatEstate
                     ? activeFlatEstate
-                    : `Top ${Math.min(recs.length, 5)} Estates`}
+                    : `${recs.length} Estates`}
                 </div>
                 <div style={{ fontSize: '0.68rem', color: '#555', marginTop: 2 }}>
                   {activeFlatEstate
@@ -580,11 +585,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                {!activeFlatEstate && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'rgba(22,160,133,0.1)', border: '1px solid rgba(22,160,133,0.25)', color: '#1abc9c', fontSize: '0.6rem', fontFamily: "'JetBrains Mono', monospace" }}>
-                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#1abc9c' }} /> LIVE
-                  </span>
-                )}
                 {activeFlatEstate && (
                   <button
                     onClick={() => { setActiveFlatEstate(null); setDrillFlats([]); setSelectedFlat(null); setHoveredFlatIdx(null); }}
@@ -594,29 +594,20 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
               </div>
             </div>
 
-            {/* Compact grant/budget bar */}
+            {/* Budget breakdown bar */}
             {derived?.grants && (
-              <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: '6px 8px', background: '#161616', borderRadius: 6, border: '1px solid #1e1e1e' }}>
-                {derived.grants.total > 0 && (
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.56rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Grants</div>
-                    <div style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: '#27ae60', fontWeight: 600 }}>${derived.grants.total.toLocaleString()}</div>
+              <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', background: '#161616', borderRadius: 6, border: '1px solid #1e1e1e', overflow: 'hidden' }}>
+                {[
+                  { label: 'Cash + CPF',  value: `$${((formState?.cash ?? 0) + (formState?.cpf ?? 0)).toLocaleString()}`, color: '#aaa' },
+                  { label: 'Grants',      value: derived.grants.total > 0 ? `$${derived.grants.total.toLocaleString()}` : '—', color: '#27ae60' },
+                  { label: 'HDB Loan',    value: derived.loanAmt > 0 ? `$${derived.loanAmt.toLocaleString()}` : '—', color: '#3498db' },
+                  { label: 'Total Budget', value: `~$${effectiveBudget?.toLocaleString() || '—'}`, color: '#27ae60' },
+                ].map(({ label, value, color }, idx, arr) => (
+                  <div key={label} style={{ textAlign: 'center', padding: '6px 4px', borderRight: idx < arr.length - 1 ? '1px solid #252525' : 'none' }}>
+                    <div style={{ fontSize: '0.52rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: '0.72rem', fontFamily: "'JetBrains Mono', monospace", color, fontWeight: 700, whiteSpace: 'nowrap' }}>{value}</div>
                   </div>
-                )}
-                {derived.grants.total > 0 && <div style={{ width: 1, height: 20, background: '#2a2a2a' }} />}
-                <div style={{ textAlign: 'center', flex: 1 }}>
-                  <div style={{ fontSize: '0.56rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Effective Budget</div>
-                  <div style={{ fontSize: '0.8rem', fontFamily: "'JetBrains Mono', monospace", color: '#27ae60', fontWeight: 700 }}>~${effectiveBudget?.toLocaleString() || '—'}</div>
-                </div>
-                {rawCount > 0 && (
-                  <>
-                    <div style={{ width: 1, height: 20, background: '#2a2a2a' }} />
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.56rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Transactions</div>
-                      <div style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: '#aaa', fontWeight: 600 }}>{rawCount.toLocaleString()}</div>
-                    </div>
-                  </>
-                )}
+                ))}
               </div>
             )}
           </div>
@@ -624,12 +615,15 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
           {/* Body */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
 
-            {/* Phase 1: estate cards */}
-            {!activeFlatEstate && recs.slice(0, 5).map((rec, i) => {
+            {/* Phase 1: estate cards — sorted by avg_score desc */}
+            {!activeFlatEstate && [...recs].sort((a, b) => (b.avg_score ?? 0) - (a.avg_score ?? 0)).map((rec, i) => {
               const isSel = selectedEstate === rec.town;
               const tr = rec.pd?.trend12;
-              const scCls = rec.sc.total >= 75 ? '#27ae60' : rec.sc.total >= 55 ? '#d4a843' : '#e67e22';
-              const confCol = rec.pd.conf === 'high' ? '#55d98d' : rec.pd.conf === 'medium' ? '#e67e22' : '#ff8080';
+              const bestScore  = rec.sc.total;                          // best flat × 100
+              const avgScore   = Math.round((rec.avg_score ?? 0) * 100);
+              const strong     = rec.strong_matches ?? 0;
+              const topN       = (rec.top_flats || []).length;
+              const avgCol     = avgScore >= 75 ? '#27ae60' : avgScore >= 55 ? '#d4a843' : '#e67e22';
               const activeCrit = rec.sc.active?.length ? rec.sc.active : ['budget', 'flat', 'region', 'mrt', 'amenity'];
               const CRIT_META = {
                 budget:  { icon: '💰', label: 'Budget',    data: rec.sc.budget },
@@ -650,28 +644,66 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                   onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = '#3a3a3a'; }}
                   onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor = '#2a2a2a'; }}
                 >
-                  {/* Row 1: rank + name + score */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <div style={{ minWidth: 22, height: 22, borderRadius: '50%', background: '#27ae60', color: '#fff', fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
+                    <div style={{ minWidth: 22, height: 22, borderRadius: '50%', background: rankToColor(i + 1, recs.length), color: '#fff', fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
                     <div style={{ flex: 1 }}>
+                      {/* Row 1: name + txn count */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#e0e0e0' }}>{rec.town}</div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '0.82rem', fontFamily: "'JetBrains Mono', monospace", color: scCls, fontWeight: 700 }}>{rec.sc.total}</span>
-                          <span style={{ fontSize: '0.6rem', color: '#555' }}>/100</span>
-                        </div>
-                      </div>
-                      {/* Score bar */}
-                      <div style={{ height: 3, background: '#2a2a2a', borderRadius: 2, marginTop: 4, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, #c0392b, #e67e22, #f1c40f, #27ae60)`, width: `${rec.sc.total}%`, transition: 'width 0.4s' }} />
-                      </div>
-                      {/* Label + subtitle */}
-                      <div style={{ marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.62rem', color: scCls, fontWeight: 600 }}>{rec.sc.label || ''}</span>
                         <span style={{ fontSize: '0.6rem', color: '#444' }}>{rec.pd.n} txn · {rec.pd.conf}</span>
                       </div>
 
-                      {/* Price + stats row */}
+                      {/* Score summary bar */}
+                      <div style={{ marginTop: 5, padding: '5px 8px', background: '#111', borderRadius: 5, border: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                        <div style={{ textAlign: 'center', flex: 1 }}>
+                          <div style={{ fontSize: '0.55rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 1 }}>Avg</div>
+                          <div style={{ fontSize: '0.82rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: avgCol }}>{avgScore}<span style={{ fontSize: '0.55rem', color: '#444' }}>/100</span></div>
+                        </div>
+                        <div style={{ width: 1, height: 28, background: '#2a2a2a' }} />
+                        <div style={{ textAlign: 'center', flex: 1 }}>
+                          <div style={{ fontSize: '0.55rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 1 }}>Best</div>
+                          <div style={{ fontSize: '0.82rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: '#aaa' }}>{bestScore}<span style={{ fontSize: '0.55rem', color: '#444' }}>/100</span></div>
+                        </div>
+                        <div style={{ width: 1, height: 28, background: '#2a2a2a' }} />
+                        <div style={{ textAlign: 'center', flex: 1 }}>
+                          <div style={{ fontSize: '0.55rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 1 }}>Strong</div>
+                          <div style={{ fontSize: '0.82rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: strong > 0 ? '#27ae60' : '#555' }}>{strong}<span style={{ fontSize: '0.6rem', color: '#444' }}>/{topN}</span></div>
+                        </div>
+                      </div>
+
+                      {/* Avg score bar */}
+                      <div style={{ height: 3, background: '#2a2a2a', borderRadius: 2, marginTop: 5, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, #c0392b, #e67e22, #f1c40f, #27ae60)`, width: `${avgScore}%`, transition: 'width 0.4s' }} />
+                      </div>
+
+                      {/* Baseline comparison row */}
+                      {(rec.baseline_price_rank != null || rec.baseline_pop_rank != null) && (
+                        <div style={{ marginTop: 5, display: 'flex', gap: 6, alignItems: 'center', fontSize: '0.58rem', color: '#444' }}>
+                          <span style={{ textTransform: 'uppercase', letterSpacing: '0.4px', color: '#333' }}>vs baselines</span>
+                          {rec.baseline_price_rank != null && (() => {
+                            const diff = rec.baseline_price_rank - (i + 1);
+                            const col = diff > 0 ? '#27ae60' : diff < 0 ? '#e67e22' : '#555';
+                            const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '=';
+                            return (
+                              <span style={{ padding: '1px 5px', borderRadius: 3, background: '#1a1a1a', border: '1px solid #252525' }}>
+                                💰 Price <span style={{ color: col, fontWeight: 600 }}>{arrow}{Math.abs(diff) || '='} #{rec.baseline_price_rank}</span>
+                              </span>
+                            );
+                          })()}
+                          {rec.baseline_pop_rank != null && (() => {
+                            const diff = rec.baseline_pop_rank - (i + 1);
+                            const col = diff > 0 ? '#27ae60' : diff < 0 ? '#e67e22' : '#555';
+                            const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '=';
+                            return (
+                              <span style={{ padding: '1px 5px', borderRadius: 3, background: '#1a1a1a', border: '1px solid #252525' }}>
+                                📊 Popularity <span style={{ color: col, fontWeight: 600 }}>{arrow}{Math.abs(diff) || '='} #{rec.baseline_pop_rank}</span>
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {/* Price row */}
                       <div style={{ marginTop: 5, display: 'flex', gap: 5, flexWrap: 'wrap', fontSize: '0.65rem', color: '#666' }}>
                         <span style={{ color: '#d4a843' }}>${(rec.pd.p25/1000).toFixed(0)}k–${(rec.pd.p75/1000).toFixed(0)}k</span>
                         <span>·</span>
@@ -681,7 +713,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                         {tr !== undefined && <><span>·</span><span style={{ color: tr > 0 ? '#e67e22' : '#27ae60' }}>{tr > 0 ? '▲' : '▼'}{Math.abs(tr)}%</span></>}
                       </div>
 
-                      {/* Criteria pills — show active as ✓ labels, show pts/max only when max > 0 */}
+                      {/* Criteria pills */}
                       <div style={{ marginTop: 5, display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                         {activeCrit.map(c => {
                           const m = CRIT_META[c];
@@ -689,7 +721,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                           const pts = m.data.pts ?? 0;
                           const max = m.data.max ?? 0;
                           if (max > 0) {
-                            // Has real breakdown (e.g. amenity)
                             const frac = pts / max;
                             const col = frac >= 0.75 ? '#27ae60' : frac >= 0.5 ? '#d4a843' : '#e67e22';
                             return (
@@ -698,9 +729,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                               </span>
                             );
                           }
-                          // Budget: warn if estate median exceeds effective budget
-                          let warn = false;
-                          if (c === 'budget' && rec.effective > 0 && rec.pd.median > rec.effective) warn = true;
+                          const warn = c === 'budget' && rec.effective > 0 && rec.pd.median > rec.effective;
                           return (
                             <span key={c} style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: 3, background: '#1e1e1e', color: '#555', border: '1px solid #222' }}>
                               {m.icon} <span style={{ color: '#888' }}>{m.label}</span> <span style={{ color: warn ? '#ff8080' : '#27ae60' }}>{warn ? '⚠' : '✓'}</span>
@@ -712,14 +741,13 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                       {/* Expanded when selected */}
                       {isSel && (
                         <div style={{ marginTop: 8 }}>
-                          {/* Why text */}
                           <div style={{ fontSize: '0.68rem', color: '#888', lineHeight: 1.5, fontStyle: 'italic', padding: '6px 8px', background: '#1a1a1a', borderRadius: 5, borderLeft: '2px solid #27ae60', marginBottom: 8 }}>
                             {whyText(rec.town, rec.ftype, rec.sc.total, rec.pd, rec.effective)}
                           </div>
                           <button
-                            onClick={e => { e.stopPropagation(); setActiveFlatEstate(rec.town); loadFlats({ estate: rec.town }); }}
+                            onClick={e => { e.stopPropagation(); setActiveFlatEstate(rec.town); setDrillFlats(rec.top_flats || []); }}
                             style={{ width: '100%', background: '#27ae60', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 0', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.3px' }}
-                          >View 10 Flats →</button>
+                          >View {(rec.top_flats || []).length} Flats →</button>
                         </div>
                       )}
                     </div>
@@ -732,23 +760,34 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             {activeFlatEstate && (() => {
               const estateRec = recs.find(r => r.town === activeFlatEstate);
               if (!estateRec) return null;
-              const scCol = estateRec.sc.total >= 75 ? '#27ae60' : estateRec.sc.total >= 55 ? '#d4a843' : '#e67e22';
+              const avgScore = Math.round((estateRec.avg_score ?? 0) * 100);
+              const bestScore = estateRec.sc.total;
+              const strong = estateRec.strong_matches ?? 0;
+              const topN = (estateRec.top_flats || []).length;
+              const avgCol = avgScore >= 75 ? '#27ae60' : avgScore >= 55 ? '#d4a843' : '#e67e22';
               return (
                 <div style={{ background: '#161616', border: '1px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e0e0e0' }}>{estateRec.town}</span>
-                      <span style={{ fontSize: '0.6rem', color: scCol, fontWeight: 600 }}>{estateRec.sc.label}</span>
-                    </div>
-                    <span style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: scCol, fontWeight: 700 }}>{estateRec.sc.total}/100</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e0e0e0' }}>{estateRec.town}</span>
+                    <span style={{ fontSize: '0.6rem', color: '#444' }}>{estateRec.pd.n} txn</span>
                   </div>
-                  <div style={{ height: 2, background: '#2a2a2a', borderRadius: 1, overflow: 'hidden', marginBottom: 5 }}>
-                    <div style={{ height: '100%', background: `linear-gradient(90deg, #c0392b, #e67e22, #f1c40f, #27ae60)`, width: `${estateRec.sc.total}%` }} />
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                    <div style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#111', borderRadius: 4, border: '1px solid #222' }}>
+                      <div style={{ fontSize: '0.52rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Avg</div>
+                      <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: avgCol }}>{avgScore}/100</div>
+                    </div>
+                    <div style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#111', borderRadius: 4, border: '1px solid #222' }}>
+                      <div style={{ fontSize: '0.52rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Best</div>
+                      <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: '#aaa' }}>{bestScore}/100</div>
+                    </div>
+                    <div style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#111', borderRadius: 4, border: '1px solid #222' }}>
+                      <div style={{ fontSize: '0.52rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Strong</div>
+                      <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: strong > 0 ? '#27ae60' : '#555' }}>{strong}/{topN}</div>
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, fontSize: '0.6rem', color: '#666', flexWrap: 'wrap' }}>
                     <span>Median <span style={{ color: '#aaa' }}>${(estateRec.pd.median/1000).toFixed(0)}k</span></span>
                     <span>${estateRec.pd.psm.toLocaleString()}/sqm</span>
-                    <span>{estateRec.pd.n} txn</span>
                     {estateRec.pd.trend12 !== undefined && (
                       <span style={{ color: estateRec.pd.trend12 > 0 ? '#e67e22' : '#27ae60' }}>
                         {estateRec.pd.trend12 > 0 ? '▲' : '▼'}{Math.abs(estateRec.pd.trend12)}%
@@ -761,6 +800,17 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             {activeFlatEstate && drillLoading && (
               <div style={{ textAlign: 'center', paddingTop: 48, color: '#444', fontSize: '0.8rem' }}>Loading flats…</div>
             )}
+            {activeFlatEstate && !drillLoading && filteredFlats.length > 0 && (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '4px 6px', marginBottom: 6, background: '#161616', borderRadius: 5, border: '1px solid #1e1e1e', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.58rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px', marginRight: 2 }}>Pin colour</span>
+                {[['#27ae60', 'under budget'], ['#d4a843', '≈ budget'], ['#c0392b', 'over budget']].map(([col, label]) => (
+                  <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.6rem', color: '#666' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: col, display: 'inline-block', flexShrink: 0 }} />
+                    {label}
+                  </span>
+                ))}
+              </div>
+            )}
             {activeFlatEstate && drillError && (
               <div style={{ color: '#c0392b', padding: '16px 8px', fontSize: '0.78rem' }}>{drillError}</div>
             )}
@@ -772,20 +822,18 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
               const pct = effectiveBudget ? Math.abs(flat.resale_price - effectiveBudget) / effectiveBudget : 1;
               const nearBudget = pct <= 0.05;
               const isFlatSel = selectedFlat?._idx === i;
-              const col = nearBudget ? '#27ae60' : over ? '#c0392b' : '#d4a843';
+              const col = nearBudget ? '#d4a843' : over ? '#c0392b' : '#27ae60';
               const psm = flat.floor_area_sqm > 0 ? Math.round(flat.resale_price / flat.floor_area_sqm) : null;
               const budgetDelta = effectiveBudget ? flat.resale_price - effectiveBudget : null;
               const budgetPctStr = effectiveBudget ? `${over ? '+' : ''}${((flat.resale_price - effectiveBudget) / effectiveBudget * 100).toFixed(0)}%` : null;
-              // Find the estate rec for this flat to show estate-level score context
-              const estateRec = recs.find(r => r.town === activeFlatEstate);
               return (
                 <div key={i}
                   onMouseEnter={() => setHoveredFlatIdx(i)}
                   onMouseLeave={() => setHoveredFlatIdx(null)}
                   onClick={() => { setSelectedFlat({ ...flat, _idx: i }); if (flat.latitude && flyToFlatRef.current) flyToFlatRef.current(flat); }}
                   style={{
-                    background: isFlatSel ? '#0a1f12' : nearBudget ? '#192419' : '#181818',
-                    border: `1px solid ${isFlatSel ? '#27ae60' : nearBudget ? '#2a4a2a' : '#242424'}`,
+                    background: isFlatSel ? '#0a1f12' : '#181818',
+                    border: `1px solid ${isFlatSel ? '#27ae60' : '#242424'}`,
                     borderRadius: 8, padding: '10px 12px', marginBottom: 8, cursor: 'pointer', transition: 'border-color 0.15s',
                   }}
                 >
@@ -797,6 +845,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                           <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", color: over ? '#e67e22' : '#27ae60', fontWeight: 700, whiteSpace: 'nowrap' }}>${flat.resale_price.toLocaleString()}</div>
                           {psm && <div style={{ fontSize: '0.58rem', color: '#555', fontFamily: "'JetBrains Mono', monospace" }}>${psm}/sqm</div>}
+                          {flat.score != null && <div style={{ fontSize: '0.62rem', color: '#1abc9c', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{Math.round(flat.score * 100)}/100</div>}
                         </div>
                       </div>
                       <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.65rem', color: '#555' }}>
@@ -829,7 +878,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             <span>
               {activeFlatEstate
                 ? `${filteredFlats.length} flats · click pin for amenities`
-                : `Top ${Math.min(recs.length, 5)} of ${recs.length} estates · cosine similarity`}
+                : `${recs.length} estates · flats ranked by cosine similarity`}
             </span>
             {latestMonth && <span>{latestMonth} · data.gov.sg</span>}
           </div>

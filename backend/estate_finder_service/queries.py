@@ -183,7 +183,10 @@ def _apply_flat_filters(query: str, params: list, ftype: str, floor_pref: str, m
 
 
 def _normalise_records(rows, budget: float, limit: int) -> list[dict]:
-    """Shared post-processing: normalise dates, sort by budget proximity, slice."""
+    """Shared post-processing: normalise dates, sort by budget proximity, slice.
+
+    Pass *limit=0* to return all records without slicing.
+    """
     if not rows:
         return []
     records = [dict(r) for r in rows]
@@ -196,7 +199,7 @@ def _normalise_records(rows, budget: float, limit: int) -> list[dict]:
             r["longitude"] = float(r["longitude"])
     if budget > 0:
         records.sort(key=lambda r: abs(r["resale_price"] - budget))
-    return records[:limit]
+    return records[:limit] if limit > 0 else records
 
 
 def get_flats_for_estate(
@@ -309,60 +312,25 @@ def get_parks_for_flat(block: str, street_name: str) -> list[dict]:
     ]
 
 
-def _get_hawkers_for_flat(block: str, street_name: str) -> list[dict]:
-    """Return hawker centres within threshold of a flat block, with coordinates."""
-    query = """
-        SELECT h.hawker_centre_name AS name,
-               h.latitude,
-               h.longitude,
-               rfh.distance
-        FROM resale_flats_hawker_centres rfh
-        JOIN hawker_centres h ON h.hawker_centre_name = rfh.hawker_centre_name
-        WHERE rfh.block = %s AND rfh.street_name = %s
-          AND h.latitude IS NOT NULL AND h.longitude IS NOT NULL
-        ORDER BY rfh.distance
-    """
-    db = DbConnector()
-    try:
-        db.cursor.execute(query, (block, street_name))
-        rows = db.cursor.fetchall()
-    except Exception:
-        return []
-    finally:
-        db.Close()
-    return [
-        {
-            "name":      r["name"],
-            "latitude":  float(r["latitude"]),
-            "longitude": float(r["longitude"]),
-            "distance":  round(float(r["distance"]), 3),
-        }
-        for r in rows
-    ]
-
-
 def _get_amenity_for_flat(
     block: str, street_name: str,
-    join_table: str, amenity_table: str, amenity_id_col: str,
+    join_table: str, amenity_table: str, amenity_name_col: str,
 ) -> list[dict]:
     """
-    Generic amenity query: returns amenities near a flat via a pre-computed
-    distance join table.  Returns [] gracefully if the table does not exist yet.
-
-    Assumes amenity_table has columns: <amenity_id_col>, name, latitude, longitude.
-    Assumes join_table has columns: resale_flat_id, <amenity_id_col>, distance.
+    Generic amenity query for name-based FK schema (-05).
+    join_table has columns: block, street_name, <amenity_name_col>, distance.
+    amenity_table has columns: <amenity_name_col>, latitude, longitude.
+    Returns [] gracefully on any error (table not yet populated, etc.).
     """
     query = f"""
-        SELECT a.`name`,
+        SELECT a.`{amenity_name_col}` AS name,
                a.latitude,
                a.longitude,
                j.distance
-        FROM resale_flats rf
-        JOIN `{join_table}` j ON j.resale_flat_id = rf.resale_flat_id
-        JOIN `{amenity_table}` a ON a.`{amenity_id_col}` = j.`{amenity_id_col}`
-        WHERE rf.block = %s AND rf.street_name = %s
+        FROM `{join_table}` j
+        JOIN `{amenity_table}` a ON a.`{amenity_name_col}` = j.`{amenity_name_col}`
+        WHERE j.block = %s AND j.street_name = %s
           AND a.latitude IS NOT NULL AND a.longitude IS NOT NULL
-        GROUP BY a.`{amenity_id_col}`, a.`name`, a.latitude, a.longitude, j.distance
         ORDER BY j.distance
     """
     db = DbConnector()
@@ -396,13 +364,14 @@ def get_all_amenities_for_flat(block: str, street_name: str) -> dict:
     """
     return {
         "parks":     get_parks_for_flat(block, street_name),
-        "hawkers":   _get_hawkers_for_flat(block, street_name),
+        "hawkers":   _get_amenity_for_flat(block, street_name,
+                         "resale_flats_hawker_centres",   "hawker_centres",   "hawker_centre_name"),
         "mrts":      _get_amenity_for_flat(block, street_name,
-                         "resale_flats_mrt_stations",    "mrt_stations",    "mrt_station_id"),
+                         "resale_flats_mrt_stations",     "mrt_stations",     "mrt_station_name"),
         "schools":   _get_amenity_for_flat(block, street_name,
-                         "resale_flats_schools",         "schools",         "school_id"),
+                         "resale_flats_schools",          "schools",          "school_name"),
         "malls":     _get_amenity_for_flat(block, street_name,
-                         "resale_flats_malls",           "malls",           "mall_id"),
+                         "resale_flats_shopping_malls",   "shopping_malls",   "shopping_mall_name"),
         "hospitals": _get_amenity_for_flat(block, street_name,
-                         "resale_flats_hospitals",       "public_hospitals", "hospital_id"),
+                         "resale_flats_public_hospitals", "public_hospitals", "hospital_name"),
     }

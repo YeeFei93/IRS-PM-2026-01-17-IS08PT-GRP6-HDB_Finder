@@ -1,16 +1,12 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
-import Welcome from './components/Welcome';
-import Loading from './components/Loading';
-import Empty from './components/Empty';
-import ResultsPane from './components/ResultsPane';
 import MapView from './pages//MapView';
 import TrendsView from './pages/TrendsView';
 import { REGIONS, ALL_TOWNS, API_BASE } from './constants';
 import { calcGrants, loanCapacity, checkEligibility, checkLoanLimit, checkLeaseAgeCriteria } from './engine';
 import { fetchTown, checkBackendHealth, runSearchBackend, normaliseBackendRec } from './api';
-import MainView from './pages/MainView';
+
 
 const INITIAL_FORM = {
   cit: 'SC_SC',
@@ -31,15 +27,12 @@ const INITIAL_FORM = {
 
 export default function App() {
   const [formState, setFormState] = useState(INITIAL_FORM);
-  const [activeTab, setActiveTab] = useState('results');
-  const [phase, setPhase] = useState('welcome'); // welcome | loading | results | empty
+  const [activeTab, setActiveTab] = useState('map');
+  const [isSearching, setIsSearching] = useState(false);
   const [recs, setRecs] = useState([]);
   const [rawCount, setRawCount] = useState(0);
   const [latestMonth, setLatestMonth] = useState(null);
   const [highlightedTown, setHighlightedTown] = useState(null);
-  const [loadMainText, setLoadMainText] = useState('');
-  const [loadStepText, setLoadStepText] = useState('');
-  const loadStepRef = useRef(null);
 
   const onFormChange = useCallback((key, value) => {
     setFormState(prev => ({ ...prev, [key]: value }));
@@ -63,23 +56,8 @@ export default function App() {
       return;
     }
 
-    setPhase('loading');
+    setIsSearching(true);
     setActiveTab('map');
-    const steps = [
-      'Connecting to data.gov.sg…',
-      'Fetching resale transactions…',
-      'Running data quality checks…',
-      'Analysing prices per town…',
-      'Computing amenity scores…',
-      'Ranking recommendations…',
-    ];
-    let si = 0;
-    setLoadMainText('Connecting to data.gov.sg…');
-    setLoadStepText(steps[0]);
-    loadStepRef.current = setInterval(() => {
-      si++;
-      setLoadStepText(steps[Math.min(si, steps.length - 1)]);
-    }, 900);
 
     const { selRegions, ftype, lease: minLease, age: buyerAge } = formState;
     const towns = selRegions.length
@@ -95,38 +73,27 @@ export default function App() {
     }
 
     if (backendOk) {
-      setLoadMainText('Sending request to recommendation engine… (first run may take up to 60s)');
       try {
         const payload = { ...formState, effective: derived.effective, grants: derived.grants };
         const res = await runSearchBackend(payload);
-        clearInterval(loadStepRef.current);
         // Express wraps the Python result in { status, result: {...} }
         const data = res.result ?? res;
-        const topRecs = (data.recommendations || []).map(normaliseBackendRec).slice(0, 10);
+        const topRecs = (data.recommendations || []).map(normaliseBackendRec);
         setRawCount(data.raw_count || topRecs.length);
         setLatestMonth(data.latest_month || null);
         setRecs(topRecs);
-        setPhase(topRecs.length ? 'results' : 'empty');
+        setIsSearching(false);
         return;
       } catch (e) {
-        clearInterval(loadStepRef.current);
         console.error('Backend search failed:', e);
-        setPhase('empty');
+        setIsSearching(false);
         return;
       }
     }
 
-    // No backend configured — show empty state
-    clearInterval(loadStepRef.current);
-    setPhase('empty');
+    // No backend configured
+    setIsSearching(false);
   }, [formState, derived]);
-
-  // Cleanup interval on unmount
-  useEffect(() => {
-    return () => { if (loadStepRef.current) clearInterval(loadStepRef.current); };
-  }, []);
-
-  
 
   return (
     <div className="min-h-screen">
@@ -142,25 +109,9 @@ export default function App() {
           loanLimitWarning={derived.loanLimitWarning}
           leaseAgeWarning={derived.leaseAgeWarning}
           onSearch={runSearch}
-          isSearching={phase === 'loading'}
+          isSearching={isSearching}
         />
         <main className="flex flex-col overflow-y-auto h-[calc(100vh-56px)]">
-          {/* Results Tab */}
-          {activeTab === 'results' && (
-            <MainView phase={phase}
-              loadMainText={loadMainText}
-              loadStepText={loadStepText} 
-              recs={recs}
-              derived={derived}
-              formState={formState}
-              rawCount={rawCount}
-              latestMonth={latestMonth}
-              highlightedTown={highlightedTown}
-              setHighlightedTown={setHighlightedTown}
-            
-            />
-          )}
-
           {/* Map Tab */}
           {activeTab === 'map' && (
           <MapView recs={recs} highlightedTown={highlightedTown} formState={formState} effectiveBudget={derived.effective} derived={derived} rawCount={rawCount} latestMonth={latestMonth} />

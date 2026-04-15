@@ -36,9 +36,6 @@ npm run build
 
 The output will be in the `dist/` folder, ready to be deployed to any static hosting provider.
 
-
-
-
 ---
 
 ## Data Sources
@@ -61,12 +58,14 @@ Manual downloads: https://data.gov.sg/datasets
 
 ## Recommendation Scoring — Vector Design
 
-Estates are ranked using **weighted cosine similarity** between a buyer-preference vector and a flat vector. Each vector has **7 dimensions**:
+Individual resale flats are scored using **weighted cosine similarity** between a buyer-preference vector and a per-flat vector. Each vector has **7 dimensions**. Estates are then ranked by the highest-scoring flat they contain.
+
+**Scoring granularity:** cosine similarity is computed at the **individual flat** level (using each flat's actual storey and its block-level amenity counts), not at the estate aggregate level. This ensures that the recommendation reflects real listings rather than estate-wide averages.
 
 | Dim | Feature | Encoding | Why a vector dimension |
 |-----|---------|----------|----------------------|
-| 0 | Floor preference | High → 1.0, Mid → 0.66, Low → 0.33, "Any" → 0.5 | Genuinely bidirectional — "mid" means not too high and not too low; a one-sided constraint (e.g. min floor) would use a pre-filter instead |
-| 1 | MRT proximity | count within 1.0 km / cap 3, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Preference with diminishing returns — more MRT stations nearby is always better; cosine rewards alignment between buyer desire and estate supply |
+| 0 | Floor preference | High → 1.0, Mid → 0.66, Low → 0.33, "Any" → 0.5; flat: storey midpoint / 50 | Genuinely bidirectional — "mid" means not too high and not too low; a one-sided constraint (e.g. min floor) would use a pre-filter instead |
+| 1 | MRT proximity | count within 1.0 km / cap 3, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Preference with diminishing returns — more MRT stations nearby is always better; cosine rewards alignment between buyer desire and flat supply |
 | 2 | Hawker centre | count within 1.0 km / cap 5, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale as MRT — amenity density is a genuine preference, not a hard constraint |
 | 3 | Shopping mall | count within 1.5 km / cap 3, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale; wider threshold (1.5 km) reflects typical acceptable walking distance to a mall |
 | 4 | Park | count within 1.0 km / cap 4, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale as MRT |
@@ -82,15 +81,15 @@ Cosine similarity measures the *angle* between two vectors — it rewards alignm
 - **Flat type** is a **hard pre-filter**: `analyse_town_prices(town, ftype)` queries only transactions matching the buyer's exact flat type. Every candidate already has the same flat type, so a vector dimension would be identical for all candidates and add zero discrimination.
 - **Region** is a **hard pre-filter**: step 3 of the recommender restricts candidates to towns in the buyer's selected regions. Every candidate's region already matches, so a vector dimension would always score the same.
 
-All four are handled as **pre-filters** that eliminate estates before cosine scoring:
-- Budget: estate's 25th-percentile price must be ≤ buyer's effective budget × 1.05
-- Lease: estate's average remaining lease must be ≥ buyer's minimum lease requirement
+All four are handled as **pre-filters** that eliminate flats before cosine scoring:
+- Budget: individual flat's `resale_price` must be ≤ buyer's effective budget × 1.05 (Python-level, per flat)
+- Lease: individual flat's `remaining_lease_years` must be ≥ buyer's minimum lease requirement (SQL-level, per flat)
 - Flat type: DB query selects only matching flat type
 - Region: candidate town list restricted to selected regions
 
 ### How cosine similarity scoring works
 
-The score is the weighted cosine between the buyer vector and the flat vector:
+The score is the weighted cosine between the buyer vector and an **individual flat's** vector:
 
 $$\text{score} = \cos(W \odot \vec{b},\; W \odot \vec{f})$$
 
@@ -122,15 +121,15 @@ $$\text{amenity\_score} = \min\left(\frac{\text{count\_within}}{\text{cap}}, 1.0
 | Primary school | 1.0 km | 4 |
 | Hospital | 3.0 km | 2 |
 
-This rewards **amenity density**: an estate with 2 MRT stations within 1.0 km scores higher than one with 1, reflecting genuine liveability.
+This rewards **amenity density**: a flat whose block has 2 MRT stations within 1.0 km scores higher than one with 1, reflecting genuine liveability. Amenity counts are computed per block/street (all flats in the same block share the same amenity distances).
 
 ### Worked examples
 
 #### Scenario 1 — Strong match (score ≈ 0.98)
 
 **Inputs:** `ftype="4 ROOM"`, `regions=["central"]`, `floor="high"`, `must_have=["mrt","hawker","park"]`, `budget=$500k`  
-**Flat:** TOA PAYOH (central), `storey_range="37 TO 42"`, amenities: mrt×2, hawker×4, mall×1, park×3, school×3, hospital×1  
-*(Pre-filters already applied: ftype selects DB query, region restricts town list, budget/lease filter candidates)*
+**Flat:** Blk 123 TOA PAYOH CENTRAL (central), `storey_range_start=37, storey_range_end=42`, block amenities: mrt×2, hawker×4, mall×1, park×3, school×3, hospital×1  
+*(Pre-filters already applied: ftype selects DB query, region restricts town list, budget/lease filter candidates; scoring is per flat)*
 
 **Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `regions≠[]` ✓ | `must_have≠[]` ✓  
 → active = [budget, flat, region, amenity]  
@@ -152,7 +151,7 @@ This rewards **amenity density**: an estate with 2 MRT stations within 1.0 km sc
 
 | Dim | How computed | Value |
 |-----|-------------|-------|
-| 0 | `storey_midpoint("37 TO 42") = 39.5 / 50` | 0.7900 |
+| 0 | `storey_midpoint(37, 42) = 39.5 / 50` | 0.7900 |
 | 1 | `count_within=2 / _AMENITY_COUNT_CAP["mrt"]=3` | 0.6667 |
 | 2 | `count_within=4 / _AMENITY_COUNT_CAP["hawker"]=5` | 0.8000 |
 | 3 | `count_within=1 / _AMENITY_COUNT_CAP["mall"]=3` | 0.3333 |
@@ -167,7 +166,7 @@ This rewards **amenity density**: an estate with 2 MRT stations within 1.0 km sc
 #### Scenario 2 — Moderate match (score ≈ 0.78)
 
 **Inputs:** `ftype="4 ROOM"`, `regions=["east"]`, `floor="any"`, `must_have=["mrt"]`, `budget=$400k`  
-**Flat:** JURONG WEST (east region pre-filter passed this town via fallback top-up), `storey_range="01 TO 03"`, amenities: mrt×3, hawker×2, mall×1, park×1, school×2, hospital×0  
+**Flat:** Blk 456 JURONG WEST ST 41, `storey_range_start=1, storey_range_end=3`, block amenities: mrt×3, hawker×2, mall×1, park×1, school×2, hospital×0  
 *(Pre-filters already applied: ftype selects DB query, budget/lease filter candidates)*
 
 **Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `regions≠[]` ✓ | `must_have≠[]` ✓  
@@ -190,7 +189,7 @@ This rewards **amenity density**: an estate with 2 MRT stations within 1.0 km sc
 
 | Dim | How computed | Value |
 |-----|-------------|-------|
-| 0 | `storey_midpoint("01 TO 03") = 2 / 50` | 0.0400 |
+| 0 | `storey_midpoint(1, 3) = 2 / 50` | 0.0400 |
 | 1 | `count_within=3 / _AMENITY_COUNT_CAP["mrt"]=3` | 1.0000 |
 | 2 | `count_within=2 / _AMENITY_COUNT_CAP["hawker"]=5` | 0.4000 |
 | 3 | `count_within=1 / _AMENITY_COUNT_CAP["mall"]=3` | 0.3333 |
@@ -198,14 +197,14 @@ This rewards **amenity density**: an estate with 2 MRT stations within 1.0 km sc
 | 5 | `count_within=2 / _AMENITY_COUNT_CAP["school"]=4` | 0.5000 |
 | 6 | `count_within=0 / _AMENITY_COUNT_CAP["hospital"]=2` | 0.0000 |
 
-**Why ≈0.78:** MRT matches perfectly (1.0 vs 1.0). Floor hurts (buyer=0.5 "any" vs flat=0.04 ground floor). Hospital dim drags (buyer=0.5 neutral vs flat=0.0). Region mismatch is handled by the pre-filter (this estate appeared via fallback top-up when <10 results passed region filter).
+**Why ≈0.78:** MRT matches perfectly (1.0 vs 1.0). Floor hurts (buyer=0.5 "any" vs flat=0.04 ground floor). Hospital dim drags (buyer=0.5 neutral vs flat=0.0).
 
 ---
 
 #### Scenario 3 — Poor match (score ≈ 0.55)
 
 **Inputs:** `ftype="5 ROOM"`, `regions=["central"]`, `floor="high"`, `must_have=["mrt","hawker","park","school"]`, `budget=$600k`  
-**Flat:** JURONG WEST (central region pre-filter passed via fallback top-up), `storey_range="01 TO 03"`, amenities: mrt×0, hawker×1, mall×0, park×0, school×0, hospital×0  
+**Flat:** Blk 789 JURONG WEST ST 52, `storey_range_start=1, storey_range_end=3`, block amenities: mrt×0, hawker×1, mall×0, park×0, school×0, hospital×0  
 *(Pre-filters already applied: ftype selects DB query, budget/lease filter candidates)*
 
 **Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `regions≠[]` ✓ | `must_have≠[]` ✓  
@@ -228,7 +227,7 @@ This rewards **amenity density**: an estate with 2 MRT stations within 1.0 km sc
 
 | Dim | How computed | Value |
 |-----|-------------|-------|
-| 0 | `storey_midpoint("01 TO 03") = 2 / 50` | 0.0400 |
+| 0 | `storey_midpoint(1, 3) = 2 / 50` | 0.0400 |
 | 1 | `count_within=0 / _AMENITY_COUNT_CAP["mrt"]=3` | 0.0000 |
 | 2 | `count_within=1 / _AMENITY_COUNT_CAP["hawker"]=5` | 0.2000 |
 | 3 | `count_within=0 / _AMENITY_COUNT_CAP["mall"]=3` | 0.0000 |
@@ -243,7 +242,7 @@ This rewards **amenity density**: an estate with 2 MRT stations within 1.0 km sc
 #### Scenario 4 — No amenity preference (score ≈ 0.96)
 
 **Inputs:** `ftype="3 ROOM"`, `regions=["north"]`, `floor="mid"`, `must_have=[]`, `budget=$300k`  
-**Flat:** WOODLANDS (north), `storey_range="10 TO 12"`, amenities: mrt×1, hawker×2, mall×1, park×2, school×3, hospital×0  
+**Flat:** Blk 321 WOODLANDS DR 14, `storey_range_start=10, storey_range_end=12`, block amenities: mrt×1, hawker×2, mall×1, park×2, school×3, hospital×0  
 *(Pre-filters already applied: ftype selects DB query, region restricts town list, budget/lease filter candidates)*
 
 **Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `regions≠[]` ✓ | `must_have=[]` ✗  
@@ -267,7 +266,7 @@ This rewards **amenity density**: an estate with 2 MRT stations within 1.0 km sc
 
 | Dim | How computed | Value |
 |-----|-------------|-------|
-| 0 | `storey_midpoint("10 TO 12") = 11 / 50` | 0.2200 |
+| 0 | `storey_midpoint(10, 12) = 11 / 50` | 0.2200 |
 | 1 | `count_within=1 / _AMENITY_COUNT_CAP["mrt"]=3` | 0.3333 |
 | 2 | `count_within=2 / _AMENITY_COUNT_CAP["hawker"]=5` | 0.4000 |
 | 3 | `count_within=1 / _AMENITY_COUNT_CAP["mall"]=3` | 0.3333 |
