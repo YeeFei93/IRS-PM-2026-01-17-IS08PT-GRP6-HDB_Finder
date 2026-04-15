@@ -60,7 +60,6 @@ function AmenityRow({ icon, label, d, isMust, amenKey }) {
 export default function ResultCard({ rec, index, mustAmenities, isHighlighted, onClick, onJumpMap }) {
   const { town, ftype, pd, sc, grants } = rec;
   const am = AMENITIES[town] || {};
-  const scCls = sc.total >= 75 ? 'text-green' : sc.total >= 55 ? 'text-gold' : 'text-orange';
   const tr = pd.trend12;
   const trStr = `${tr > 0 ? '▲' : '▼'} ${Math.abs(tr)}%`;
   const trCol = tr > 0 ? 'text-orange' : 'text-green';
@@ -116,20 +115,13 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
         </div>
         <div className="flex-1">
           <div className="font-serif text-[0.95rem] text-white">{town}</div>
-          <div className="text-[0.7rem] text-muted mt-0.5">{ftype} · HDB Resale · {pd.n} transactions</div>
-        </div>
-        <div className="text-right">
-          <div className={`font-mono text-[1.2rem] font-semibold leading-none ${scCls}`}>{sc.total}</div>
-          <div className="text-[0.6rem] text-muted">/100 score</div>
+          <div className="text-[0.7rem] text-muted mt-0.5">{ftype} · {rec.qualifying_flats} qualifying flats · {pd.n} txn · high</div>
         </div>
       </div>
 
-      {/* Score bar */}
+      {/* Criteria pills */}
       <div className="px-4 pb-2">
-        <div className="h-[3px] bg-dk3 rounded-sm overflow-hidden">
-          <div className="h-full rounded-sm bg-gradient-to-r from-red to-gold bar-fill-transition" style={{ width: `${sc.total}%` }} />
-        </div>
-        <div className="flex gap-1 mt-1.5 flex-wrap">
+        <div className="flex gap-1 flex-wrap">
           {activeCriteria.map(c => {
             const m = CRIT_META[c];
             if (!m) return null;
@@ -202,8 +194,7 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
         {/* Score Breakdown */}
         <div className="mt-3 bg-dk3 rounded-[7px] border border-dk4 overflow-hidden">
           <div className="px-3 py-2 pb-1.5 text-[0.68rem] text-muted uppercase tracking-[1px] border-b border-dk4">
-            📊 Score Breakdown — {sc.total}/100
-            {sc.label && <span className="ml-2 normal-case tracking-normal text-gold">{sc.label}</span>}
+            📊 Score Breakdown
           </div>
           {scoreRows.map(row => <ScoreRow key={row.label} {...row} />)}
 
