@@ -69,7 +69,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     parks:     { color: '#27ae60', emoji: '🌳', label: 'Park',      threshold: '1km' },
     hawkers:   { color: '#e67e22', emoji: '🍜', label: 'Hawker',    threshold: '1km' },
     mrts:      { color: '#3498db', emoji: '🚇', label: 'MRT',       threshold: '1km' },
-    schools:   { color: '#9b59b6', emoji: '📚', label: 'School',    threshold: '1km' },
+    schools:   { color: '#9b59b6', emoji: '🏫', label: 'School',    threshold: '1km' },
     malls:     { color: '#f3e412', emoji: '🛍️', label: 'Mall',      threshold: '1.5km' },
     hospitals: { color: '#e74c3c', emoji: '🏥', label: 'Hospital',  threshold: '3km' },
   };
