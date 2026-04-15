@@ -48,7 +48,8 @@ The output will be in the `dist/` folder, ready to be deployed to any static hos
 | `resale_prices.csv` | data.gov.sg | `d_8b84c4ee58e3cfc0ece0d773c8ca6abc` |
 | `planning_areas.geojson` | data.gov.sg | `d_4765db0e87b9c86336792efe8a1f7a66` |
 | `hawker_centres.geojson` | data.gov.sg (NEA) | `d_4a086da0a5553be1d89383cd90d07ebc` |
-| `mrt_stations.geojson` | data.gov.sg (LTA) | `d_5cb3563c5584bb533dfc3fbec97153e8` |
+| `train_stations.geojson` | data.gov.sg (LTA) | `d_b39d3a0871985372d7e1637193335da5` |
+| `train_station_lines.geojson` | data.gov.sg (LTA) | `d_d312a5b127e1ae74299b8ae664cedd4e` |
 | `hospitals.geojson` | data.gov.sg (LTA) Manually curated, Included in repo | `d_1338b55f6d4ea6b2df9884ec4bce4464` | 
 | `schools.geojson` | data.gov.sg (MOE) | Search: "General Information of Schools" | `d_688b934f82c1059ed0a6993d2a829089` |
 | `parks.geojson` | data.gov.sg (NParks) | Search: "Parks" | `d_0542d48f0991541706b58059381a6eca` |

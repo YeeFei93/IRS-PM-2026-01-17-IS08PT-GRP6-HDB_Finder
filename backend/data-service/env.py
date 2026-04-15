@@ -5,18 +5,24 @@ class TABLE_NAME:
     FLAT_MODELS = "flat_models"
     FLAT_TYPES = "flat_types"
     HAWKER_CENTRES = "hawker_centres"
+    MRT_LINES = "mrt_lines"
+    MRT_STATIONS_LINES = "mrt_stations_lines"
+    MRT_STATIONS = "mrt_stations"
+    MRT_STATIONS_EXITS = "mrt_stations_exits"
     PARKS = "parks"
     PUBLIC_HOSPITALS = "public_hospitals"
     RESALE_FLATS = "resale_flats"
     RESALE_FLATS_GEOLOCATION = "resale_flats_geolocation"
     SCHOOLS = "schools"
     SHOPPING_MALLS = "shopping_malls"
+    
 
 class ID:
     BLOCK = "block"
     HAWKER_CENTRE_NAME = "hawker_centre_name"
-    HOSPITAL_ID = "hospital_id"
     HOSPITAL_NAME = "hospital_name"
+    MRT_LINE_NAME = "mrt_line_name"
+    MRT_STATION_NAME = "mrt_station_name"
     PARK_NAME = "park_name"
     RESALE_FLAT_ID = "resale_flat_id"
     SCHOOL_NAME = "school_name"
@@ -25,6 +31,7 @@ class ID:
 
 class KEY_NAME:
     ESTATE = "estate"
+    EXIT_CODE = "exit_code"
     LATITUDE = "latitude"
     LONGITUDE = "longitude"
     FLAT_MODEL = "flat_model"
