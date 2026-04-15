@@ -89,6 +89,10 @@ export function normaliseBackendRec(r) {
     },
     grants:    r.grants           || { ehg: 0, cpfG: 0, phg: 0, total: 0, notes: [] },
     effective: r.effective_budget ?? 0,
+    qualifying_flats: r.qualifying_flats || 0,
+    avg_score:      r.avg_score      ?? 0,
+    strong_matches: r.strong_matches ?? 0,
+    top_flats: (r.top_flats || []).map((f, i) => ({ ...f, _idx: i })),
   };
 }
 

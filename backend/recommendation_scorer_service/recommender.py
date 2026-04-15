@@ -2,17 +2,20 @@
 recommendation_scorer_service/recommender.py
 ===================
 Orchestrates all services to produce the final cosine-similarity-ranked
-recommendation list. Replaces the old MCDM/recommender.py.
+recommendation list.  Scores **every** individual flat (sold from 2025-10)
+and derives estate rankings from the globally-ranked flat list.
 
 Flow:
   1. Eligibility check
   2. Grant calculation + effective budget
   3. Determine candidate towns (from selected regions, or all)
-  4. For each town: price analysis + budget filter (p25 <= 1.05 x budget)
-       + lease filter (avg_lease >= min_lease)
-  5. For each passing town: amenity distances + must-have threshold check
-  6. CB cosine scoring via score_payload()
-  7. Return top 10 sorted by score
+  4. For each town: fetch price analysis for display metadata
+  5. For each town: fetch **all** flats, filter resale_price <= budget*1.05
+     + remaining_lease_years >= min_lease (SQL-level)
+  6. Per-block amenity stats + CB cosine scoring per flat via score_payload()
+  7. Sort all scored flats globally by score (descending)
+  8. Group flats into estates — estate ordered by most qualifying flats
+  9. Return all estates with qualifying flats, each with up to 10 cosine-ranked flats
 """
 
 import os
@@ -35,8 +38,8 @@ from eligibility_checker_service.eligibility import check_eligibility
 from budget_estimator_service.grants import calc_all_grants
 from budget_estimator_service.prices import analyse_town_prices
 from budget_estimator_service.effective_budget import effective_budget
-from estate_finder_service.queries import get_all_towns
-from amenity_proximity_service.utils.distances import nearest_amenities, warm_all_estates
+from estate_finder_service.queries import get_all_towns, get_flats_for_estate
+from amenity_proximity_service.utils.distances import block_amenity_stats, warm_all_estates
 from scorer import score_payload  # bare import — service dir is on sys.path above
 
 # Pre-warm the amenity cache in the background the moment this module loads
@@ -59,7 +62,64 @@ _REGIONS = {
     'West':      ['JURONG WEST', 'JURONG EAST', 'BUKIT BATOK', 'CHOA CHU KANG', 'CLEMENTI', 'BUKIT PANJANG'],
 }
 
-_MIN_RESULTS = 10
+_TOP_FLATS = 10           # max flats to include per estate in response
+
+_EMPTY_AMENITY = {
+    "dist_km": None, "walk_mins": None,
+    "within_threshold": False, "count_within": 0,
+}
+
+_AMENITY_KEYS = ("mrt", "hawker", "mall", "park", "school", "hospital")
+
+
+def _score_estate_flats(town, ftype, floor_pref, min_lease, profile, budget):
+    """Fetch **all** flats for one estate, compute per-block amenity stats, score each flat.
+
+    Returns (town, scored_flats, active_criteria).
+    scored_flats is sorted by score descending; each flat dict has extra
+    ``score`` and ``flat_amenities`` keys.
+    """
+    flats = get_flats_for_estate(
+        town, ftype, floor_pref,
+        budget=0, min_lease=min_lease, limit=0,  # limit=0 → fetch all
+    )
+    # Flat-level budget filter: only score flats within 105% of effective budget
+    if budget > 0:
+        cap = budget * 1.05
+        flats = [f for f in flats if f["resale_price"] <= cap]
+    if not flats:
+        return town, [], None
+
+    amenity_by_block = block_amenity_stats(town)
+
+    scored_flats = []
+    active_criteria = None
+
+    for flat in flats:
+        key = (str(flat["block"]), flat["street_name"])
+        flat_amenities = {}
+        for akey in _AMENITY_KEYS:
+            flat_amenities[akey] = amenity_by_block.get(key, {}).get(akey, _EMPTY_AMENITY)
+
+        storey_mid = (
+            (flat.get("storey_range_start", 5) + flat.get("storey_range_end", 10)) / 2.0
+        )
+
+        result = score_payload({
+            "profile":    profile,
+            "price_data": {"avg_storey": storey_mid},
+            "amenities":  flat_amenities,
+            "budget":     budget,
+        })
+
+        flat["score"] = result["score"]
+        flat["flat_amenities"] = flat_amenities
+        if active_criteria is None:
+            active_criteria = result["active_criteria"]
+        scored_flats.append(flat)
+
+    scored_flats.sort(key=lambda f: f["score"], reverse=True)
+    return town, scored_flats, active_criteria
 
 
 def run_recommendation(profile: dict) -> dict:
@@ -95,85 +155,81 @@ def run_recommendation(profile: dict) -> dict:
     else:
         towns = get_all_towns()
 
-    # ── 4. Price analysis + budget/lease filter ─────────────────────────────
+    # ── 4. Price analysis per town (metadata only, no coarse filtering) ────
     min_lease = profile.get("min_lease", 0)
     candidates = []
     for town in towns:
         price_data = analyse_town_prices(town, ftype)
         if price_data is None:
             continue
-        # Filter: p25 must be within 105% of effective budget
-        if price_data["p25"] > budget * 1.05:
-            continue
-        # Filter: average remaining lease must meet buyer's minimum
-        if min_lease > 0 and price_data.get("avg_lease_years", 99) < min_lease:
-            continue
-        price_data["estate"] = town  # needed by flat_vector() via score_payload
-        candidates.append({"town": town, "ftype": ftype, "price_data": price_data})
+        candidates.append({"town": town, "price_data": price_data})
 
-    # ── 5. Amenity distances + hard filters ──────────────────────────────────
-    must_have    = profile.get("must_have", [])
+    # ── 5. Fetch ALL flats + score individually (parallel per estate) ───────
+    all_scored = []  # list of (flat_dict, town, price_data, active_criteria)
 
-    # Fetch amenity data for all candidates in parallel (cache hits are O(1))
-    town_amenities: dict[str, dict] = {}
     if candidates:
         with ThreadPoolExecutor(max_workers=min(len(candidates), 8)) as executor:
             futures = {
-                executor.submit(nearest_amenities, c["town"]): c["town"]
+                executor.submit(
+                    _score_estate_flats, c["town"], ftype, floor_pref,
+                    min_lease, profile, budget,
+                ): c
                 for c in candidates
             }
             for future in as_completed(futures):
-                town = futures[future]
-                town_amenities[town] = future.result()
+                c = futures[future]
+                try:
+                    town, scored_flats, active_criteria = future.result()
+                except Exception as exc:
+                    print(f"[recommender] Estate scoring failed for {c['town']}: {exc}", flush=True)
+                    continue
+                for flat in scored_flats:
+                    all_scored.append({
+                        "flat": flat,
+                        "town": town,
+                        "price_data": c["price_data"],
+                        "active_criteria": active_criteria or [],
+                    })
 
-    scored        = []
-    fallback_pool = []  # Towns that miss must-have threshold — used as top-up
+    # ── 6. Sort ALL flats globally by cosine score ───────────────────────────
+    all_scored.sort(key=lambda x: x["flat"]["score"], reverse=True)
 
-    for c in candidates:
-        amenities = town_amenities.get(c["town"], {})
+    # ── 7. Group into estates ────────────────────────────────────────────
+    estate_map = {}    # town → { estate result dict, total qualifying flat count }
 
-        # Must-have threshold check (checkboxes)
-        # Only fail if we have distance data AND the amenity is beyond threshold.
-        # If dist_km is None (junction table not yet populated), don't penalise.
-        failed_must = [
-            k for k in must_have
-            if amenities.get(k, {}).get("dist_km") is not None
-            and not amenities.get(k, {}).get("within_threshold", False)
-        ]
+    for item in all_scored:
+        town = item["town"]
+        flat = item["flat"]
+        flat_amenities = flat.pop("flat_amenities", {})
+        flat_clean = {k: v for k, v in flat.items()}
 
-        entry = {**c, "amenities": amenities, "failed_must": failed_must}
+        if town not in estate_map:
+            estate_map[town] = {
+                "town":             town,
+                "ftype":            ftype,
+                "price_data":       item["price_data"],
+                "amenities":        flat_amenities,   # best flat's amenities
+                "score":            flat["score"],     # best flat's score
+                "active_criteria":  item["active_criteria"],
+                "top_flats":        [],
+                "qualifying_flats": 0,
+                "grants":           grants,
+                "effective_budget": int(budget),
+            }
 
-        if not failed_must:
-            scored.append(entry)
-        else:
-            fallback_pool.append(entry)
+        estate_map[town]["qualifying_flats"] += 1
 
-    # Guarantee at least _MIN_RESULTS using fallback pool top-up
-    if len(scored) < _MIN_RESULTS:
-        scored.extend(fallback_pool[: _MIN_RESULTS - len(scored)])
+        if len(estate_map[town]["top_flats"]) < _TOP_FLATS:
+            estate_map[town]["top_flats"].append(flat_clean)
 
-    # ── 6. CB cosine scoring ─────────────────────────────────────────────────
-    results = []
-    for item in scored:
-        scored_result = score_payload({
-            "profile":    profile,
-            "price_data": item["price_data"],
-            "amenities":  item["amenities"],
-            "budget":     budget,
-        })
-        results.append({
-            "town":             item["town"],
-            "ftype":            item["ftype"],
-            "price_data":       item["price_data"],
-            "amenities":        item["amenities"],
-            "failed_must":      item.get("failed_must", []),
-            "score":            scored_result["score"],
-            "active_criteria":  scored_result["active_criteria"],
-            "grants":           grants,
-            "effective_budget": int(budget),
-        })
+    # Compute per-estate avg score and strong-match count from top flats
+    for estate in estate_map.values():
+        scores = [f["score"] for f in estate["top_flats"]]
+        estate["avg_score"]      = round(sum(scores) / len(scores), 4) if scores else 0.0
+        estate["strong_matches"] = sum(1 for s in scores if s >= 0.75)
 
-    results.sort(key=lambda x: x["score"], reverse=True)
+    # Sort estates by avg score of top flats (primary), qualifying flats as tiebreaker
+    estate_results = sorted(estate_map.values(), key=lambda e: (e["avg_score"], e["qualifying_flats"]), reverse=True)
 
     return {
         "eligible":         True,
@@ -181,5 +237,5 @@ def run_recommendation(profile: dict) -> dict:
         "notes":            elig["notes"],
         "grants":           grants,
         "effective_budget": int(budget),
-        "recommendations":  results[:_MIN_RESULTS],
+        "recommendations":  estate_results,
     }

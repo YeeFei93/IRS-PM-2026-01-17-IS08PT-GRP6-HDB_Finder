@@ -264,7 +264,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     // Phase 1: top-5 gold (selected = brighter). Phase 2: active estate only.
     const hot = activeEstate
       ? new Set([activeEstate])
-      : new Set(recsRef.current.slice(0, 5).map(r => r.town));
+      : new Set(recsRef.current.map(r => r.town));
     Object.entries(geoLayerByTownRef.current).forEach(([town, { layer, baseStyle }]) => {
       layer.off('click');
       layer.off('mouseover');
@@ -297,7 +297,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     applyHotStyle();
 
     // In overview mode (no active estate), fit map to top-5 recommended estates
-    const hotTowns = activeFlatEstate ? [activeFlatEstate] : recs.slice(0, 5).map(r => r.town);
+    const hotTowns = activeFlatEstate ? [activeFlatEstate] : recs.map(r => r.town);
     if (hotTowns.length > 0 && !activeFlatEstate) {
       const bounds = L.latLngBounds();
       hotTowns.forEach(town => {
@@ -404,7 +404,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     estateMarkersRef.current.forEach(m => map.removeLayer(m));
     estateMarkersRef.current = [];
     if (activeFlatEstate) return; // Phase 2+: hide estate markers
-    recs.slice(0, 5).forEach((rec, i) => {
+    recs.forEach((rec, i) => {
       const c = COORDS[rec.town];
       if (!c) return;
       const isSel = rec.town === selectedEstate;
@@ -466,8 +466,9 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   const handleTownClick = useCallback((town) => {
     setSelectedEstate(town);
     setActiveFlatEstate(town);
-    loadFlats({ estate: town });
-  }, [loadFlats]);
+    const r = recs.find(x => x.town === town);
+    setDrillFlats(r?.top_flats || []);
+  }, [recs]);
 
   // Stable ref for auto-load effect
   const loadFlatsRef = useRef(loadFlats);
@@ -517,7 +518,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
           subdomains="abcd"
           maxZoom={19}
         />
-        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={(town) => { setActiveFlatEstate(town); loadFlats({ estate: town }); }} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} />
+        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={(town) => { const r = recs.find(x => x.town === town); setActiveFlatEstate(town); setDrillFlats(r?.top_flats || []); }} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} />
       </MapContainer>
 
       {/* Zoom-out button */}
@@ -571,7 +572,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                 <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#e0e0e0' }}>
                   {activeFlatEstate
                     ? activeFlatEstate
-                    : `Top ${Math.min(recs.length, 5)} Estates`}
+                    : `${recs.length} Estates`}
                 </div>
                 <div style={{ fontSize: '0.68rem', color: '#555', marginTop: 2 }}>
                   {activeFlatEstate
@@ -624,12 +625,15 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
           {/* Body */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
 
-            {/* Phase 1: estate cards */}
-            {!activeFlatEstate && recs.slice(0, 5).map((rec, i) => {
+            {/* Phase 1: estate cards — sorted by avg_score desc */}
+            {!activeFlatEstate && [...recs].sort((a, b) => (b.avg_score ?? 0) - (a.avg_score ?? 0)).map((rec, i) => {
               const isSel = selectedEstate === rec.town;
               const tr = rec.pd?.trend12;
-              const scCls = rec.sc.total >= 75 ? '#27ae60' : rec.sc.total >= 55 ? '#d4a843' : '#e67e22';
-              const confCol = rec.pd.conf === 'high' ? '#55d98d' : rec.pd.conf === 'medium' ? '#e67e22' : '#ff8080';
+              const bestScore  = rec.sc.total;                          // best flat × 100
+              const avgScore   = Math.round((rec.avg_score ?? 0) * 100);
+              const strong     = rec.strong_matches ?? 0;
+              const topN       = (rec.top_flats || []).length;
+              const avgCol     = avgScore >= 75 ? '#27ae60' : avgScore >= 55 ? '#d4a843' : '#e67e22';
               const activeCrit = rec.sc.active?.length ? rec.sc.active : ['budget', 'flat', 'region', 'mrt', 'amenity'];
               const CRIT_META = {
                 budget:  { icon: '💰', label: 'Budget',    data: rec.sc.budget },
@@ -650,28 +654,39 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                   onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = '#3a3a3a'; }}
                   onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor = '#2a2a2a'; }}
                 >
-                  {/* Row 1: rank + name + score */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <div style={{ minWidth: 22, height: 22, borderRadius: '50%', background: '#27ae60', color: '#fff', fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
                     <div style={{ flex: 1 }}>
+                      {/* Row 1: name + txn count */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#e0e0e0' }}>{rec.town}</div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '0.82rem', fontFamily: "'JetBrains Mono', monospace", color: scCls, fontWeight: 700 }}>{rec.sc.total}</span>
-                          <span style={{ fontSize: '0.6rem', color: '#555' }}>/100</span>
-                        </div>
-                      </div>
-                      {/* Score bar */}
-                      <div style={{ height: 3, background: '#2a2a2a', borderRadius: 2, marginTop: 4, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, #c0392b, #e67e22, #f1c40f, #27ae60)`, width: `${rec.sc.total}%`, transition: 'width 0.4s' }} />
-                      </div>
-                      {/* Label + subtitle */}
-                      <div style={{ marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.62rem', color: scCls, fontWeight: 600 }}>{rec.sc.label || ''}</span>
                         <span style={{ fontSize: '0.6rem', color: '#444' }}>{rec.pd.n} txn · {rec.pd.conf}</span>
                       </div>
 
-                      {/* Price + stats row */}
+                      {/* Score summary bar */}
+                      <div style={{ marginTop: 5, padding: '5px 8px', background: '#111', borderRadius: 5, border: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                        <div style={{ textAlign: 'center', flex: 1 }}>
+                          <div style={{ fontSize: '0.55rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 1 }}>Avg</div>
+                          <div style={{ fontSize: '0.82rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: avgCol }}>{avgScore}<span style={{ fontSize: '0.55rem', color: '#444' }}>/100</span></div>
+                        </div>
+                        <div style={{ width: 1, height: 28, background: '#2a2a2a' }} />
+                        <div style={{ textAlign: 'center', flex: 1 }}>
+                          <div style={{ fontSize: '0.55rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 1 }}>Best</div>
+                          <div style={{ fontSize: '0.82rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: '#aaa' }}>{bestScore}<span style={{ fontSize: '0.55rem', color: '#444' }}>/100</span></div>
+                        </div>
+                        <div style={{ width: 1, height: 28, background: '#2a2a2a' }} />
+                        <div style={{ textAlign: 'center', flex: 1 }}>
+                          <div style={{ fontSize: '0.55rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 1 }}>Strong</div>
+                          <div style={{ fontSize: '0.82rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: strong > 0 ? '#27ae60' : '#555' }}>{strong}<span style={{ fontSize: '0.6rem', color: '#444' }}>/{topN}</span></div>
+                        </div>
+                      </div>
+
+                      {/* Avg score bar */}
+                      <div style={{ height: 3, background: '#2a2a2a', borderRadius: 2, marginTop: 5, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, #c0392b, #e67e22, #f1c40f, #27ae60)`, width: `${avgScore}%`, transition: 'width 0.4s' }} />
+                      </div>
+
+                      {/* Price row */}
                       <div style={{ marginTop: 5, display: 'flex', gap: 5, flexWrap: 'wrap', fontSize: '0.65rem', color: '#666' }}>
                         <span style={{ color: '#d4a843' }}>${(rec.pd.p25/1000).toFixed(0)}k–${(rec.pd.p75/1000).toFixed(0)}k</span>
                         <span>·</span>
@@ -681,7 +696,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                         {tr !== undefined && <><span>·</span><span style={{ color: tr > 0 ? '#e67e22' : '#27ae60' }}>{tr > 0 ? '▲' : '▼'}{Math.abs(tr)}%</span></>}
                       </div>
 
-                      {/* Criteria pills — show active as ✓ labels, show pts/max only when max > 0 */}
+                      {/* Criteria pills */}
                       <div style={{ marginTop: 5, display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                         {activeCrit.map(c => {
                           const m = CRIT_META[c];
@@ -689,7 +704,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                           const pts = m.data.pts ?? 0;
                           const max = m.data.max ?? 0;
                           if (max > 0) {
-                            // Has real breakdown (e.g. amenity)
                             const frac = pts / max;
                             const col = frac >= 0.75 ? '#27ae60' : frac >= 0.5 ? '#d4a843' : '#e67e22';
                             return (
@@ -698,9 +712,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                               </span>
                             );
                           }
-                          // Budget: warn if estate median exceeds effective budget
-                          let warn = false;
-                          if (c === 'budget' && rec.effective > 0 && rec.pd.median > rec.effective) warn = true;
+                          const warn = c === 'budget' && rec.effective > 0 && rec.pd.median > rec.effective;
                           return (
                             <span key={c} style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: 3, background: '#1e1e1e', color: '#555', border: '1px solid #222' }}>
                               {m.icon} <span style={{ color: '#888' }}>{m.label}</span> <span style={{ color: warn ? '#ff8080' : '#27ae60' }}>{warn ? '⚠' : '✓'}</span>
@@ -712,14 +724,13 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                       {/* Expanded when selected */}
                       {isSel && (
                         <div style={{ marginTop: 8 }}>
-                          {/* Why text */}
                           <div style={{ fontSize: '0.68rem', color: '#888', lineHeight: 1.5, fontStyle: 'italic', padding: '6px 8px', background: '#1a1a1a', borderRadius: 5, borderLeft: '2px solid #27ae60', marginBottom: 8 }}>
                             {whyText(rec.town, rec.ftype, rec.sc.total, rec.pd, rec.effective)}
                           </div>
                           <button
-                            onClick={e => { e.stopPropagation(); setActiveFlatEstate(rec.town); loadFlats({ estate: rec.town }); }}
+                            onClick={e => { e.stopPropagation(); setActiveFlatEstate(rec.town); setDrillFlats(rec.top_flats || []); }}
                             style={{ width: '100%', background: '#27ae60', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 0', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.3px' }}
-                          >View 10 Flats →</button>
+                          >View {(rec.top_flats || []).length} Flats →</button>
                         </div>
                       )}
                     </div>
@@ -732,23 +743,34 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             {activeFlatEstate && (() => {
               const estateRec = recs.find(r => r.town === activeFlatEstate);
               if (!estateRec) return null;
-              const scCol = estateRec.sc.total >= 75 ? '#27ae60' : estateRec.sc.total >= 55 ? '#d4a843' : '#e67e22';
+              const avgScore = Math.round((estateRec.avg_score ?? 0) * 100);
+              const bestScore = estateRec.sc.total;
+              const strong = estateRec.strong_matches ?? 0;
+              const topN = (estateRec.top_flats || []).length;
+              const avgCol = avgScore >= 75 ? '#27ae60' : avgScore >= 55 ? '#d4a843' : '#e67e22';
               return (
                 <div style={{ background: '#161616', border: '1px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e0e0e0' }}>{estateRec.town}</span>
-                      <span style={{ fontSize: '0.6rem', color: scCol, fontWeight: 600 }}>{estateRec.sc.label}</span>
-                    </div>
-                    <span style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: scCol, fontWeight: 700 }}>{estateRec.sc.total}/100</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e0e0e0' }}>{estateRec.town}</span>
+                    <span style={{ fontSize: '0.6rem', color: '#444' }}>{estateRec.pd.n} txn</span>
                   </div>
-                  <div style={{ height: 2, background: '#2a2a2a', borderRadius: 1, overflow: 'hidden', marginBottom: 5 }}>
-                    <div style={{ height: '100%', background: `linear-gradient(90deg, #c0392b, #e67e22, #f1c40f, #27ae60)`, width: `${estateRec.sc.total}%` }} />
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                    <div style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#111', borderRadius: 4, border: '1px solid #222' }}>
+                      <div style={{ fontSize: '0.52rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Avg</div>
+                      <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: avgCol }}>{avgScore}/100</div>
+                    </div>
+                    <div style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#111', borderRadius: 4, border: '1px solid #222' }}>
+                      <div style={{ fontSize: '0.52rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Best</div>
+                      <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: '#aaa' }}>{bestScore}/100</div>
+                    </div>
+                    <div style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#111', borderRadius: 4, border: '1px solid #222' }}>
+                      <div style={{ fontSize: '0.52rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Strong</div>
+                      <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: strong > 0 ? '#27ae60' : '#555' }}>{strong}/{topN}</div>
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, fontSize: '0.6rem', color: '#666', flexWrap: 'wrap' }}>
                     <span>Median <span style={{ color: '#aaa' }}>${(estateRec.pd.median/1000).toFixed(0)}k</span></span>
                     <span>${estateRec.pd.psm.toLocaleString()}/sqm</span>
-                    <span>{estateRec.pd.n} txn</span>
                     {estateRec.pd.trend12 !== undefined && (
                       <span style={{ color: estateRec.pd.trend12 > 0 ? '#e67e22' : '#27ae60' }}>
                         {estateRec.pd.trend12 > 0 ? '▲' : '▼'}{Math.abs(estateRec.pd.trend12)}%
@@ -776,8 +798,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
               const psm = flat.floor_area_sqm > 0 ? Math.round(flat.resale_price / flat.floor_area_sqm) : null;
               const budgetDelta = effectiveBudget ? flat.resale_price - effectiveBudget : null;
               const budgetPctStr = effectiveBudget ? `${over ? '+' : ''}${((flat.resale_price - effectiveBudget) / effectiveBudget * 100).toFixed(0)}%` : null;
-              // Find the estate rec for this flat to show estate-level score context
-              const estateRec = recs.find(r => r.town === activeFlatEstate);
               return (
                 <div key={i}
                   onMouseEnter={() => setHoveredFlatIdx(i)}
@@ -797,6 +817,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                           <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", color: over ? '#e67e22' : '#27ae60', fontWeight: 700, whiteSpace: 'nowrap' }}>${flat.resale_price.toLocaleString()}</div>
                           {psm && <div style={{ fontSize: '0.58rem', color: '#555', fontFamily: "'JetBrains Mono', monospace" }}>${psm}/sqm</div>}
+                          {flat.score != null && <div style={{ fontSize: '0.62rem', color: '#1abc9c', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{Math.round(flat.score * 100)}/100</div>}
                         </div>
                       </div>
                       <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.65rem', color: '#555' }}>
@@ -829,7 +850,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             <span>
               {activeFlatEstate
                 ? `${filteredFlats.length} flats · click pin for amenities`
-                : `Top ${Math.min(recs.length, 5)} of ${recs.length} estates · cosine similarity`}
+                : `${recs.length} estates · flats ranked by cosine similarity`}
             </span>
             {latestMonth && <span>{latestMonth} · data.gov.sg</span>}
           </div>

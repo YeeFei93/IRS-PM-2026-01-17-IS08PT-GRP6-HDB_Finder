@@ -183,7 +183,10 @@ def _apply_flat_filters(query: str, params: list, ftype: str, floor_pref: str, m
 
 
 def _normalise_records(rows, budget: float, limit: int) -> list[dict]:
-    """Shared post-processing: normalise dates, sort by budget proximity, slice."""
+    """Shared post-processing: normalise dates, sort by budget proximity, slice.
+
+    Pass *limit=0* to return all records without slicing.
+    """
     if not rows:
         return []
     records = [dict(r) for r in rows]
@@ -196,7 +199,7 @@ def _normalise_records(rows, budget: float, limit: int) -> list[dict]:
             r["longitude"] = float(r["longitude"])
     if budget > 0:
         records.sort(key=lambda r: abs(r["resale_price"] - budget))
-    return records[:limit]
+    return records[:limit] if limit > 0 else records
 
 
 def get_flats_for_estate(

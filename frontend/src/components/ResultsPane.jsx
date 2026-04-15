@@ -58,7 +58,7 @@ export default function ResultsPane({
         {/* Header */}
         <div className="flex items-center justify-between mb-3.5">
           <div>
-            <div className="font-serif text-[1.25rem] text-white">Top {recs.length} Recommendations</div>
+            <div className="font-serif text-[1.25rem] text-white">{recs.length} Estates · Flats Ranked by Cosine Similarity</div>
             <div className="text-[0.74rem] text-muted mt-0.5">
               {rawCount.toLocaleString()} transactions · {latestMonth || '—'} · data.gov.sg
               {activeCount > 0 && ` · cosine similarity · ${activeCount} criteria`}

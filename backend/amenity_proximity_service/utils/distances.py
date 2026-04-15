@@ -259,3 +259,104 @@ def warm_all_estates() -> None:
                 future.result()  # surface any exceptions to logs
     except Exception:
         pass  # warm-up failure must never crash the adapter
+
+
+# ── Per-block amenity stats (flat-level scoring) ────────────────────────────
+_block_cache: dict[str, dict] = {}
+_block_cache_lock = threading.Lock()
+
+
+def _query_block_amenity(cursor, junction_table: str,
+                         estate: str, threshold_km: float) -> list:
+    """Return per-block amenity counts for blocks belonging to an estate."""
+    import mysql.connector
+    query = f"""
+        SELECT j.block, j.street_name,
+               COUNT(*) AS count_within,
+               MIN(j.distance) AS min_dist
+        FROM `{junction_table}` j
+        INNER JOIN (
+            SELECT DISTINCT block, street_name
+            FROM resale_flats WHERE estate = %s
+        ) fb ON fb.block = j.block AND fb.street_name = j.street_name
+        WHERE j.distance <= %s
+        GROUP BY j.block, j.street_name
+    """
+    try:
+        cursor.execute(query, (estate, threshold_km))
+        return cursor.fetchall()
+    except mysql.connector.Error:
+        return []
+
+
+def _fetch_block_one(amenity_key: str, config: dict, estate: str):
+    """Query one amenity type for block-level stats (thread-safe)."""
+    db = DbConnector()
+    try:
+        rows = _query_block_amenity(
+            db.cursor, config["junction_table"], estate, config["threshold_km"],
+        )
+    finally:
+        db.Close()
+    return amenity_key, config, rows
+
+
+def block_amenity_stats(estate: str) -> dict:
+    """Per-block amenity stats for all flat locations in an estate.
+
+    Used by the recommender to score individual flats via cosine similarity.
+
+    Returns
+    -------
+    dict
+        ``{(block, street_name): {"mrt": {...}, "hawker": {...}, ...}}``
+        Each amenity value has: ``count_within``, ``dist_km``, ``walk_mins``,
+        ``within_threshold``.  Blocks with no amenities of a given type
+        within threshold are absent for that key — callers should default
+        to ``count_within=0``.
+    """
+    if estate in _block_cache:
+        return _block_cache[estate]
+
+    result: dict = {}
+
+    with ThreadPoolExecutor(max_workers=len(_AMENITY_CONFIG)) as executor:
+        futures = {
+            executor.submit(_fetch_block_one, k, v, estate): k
+            for k, v in _AMENITY_CONFIG.items()
+        }
+        for future in as_completed(futures):
+            amenity_key, config, rows = future.result()
+            for row in rows:
+                if isinstance(row, dict):
+                    blk, st = str(row["block"]), row["street_name"]
+                    cnt = int(row["count_within"] or 0)
+                    md = row["min_dist"]
+                else:
+                    blk, st = str(row[0]), row[1]
+                    cnt, md = int(row[2] or 0), row[3]
+
+                key = (blk, st)
+                if key not in result:
+                    result[key] = {}
+
+                if md is not None:
+                    d = float(md)
+                    wm = _dist_to_walk_mins(d)
+                    result[key][amenity_key] = {
+                        "count_within": cnt,
+                        "dist_km": round(d, 4),
+                        "walk_mins": wm,
+                        "within_threshold": wm <= config["max_walk_mins"],
+                    }
+                else:
+                    result[key][amenity_key] = {
+                        "count_within": 0,
+                        "dist_km": None,
+                        "walk_mins": None,
+                        "within_threshold": False,
+                    }
+
+    with _block_cache_lock:
+        _block_cache[estate] = result
+    return result
