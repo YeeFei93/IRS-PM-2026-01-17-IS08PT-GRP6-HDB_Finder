@@ -323,7 +323,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     const pct = effectiveBudget ? Math.abs(flat.resale_price - effectiveBudget) / effectiveBudget : 1;
     const nearBudget = pct <= 0.05;
     const over = effectiveBudget && flat.resale_price > effectiveBudget;
-    const col = nearBudget ? '#27ae60' : over ? '#c0392b' : '#d4a843';
+    const col = nearBudget ? '#d4a843' : over ? '#c0392b' : '#27ae60';
     const size = isSelected ? 34 : isHovered ? 30 : 26;
     const border = isSelected ? '2px solid #fff' : '2px solid #0f0f0f';
     const opacity = isDimmed ? 0.25 : 1;
@@ -351,7 +351,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
       const pct = effectiveBudget ? Math.abs(flat.resale_price - effectiveBudget) / effectiveBudget : 1;
       const nearBudget = pct <= 0.05;
       const over = effectiveBudget && flat.resale_price > effectiveBudget;
-      const col = nearBudget ? '#27ae60' : over ? '#c0392b' : '#d4a843';
+      const col = nearBudget ? '#d4a843' : over ? '#c0392b' : '#27ae60';
       const icon = makeFlatIcon(flat, i + 1, false, false);
       const popupHtml = `
         <div style="font-size:.82rem;font-weight:600;margin-bottom:2px">Blk ${flat.block} ${flat.street_name}</div>
@@ -803,7 +803,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             {activeFlatEstate && !drillLoading && filteredFlats.length > 0 && (
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '4px 6px', marginBottom: 6, background: '#161616', borderRadius: 5, border: '1px solid #1e1e1e', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '0.58rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px', marginRight: 2 }}>Pin colour</span>
-                {[['#27ae60', '≈ budget'], ['#d4a843', 'under budget'], ['#c0392b', 'over budget']].map(([col, label]) => (
+                {[['#27ae60', 'under budget'], ['#d4a843', '≈ budget'], ['#c0392b', 'over budget']].map(([col, label]) => (
                   <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.6rem', color: '#666' }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: col, display: 'inline-block', flexShrink: 0 }} />
                     {label}
@@ -822,7 +822,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
               const pct = effectiveBudget ? Math.abs(flat.resale_price - effectiveBudget) / effectiveBudget : 1;
               const nearBudget = pct <= 0.05;
               const isFlatSel = selectedFlat?._idx === i;
-              const col = nearBudget ? '#27ae60' : over ? '#c0392b' : '#d4a843';
+              const col = nearBudget ? '#d4a843' : over ? '#c0392b' : '#27ae60';
               const psm = flat.floor_area_sqm > 0 ? Math.round(flat.resale_price / flat.floor_area_sqm) : null;
               const budgetDelta = effectiveBudget ? flat.resale_price - effectiveBudget : null;
               const budgetPctStr = effectiveBudget ? `${over ? '+' : ''}${((flat.resale_price - effectiveBudget) / effectiveBudget * 100).toFixed(0)}%` : null;
