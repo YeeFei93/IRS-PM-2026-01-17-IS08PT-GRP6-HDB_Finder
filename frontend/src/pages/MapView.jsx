@@ -624,15 +624,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
               const strong     = rec.strong_matches ?? 0;
               const topN       = (rec.top_flats || []).length;
               const avgCol     = avgScore >= 75 ? '#27ae60' : avgScore >= 55 ? '#d4a843' : '#e67e22';
-              const activeCrit = rec.sc.active?.length ? rec.sc.active : ['budget', 'flat', 'region', 'mrt', 'amenity'];
-              const CRIT_META = {
-                budget:  { icon: '💰', label: 'Budget',    data: rec.sc.budget },
-                flat:    { icon: '🏠', label: 'Flat',      data: rec.sc.flat },
-                region:  { icon: '🗺️', label: 'Region',    data: rec.sc.region },
-                lease:   { icon: '📅', label: 'Lease',     data: rec.sc.lease },
-                mrt:     { icon: '🚇', label: 'Transport', data: rec.sc.transport },
-                amenity: { icon: '📍', label: 'Amenity',   data: rec.sc.amenity },
-              };
               return (
                 <div key={rec.town}
                   onClick={() => setSelectedEstate(rec.town)}
@@ -713,36 +704,14 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                         {tr !== undefined && <><span>·</span><span style={{ color: tr > 0 ? '#e67e22' : '#27ae60' }}>{tr > 0 ? '▲' : '▼'}{Math.abs(tr)}%</span></>}
                       </div>
 
-                      {/* Criteria pills */}
-                      <div style={{ marginTop: 5, display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                        {activeCrit.map(c => {
-                          const m = CRIT_META[c];
-                          if (!m?.data) return null;
-                          const pts = m.data.pts ?? 0;
-                          const max = m.data.max ?? 0;
-                          if (max > 0) {
-                            const frac = pts / max;
-                            const col = frac >= 0.75 ? '#27ae60' : frac >= 0.5 ? '#d4a843' : '#e67e22';
-                            return (
-                              <span key={c} style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: 3, background: '#1e1e1e', color: '#888', border: '1px solid #2a2a2a' }}>
-                                {m.icon} {m.label} <span style={{ color: col, fontWeight: 600 }}>{pts}/{max}</span>
-                              </span>
-                            );
-                          }
-                          const warn = c === 'budget' && rec.effective > 0 && rec.pd.median > rec.effective;
-                          return (
-                            <span key={c} style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: 3, background: '#1e1e1e', color: '#555', border: '1px solid #222' }}>
-                              {m.icon} <span style={{ color: '#888' }}>{m.label}</span> <span style={{ color: warn ? '#ff8080' : '#27ae60' }}>{warn ? '⚠' : '✓'}</span>
-                            </span>
-                          );
-                        })}
-                      </div>
+                      {/* Criteria pills — removed: budget/flat always active (no info),
+                         amenity detail now shown in per-flat score breakdown */}
 
                       {/* Expanded when selected */}
                       {isSel && (
                         <div style={{ marginTop: 8 }}>
                           <div style={{ fontSize: '0.68rem', color: '#888', lineHeight: 1.5, fontStyle: 'italic', padding: '6px 8px', background: '#1a1a1a', borderRadius: 5, borderLeft: '2px solid #27ae60', marginBottom: 8 }}>
-                            {whyText(rec.town, rec.ftype, rec.sc.total, rec.pd, rec.effective)}
+                            {whyText(rec.town, rec.ftype, rec.sc.total, rec.pd, rec.effective, rec.sc.active, rec.avg_score, rec.qualifying_flats)}
                           </div>
                           <button
                             onClick={e => { e.stopPropagation(); setActiveFlatEstate(rec.town); setDrillFlats(rec.top_flats || []); }}
@@ -866,6 +835,95 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                             : nearBudget && <span style={{ color: '#27ae60', fontWeight: 700 }}>✓ Near budget</span>}
                         </span>
                       </div>
+
+                      {/* Score Breakdown Table — shown when flat is selected */}
+                      {isFlatSel && flat.score_breakdown && (
+                        <div style={{ marginTop: 8, background: '#111', border: '1px solid #222', borderRadius: 6, padding: '8px 10px', fontSize: '0.62rem' }}>
+                          <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Score Breakdown</div>
+                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr style={{ color: '#444', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                                <th style={{ textAlign: 'left', paddingBottom: 4 }}>Criterion</th>
+                                <th style={{ textAlign: 'center', paddingBottom: 4 }}>Match</th>
+                                <th style={{ textAlign: 'right', paddingBottom: 4 }}>Pts</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {flat.score_breakdown.map((row) => {
+                                const ptsRaw = row.contrib * 100;
+                                const pts = row.dim === 'budget' ? ptsRaw : ptsRaw;
+                                const ptsStr = row.dim === 'budget'
+                                  ? (pts === 0 ? '—' : pts.toFixed(1))
+                                  : pts.toFixed(1);
+                                const isBudget = row.dim === 'budget';
+                                const matchPct = isBudget
+                                  ? (row.flat && row.buyer ? Math.round(row.flat / row.buyer * 100) : null)
+                                  : Math.round(Math.min(row.flat, row.buyer) / Math.max(row.flat, row.buyer, 0.01) * 100);
+                                const barCol = isBudget
+                                  ? (pts < 0 ? '#e67e22' : '#27ae60')
+                                  : row.priority
+                                    ? (matchPct >= 70 ? '#27ae60' : matchPct >= 40 ? '#d4a843' : '#e67e22')
+                                    : '#555';
+                                const barWidth = isBudget
+                                  ? Math.min(Math.abs(pts) / 5 * 100, 100)
+                                  : Math.min(Math.abs(pts) / 0.2 * 100, 100);  // scale: 0.20 contrib = full bar
+                                return (
+                                  <tr key={row.dim} style={{ borderTop: '1px solid #1a1a1a' }}>
+                                    <td style={{ padding: '4px 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                      <span>{row.icon}</span>
+                                      <span style={{ color: row.priority ? '#e0e0e0' : '#666', fontWeight: row.priority ? 600 : 400 }}>
+                                        {row.dim.charAt(0).toUpperCase() + row.dim.slice(1)}
+                                      </span>
+                                      {row.priority && <span style={{ fontSize: '0.5rem', color: '#1abc9c', fontWeight: 700 }}>★</span>}
+                                    </td>
+                                    <td style={{ padding: '4px 6px' }}>
+                                      <div style={{ height: 4, background: '#222', borderRadius: 2, overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', borderRadius: 2, background: barCol, width: `${barWidth}%`, transition: 'width 0.3s' }} />
+                                      </div>
+                                    </td>
+                                    <td style={{ textAlign: 'right', padding: '4px 0', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: isBudget && pts < 0 ? '#e67e22' : barCol, whiteSpace: 'nowrap' }}>
+                                      {ptsStr}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              <tr style={{ borderTop: '1px solid #333' }}>
+                                <td style={{ padding: '5px 0', fontWeight: 700, color: '#e0e0e0' }}>Total</td>
+                                <td />
+                                <td style={{ textAlign: 'right', padding: '5px 0', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: '#1abc9c', fontSize: '0.7rem' }}>
+                                  {Math.round(flat.score * 100)}/100
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                          {/* Score context — explains what criteria drove the score */}
+                          {(() => {
+                            const priority = flat.score_breakdown.filter(r => r.priority);
+                            const nonBudget = priority.filter(r => r.dim !== 'budget');
+                            const dimLabels = { floor: 'floor', mrt: 'MRT', hawker: 'hawker', mall: 'mall', park: 'park', school: 'school', hospital: 'hospital' };
+                            const names = nonBudget.map(r => dimLabels[r.dim] || r.dim);
+                            const totalScore = Math.round(flat.score * 100);
+                            const conf = nonBudget.length === 0 ? 'Low' : nonBudget.length <= 2 ? 'Moderate' : 'High';
+                            const confCol = nonBudget.length === 0 ? '#e67e22' : nonBudget.length <= 2 ? '#d4a843' : '#27ae60';
+                            return (
+                              <div style={{ marginTop: 6, fontSize: '0.55rem', color: '#555', lineHeight: 1.5 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ color: confCol, fontWeight: 600 }}>{conf} confidence</span>
+                                  <span>·</span>
+                                  <span>{nonBudget.length} of {flat.score_breakdown.length - 1} preferences active</span>
+                                </div>
+                                <div style={{ marginTop: 2 }}>
+                                  {names.length === 0
+                                    ? 'No preferences set — score reflects general amenity proximity'
+                                    : `Based on ${names.join(', ')}`}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

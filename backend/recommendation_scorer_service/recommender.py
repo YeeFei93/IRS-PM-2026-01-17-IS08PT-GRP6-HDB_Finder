@@ -106,13 +106,15 @@ def _score_estate_flats(town, ftype, floor_pref, min_lease, profile, budget):
         )
 
         result = score_payload({
-            "profile":    profile,
-            "price_data": {"avg_storey": storey_mid},
-            "amenities":  flat_amenities,
-            "budget":     budget,
+            "profile":      profile,
+            "price_data":   {"avg_storey": storey_mid},
+            "amenities":    flat_amenities,
+            "budget":       budget,
+            "resale_price": flat.get("resale_price", 0),
         })
 
         flat["score"] = result["score"]
+        flat["score_breakdown"] = result["breakdown"]
         flat["flat_amenities"] = flat_amenities
         if active_criteria is None:
             active_criteria = result["active_criteria"]

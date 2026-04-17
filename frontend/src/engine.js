@@ -227,19 +227,35 @@ export function checkEligibility(cit, income, age, marital, ftimer) {
   return { eligible, warns, notes };
 }
 
-export function whyText(town, ftype, score, pd, budget) {
+export function whyText(town, ftype, score, pd, budget, active = [], avgScore = 0, qualifyingFlats = 0) {
   const savings = budget - pd.median;
   const under = savings > 0;
   const tr = pd.trend12;
-  return `${town} offers ${ftype} flats ${under
-    ? `within budget with ~$${Math.abs(savings).toLocaleString()} headroom`
-    : 'slightly above base budget — grants and negotiation may close the gap'
-    }. ${tr < 0
-      ? 'Prices have softened over 12 months, presenting a potential buying window.'
-      : tr > 3
-        ? 'Prices are rising; acting sooner may be advantageous.'
-        : 'Prices are stable, giving you time to compare options carefully.'
-    }`;
+
+  // Amenity criteria the user actively selected (exclude budget/flat/region/floor/lease)
+  const NON_PREF = new Set(['budget', 'flat', 'region', 'floor', 'lease']);
+  const amenLabels = { mrt: 'MRT stations', hawker: 'hawker centres', mall: 'shopping malls', park: 'parks', school: 'schools', hospital: 'hospitals' };
+  const userPrefs = active.filter(c => !NON_PREF.has(c));
+  const prefNames = userPrefs.map(c => amenLabels[c] || c);
+
+  // Scoring methodology sentence
+  const methodNote = userPrefs.length === 0
+    ? `Score is based on general amenity proximity (weighted cosine similarity with low confidence — no must-have amenities selected).`
+    : userPrefs.length <= 2
+      ? `Score is driven by proximity to ${prefNames.join(' and ')} using weighted cosine similarity, with ${userPrefs.length} of 7 preference dimensions active.`
+      : `Score reflects a ${userPrefs.length}-dimension weighted cosine similarity across ${prefNames.join(', ')}.`;
+
+  // Budget context
+  const budgetNote = under
+    ? `Median price is ~$${Math.abs(savings).toLocaleString()} under your budget, offering good value.`
+    : 'Median price is slightly above base budget — grants and negotiation may close the gap.';
+
+  // Supply context
+  const supplyNote = qualifyingFlats > 0
+    ? `${qualifyingFlats} qualifying ${ftype} listings were evaluated in ${town}.`
+    : '';
+
+  return [methodNote, budgetNote, supplyNote].filter(Boolean).join(' ');
 }
 
 export function scoreToColor(score) {
