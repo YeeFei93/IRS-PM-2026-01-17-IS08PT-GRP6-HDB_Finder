@@ -99,12 +99,18 @@ where $W[i] = 1.0$ if the criterion for dimension $i$ is **active** (buyer made 
 
 | Criterion | Active when | Vector dims |
 |-----------|------------|-------------|
-| `budget` | effective\_budget > 0 | none (pre-filter only) |
-| `flat` | ftype ≠ "any" | 0 |
+| `budget` | effective\_budget > 0 | none (pre-filter + budget adjustment) |
+| `flat` | ftype ≠ "any" | — |
+| `floor` | floor\_pref ≠ "any" | 0 |
 | `region` | regions list non-empty | none (pre-filter only) |
-| `amenity` | must\_have list non-empty | 1–6 |
+| `mrt` | "mrt" in must\_have | 1 |
+| `hawker` | "hawker" in must\_have | 2 |
+| `mall` | "mall" in must\_have | 3 |
+| `park` | "park" in must\_have | 4 |
+| `school` | "school" in must\_have | 5 |
+| `hospital` | "hospital" in must\_have | 6 |
 
-If even one must-have amenity is selected, **all 6 amenity dims** (1–6) get W = 1.0.
+Each amenity criterion is activated **individually** — selecting "hawker" as must-have only sets W[2] = 1.0; the other amenity dims remain at 0.25. This avoids inflating scores for amenities the buyer never expressed a preference for.
 
 ### Amenity count scoring
 
@@ -123,17 +129,64 @@ $$\text{amenity\_score} = \min\left(\frac{\text{count\_within}}{\text{cap}}, 1.0
 
 This rewards **amenity density**: a flat whose block has 2 MRT stations within 1.0 km scores higher than one with 1, reflecting genuine liveability. Amenity counts are computed per block/street (all flats in the same block share the same amenity distances).
 
+### Coverage factor
+
+Cosine similarity is scale-invariant: when all dimensions share the same weight (all active or all inactive), the score collapses to the unweighted version and clusters high (85–95) for any positive vectors. The **coverage factor** compensates by scaling the cosine score down when the buyer has expressed few preferences, reflecting lower confidence in the match signal.
+
+$$\text{coverage} = 0.40 + 0.60 \times \frac{n_{\text{active\_dims}}}{7}$$
+
+| Active dims | Coverage factor | Effect |
+|-------------|----------------|--------|
+| 0 | 0.40 | Score capped ~40/100 (low confidence) |
+| 1 | 0.486 | Score capped ~49/100 |
+| 3 | 0.657 | Score capped ~66/100 |
+| 5 | 0.829 | Score capped ~83/100 |
+| 7 | 1.000 | No reduction (full confidence) |
+
+This ensures that a buyer who only selects "hawker" as must-have cannot receive misleadingly high scores (e.g. 95/100) — the system honestly communicates that the recommendation is based on limited preference data.
+
+### Budget adjustment
+
+Budget is a one-sided constraint (cheaper is always acceptable), so it cannot be a cosine dimension. Instead, a **separate additive adjustment** rewards under-budget flats and penalises over-budget flats:
+
+$$\text{adjustment} = \begin{cases}
++5\text{ pts} & \text{if price} \leq 70\%\ \text{of budget (best value)} \\
+\text{linear } +5 \to 0 & \text{if } 70\%–100\% \\
+0 & \text{if price} = 100\%\ \text{of budget} \\
+\text{linear } 0 \to -5 & \text{if } 100\%–105\% \\
+-5\text{ pts} & \text{if price} > 105\%\ \text{of budget (capped)}
+\end{cases}$$
+
+The adjustment is applied **per flat** (not per estate) using the flat's actual `resale_price`:
+
+$$\text{final\_score} = \text{clamp}\bigl(\text{cosine} \times \text{coverage} + \text{budget\_adj},\ 0,\ 1\bigr)$$
+
+### Score explainability
+
+The UI provides three layers of scoring transparency:
+
+1. **Per-dimension breakdown table** — shown on each flat card. Each row shows the dimension (floor, mrt, hawker, …, budget), buyer vs flat values, whether it's a priority (★), and its weighted contribution to the total score.
+
+2. **Confidence indicator** — displayed below the total: *"Low / Moderate / High confidence · N of 7 preferences active"*. This maps directly to the coverage factor and helps the buyer understand how much trust to place in the score.
+
+3. **Estate summary (whyText)** — a natural-language sentence on each estate card explaining the scoring methodology, budget fit, and supply context. Example: *"Score is driven by proximity to hawker centres using weighted cosine similarity, with 1 of 7 preference dimensions active. Median price is ~$26,765 under your budget, offering good value. 105 qualifying 4 ROOM listings were evaluated in BEDOK."*
+
 ### Worked examples
 
-#### Scenario 1 — Strong match (score ≈ 0.98)
+#### Scenario 1 — Strong match (score ≈ 0.93)
 
 **Inputs:** `ftype="4 ROOM"`, `regions=["central"]`, `floor="high"`, `must_have=["mrt","hawker","park"]`, `budget=$500k`  
-**Flat:** Blk 123 TOA PAYOH CENTRAL (central), `storey_range_start=37, storey_range_end=42`, block amenities: mrt×2, hawker×4, mall×1, park×3, school×3, hospital×1  
+**Flat:** Blk 123 TOA PAYOH CENTRAL (central), `storey_range_start=37, storey_range_end=42`, block amenities: mrt×2, hawker×4, mall×1, park×3, school×3, hospital×1, `resale_price=$400k`  
 *(Pre-filters already applied: ftype selects DB query, region restricts town list, budget/lease filter candidates; scoring is per flat)*
 
-**Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `regions≠[]` ✓ | `must_have≠[]` ✓  
-→ active = [budget, flat, region, amenity]  
-→ W = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+**Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `floor≠"any"` ✓ | `regions≠[]` ✓ | `mrt∈must_have` ✓ | `hawker∈must_have` ✓ | `park∈must_have` ✓  
+→ active = [budget, flat, floor, region, mrt, hawker, park]  
+→ W = [1.0, 1.0, 1.0, 0.25, 1.0, 0.25, 0.25]  
+*(Only mrt/hawker/park get W=1.0; mall/school/hospital stay at 0.25)*
+
+**Coverage:** 4 of 7 vector dims active (floor, mrt, hawker, park) → coverage = 0.40 + 0.60 × 4/7 = **0.743**
+
+**Budget adjustment:** price/budget = 400k/500k = 80% → between 70–100%: reward = (1.0 − 0.80)/(1.0 − 0.70) × 0.05 = **+0.033**
 
 **Buyer vector:**
 
@@ -159,19 +212,24 @@ This rewards **amenity density**: a flat whose block has 2 MRT stations within 1
 | 5 | `count_within=3 / _AMENITY_COUNT_CAP["school"]=4` | 0.7500 |
 | 6 | `count_within=1 / _AMENITY_COUNT_CAP["hospital"]=2` | 0.5000 |
 
-**Why ≈0.98:** Floor close (buyer=1.0 vs flat=0.79). Active amenity dims (mrt, hawker, park) have buyer=1.0 vs flat 0.67–0.80 — close to parallel. Non-preferred amenities (mall buyer=0.5, flat=0.33) contribute at full W=1.0 but the small values don't drag much.
+**Why ≈0.93:** Raw cosine ≈ 0.98 (floor close, active amenity dims well-aligned). Coverage ≈ 0.743 scales it to ≈ 0.73. Budget reward +0.033 bumps to ≈ 0.76. On a 0-100 display: **76/100**. *(Note: with all 7 dims active, coverage would be 1.0 and the score would reach ≈ 98 + 3 = ~100.)*
 
 ---
 
-#### Scenario 2 — Moderate match (score ≈ 0.78)
+#### Scenario 2 — Moderate match (score ≈ 0.50)
 
 **Inputs:** `ftype="4 ROOM"`, `regions=["east"]`, `floor="any"`, `must_have=["mrt"]`, `budget=$400k`  
-**Flat:** Blk 456 JURONG WEST ST 41, `storey_range_start=1, storey_range_end=3`, block amenities: mrt×3, hawker×2, mall×1, park×1, school×2, hospital×0  
+**Flat:** Blk 456 JURONG WEST ST 41, `storey_range_start=1, storey_range_end=3`, block amenities: mrt×3, hawker×2, mall×1, park×1, school×2, hospital×0, `resale_price=$350k`  
 *(Pre-filters already applied: ftype selects DB query, budget/lease filter candidates)*
 
-**Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `regions≠[]` ✓ | `must_have≠[]` ✓  
-→ active = [budget, flat, region, amenity]  
-→ W = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+**Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `floor="any"` ✗ | `regions≠[]` ✓ | `mrt∈must_have` ✓  
+→ active = [budget, flat, region, mrt]  
+→ W = [0.25, 1.0, 0.25, 0.25, 0.25, 0.25, 0.25]  
+*(Only mrt dim gets W=1.0; floor is inactive because "any")*
+
+**Coverage:** 1 of 7 vector dims active (mrt only) → coverage = 0.40 + 0.60 × 1/7 = **0.486**
+
+**Budget adjustment:** price/budget = 350k/400k = 87.5% → reward = (1.0 − 0.875)/(1.0 − 0.70) × 0.05 = **+0.021**
 
 **Buyer vector:**
 
@@ -197,19 +255,24 @@ This rewards **amenity density**: a flat whose block has 2 MRT stations within 1
 | 5 | `count_within=2 / _AMENITY_COUNT_CAP["school"]=4` | 0.5000 |
 | 6 | `count_within=0 / _AMENITY_COUNT_CAP["hospital"]=2` | 0.0000 |
 
-**Why ≈0.78:** MRT matches perfectly (1.0 vs 1.0). Floor hurts (buyer=0.5 "any" vs flat=0.04 ground floor). Hospital dim drags (buyer=0.5 neutral vs flat=0.0).
+**Why ≈0.50:** MRT matches perfectly (1.0 vs 1.0) but that's the only active dim. Raw cosine ≈ 0.78 but coverage = 0.486 scales it to ≈ 0.38. Budget reward +0.021 bumps to ≈ 0.40. On a 0-100 display: **40/100**. The low coverage reflects that only 1 preference dimension was expressed.
 
 ---
 
-#### Scenario 3 — Poor match (score ≈ 0.55)
+#### Scenario 3 — Poor match (score ≈ 0.43)
 
 **Inputs:** `ftype="5 ROOM"`, `regions=["central"]`, `floor="high"`, `must_have=["mrt","hawker","park","school"]`, `budget=$600k`  
-**Flat:** Blk 789 JURONG WEST ST 52, `storey_range_start=1, storey_range_end=3`, block amenities: mrt×0, hawker×1, mall×0, park×0, school×0, hospital×0  
+**Flat:** Blk 789 JURONG WEST ST 52, `storey_range_start=1, storey_range_end=3`, block amenities: mrt×0, hawker×1, mall×0, park×0, school×0, hospital×0, `resale_price=$580k`  
 *(Pre-filters already applied: ftype selects DB query, budget/lease filter candidates)*
 
-**Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `regions≠[]` ✓ | `must_have≠[]` ✓  
-→ active = [budget, flat, region, amenity]  
-→ W = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+**Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `floor≠"any"` ✓ | `regions≠[]` ✓ | `mrt` ✓ | `hawker` ✓ | `park` ✓ | `school` ✓  
+→ active = [budget, flat, floor, region, mrt, hawker, park, school]  
+→ W = [1.0, 1.0, 1.0, 0.25, 1.0, 1.0, 0.25]  
+*(floor/mrt/hawker/park/school at 1.0; mall/hospital at 0.25)*
+
+**Coverage:** 5 of 7 vector dims active (floor, mrt, hawker, park, school) → coverage = 0.40 + 0.60 × 5/7 = **0.829**
+
+**Budget adjustment:** price/budget = 580k/600k = 96.7% → reward = (1.0 − 0.967)/(1.0 − 0.70) × 0.05 = **+0.006**
 
 **Buyer vector:**
 
@@ -235,20 +298,24 @@ This rewards **amenity density**: a flat whose block has 2 MRT stations within 1
 | 5 | `count_within=0 / _AMENITY_COUNT_CAP["school"]=4` | 0.0000 |
 | 6 | `count_within=0 / _AMENITY_COUNT_CAP["hospital"]=2` | 0.0000 |
 
-**Why ≈0.55:** Nearly every active dim is mismatched — floor (1.0 vs 0.04), mrt (1.0 vs 0.0), park (1.0 vs 0.0), school (1.0 vs 0.0). Even hawker only partially matches (1.0 vs 0.2). Vectors point in very different directions.
+**Why ≈0.43:** Nearly every active dim is mismatched — floor (1.0 vs 0.04), mrt (1.0 vs 0.0), park (1.0 vs 0.0), school (1.0 vs 0.0). Even hawker only partially matches (1.0 vs 0.2). Raw cosine ≈ 0.55, coverage 0.829 → ≈ 0.46, budget reward +0.006 → **~46/100**.
 
 ---
 
-#### Scenario 4 — No amenity preference (score ≈ 0.96)
+#### Scenario 4 — No amenity preference (score ≈ 0.37)
 
 **Inputs:** `ftype="3 ROOM"`, `regions=["north"]`, `floor="mid"`, `must_have=[]`, `budget=$300k`  
-**Flat:** Blk 321 WOODLANDS DR 14, `storey_range_start=10, storey_range_end=12`, block amenities: mrt×1, hawker×2, mall×1, park×2, school×3, hospital×0  
+**Flat:** Blk 321 WOODLANDS DR 14, `storey_range_start=10, storey_range_end=12`, block amenities: mrt×1, hawker×2, mall×1, park×2, school×3, hospital×0, `resale_price=$180k`  
 *(Pre-filters already applied: ftype selects DB query, region restricts town list, budget/lease filter candidates)*
 
-**Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `regions≠[]` ✓ | `must_have=[]` ✗  
-→ active = [budget, flat, region]  
+**Active criteria:** `budget>0` ✓ | `ftype≠"any"` ✓ | `floor≠"any"` ✓ | `regions≠[]` ✓ | `must_have=[]` — no amenities  
+→ active = [budget, flat, floor, region]  
 → W = [1.0, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]  
-*(amenity dims dampened to 0.25 — buyer expressed no amenity preference)*
+*(only floor dim active; all 6 amenity dims dampened to 0.25)*
+
+**Coverage:** 1 of 7 vector dims active (floor only) → coverage = 0.40 + 0.60 × 1/7 = **0.486**
+
+**Budget adjustment:** price/budget = 180k/300k = 60% → ≤ 70% → full reward = **+0.050**
 
 **Buyer vector:**
 
@@ -274,6 +341,6 @@ This rewards **amenity density**: a flat whose block has 2 MRT stations within 1
 | 5 | `count_within=3 / _AMENITY_COUNT_CAP["school"]=4` | 0.7500 |
 | 6 | `count_within=0 / _AMENITY_COUNT_CAP["hospital"]=2` | 0.0000 |
 
-**Why ≈0.96:** Floor preference is the only dim at full weight (W=1.0) — buyer=0.66 mid vs flat=0.22 differs but it's just one dim. All 6 amenity dims are dampened (W=0.25), so the estate's varied amenity counts barely affect the cosine angle. With dampened amenities contributing little, vectors stay nearly parallel.
+**Why ≈0.37:** Raw cosine ≈ 0.96 (floor is the only fully weighted dim; dampened amenities contribute little to the angle). But coverage = 0.486 scales it to ≈ 0.47. Budget reward +0.05 bumps to ≈ 0.52. On 0-100 display: **~52/100**. Previously (without coverage factor) this would have scored ~96 — misleadingly high for a buyer who expressed only one preference.
 
 ---
