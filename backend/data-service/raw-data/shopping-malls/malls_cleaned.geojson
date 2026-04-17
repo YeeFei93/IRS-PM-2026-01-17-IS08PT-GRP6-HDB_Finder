@@ -1,0 +1,1545 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8319051,
+          1.3039479
+        ]
+      },
+      "properties": {
+        "name": "ION Orchard",
+        "NAME": "ION Orchard"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8345284,
+          1.302617
+        ]
+      },
+      "properties": {
+        "name": "Ngee Ann City",
+        "NAME": "Ngee Ann City"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8449028,
+          1.3004414
+        ]
+      },
+      "properties": {
+        "name": "Plaza Singapura",
+        "NAME": "Plaza Singapura"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8399231,
+          1.3006427
+        ]
+      },
+      "properties": {
+        "name": "Orchard Central",
+        "NAME": "Orchard Central"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8389821,
+          1.3006333
+        ]
+      },
+      "properties": {
+        "name": "Orchard Gateway",
+        "NAME": "Orchard Gateway"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8397189,
+          1.3018631
+        ]
+      },
+      "properties": {
+        "name": "The Centrepoint",
+        "NAME": "The Centrepoint"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8332876,
+          1.3036967
+        ]
+      },
+      "properties": {
+        "name": "Wisma Atria",
+        "NAME": "Wisma Atria"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8306003,
+          1.3046691
+        ]
+      },
+      "properties": {
+        "name": "Wheelock Place",
+        "NAME": "Wheelock Place"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8296522,
+          1.3067203
+        ]
+      },
+      "properties": {
+        "name": "Palais Renaissance",
+        "NAME": "Palais Renaissance"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8307,
+          1.3044
+        ]
+      },
+      "properties": {
+        "name": "Shaw House",
+        "NAME": "Shaw House"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.831526,
+          1.3058298
+        ]
+      },
+      "properties": {
+        "name": "Far East Plaza",
+        "NAME": "Far East Plaza"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8339122,
+          1.3046029
+        ]
+      },
+      "properties": {
+        "name": "Lucky Plaza",
+        "NAME": "Lucky Plaza"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8364803,
+          1.3015044
+        ]
+      },
+      "properties": {
+        "name": "Cathay Cineleisure Orchard",
+        "NAME": "Cathay Cineleisure Orchard"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8591876,
+          1.2942651
+        ]
+      },
+      "properties": {
+        "name": "Suntec City",
+        "NAME": "Suntec City"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8607226,
+          1.2836965
+        ]
+      },
+      "properties": {
+        "name": "Marina Bay Sands",
+        "NAME": "Marina Bay Sands"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8539888,
+          1.2808361
+        ]
+      },
+      "properties": {
+        "name": "Marina Bay Link Mall",
+        "NAME": "Marina Bay Link Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8583454,
+          1.2907127
+        ]
+      },
+      "properties": {
+        "name": "Marina Square",
+        "NAME": "Marina Square"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8596399,
+          1.292471
+        ]
+      },
+      "properties": {
+        "name": "Millenia Walk",
+        "NAME": "Millenia Walk"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8532557,
+          1.2933906
+        ]
+      },
+      "properties": {
+        "name": "Raffles City",
+        "NAME": "Raffles City"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8545358,
+          1.2921921
+        ]
+      },
+      "properties": {
+        "name": "CityLink Mall",
+        "NAME": "CityLink Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.855176,
+          1.2989008
+        ]
+      },
+      "properties": {
+        "name": "Bugis Junction",
+        "NAME": "Bugis Junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8552892,
+          1.299966
+        ]
+      },
+      "properties": {
+        "name": "Bugis+",
+        "NAME": "Bugis+"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8498818,
+          1.29141
+        ]
+      },
+      "properties": {
+        "name": "Funan",
+        "NAME": "Funan"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8508,
+          1.2904
+        ]
+      },
+      "properties": {
+        "name": "Capitol Singapore",
+        "NAME": "Capitol Singapore"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8509811,
+          1.2930198
+        ]
+      },
+      "properties": {
+        "name": "The South Beach",
+        "NAME": "The South Beach"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8559714,
+          1.2947522
+        ]
+      },
+      "properties": {
+        "name": "Duo",
+        "NAME": "Duo"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8319929,
+          1.2934518
+        ]
+      },
+      "properties": {
+        "name": "Great World City",
+        "NAME": "Great World City"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8229537,
+          1.2643707
+        ]
+      },
+      "properties": {
+        "name": "VivoCity",
+        "NAME": "VivoCity"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8202452,
+          1.2642242
+        ]
+      },
+      "properties": {
+        "name": "HarbourFront Centre",
+        "NAME": "HarbourFront Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.801819,
+          1.2745936
+        ]
+      },
+      "properties": {
+        "name": "Alexandra Retail Centre",
+        "NAME": "Alexandra Retail Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.827333,
+          1.2863599
+        ]
+      },
+      "properties": {
+        "name": "Tiong Bahru Plaza",
+        "NAME": "Tiong Bahru Plaza"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8475984,
+          1.3335499
+        ]
+      },
+      "properties": {
+        "name": "HDB Hub",
+        "NAME": "HDB Hub"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8487447,
+          1.3505893
+        ]
+      },
+      "properties": {
+        "name": "Junction 8",
+        "NAME": "Junction 8"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8308206,
+          1.3545448
+        ]
+      },
+      "properties": {
+        "name": "Thomson Plaza",
+        "NAME": "Thomson Plaza"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8437628,
+          1.3204058
+        ]
+      },
+      "properties": {
+        "name": "Novena Square",
+        "NAME": "Novena Square"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8441867,
+          1.3206362
+        ]
+      },
+      "properties": {
+        "name": "Square 2",
+        "NAME": "Square 2"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8565712,
+          1.3113537
+        ]
+      },
+      "properties": {
+        "name": "City Square Mall",
+        "NAME": "City Square Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8553229,
+          1.3101174
+        ]
+      },
+      "properties": {
+        "name": "Mustafa Centre",
+        "NAME": "Mustafa Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8506146,
+          1.3061912
+        ]
+      },
+      "properties": {
+        "name": "Tekka Centre",
+        "NAME": "Tekka Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8449052,
+          1.2851975
+        ]
+      },
+      "properties": {
+        "name": "Chinatown Point",
+        "NAME": "Chinatown Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8440337,
+          1.2858357
+        ]
+      },
+      "properties": {
+        "name": "People's Park Centre",
+        "NAME": "People's Park Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.842557,
+          1.2841387
+        ]
+      },
+      "properties": {
+        "name": "People's Park Complex",
+        "NAME": "People's Park Complex"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8431577,
+          1.276623
+        ]
+      },
+      "properties": {
+        "name": "Tanjong Pagar Centre",
+        "NAME": "Tanjong Pagar Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8530255,
+          1.3030332
+        ]
+      },
+      "properties": {
+        "name": "Sim Lim Square",
+        "NAME": "Sim Lim Square"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8307259,
+          1.3050783
+        ]
+      },
+      "properties": {
+        "name": "Liat Towers",
+        "NAME": "Liat Towers"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7961,
+          1.3113
+        ]
+      },
+      "properties": {
+        "name": "Holland Village Shopping Centre",
+        "NAME": "Holland Village Shopping Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7956575,
+          1.3107816
+        ]
+      },
+      "properties": {
+        "name": "Queensway Shopping Centre",
+        "NAME": "Queensway Shopping Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9292277,
+          1.3248627
+        ]
+      },
+      "properties": {
+        "name": "Bedok Mall",
+        "NAME": "Bedok Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9438129,
+          1.3525376
+        ]
+      },
+      "properties": {
+        "name": "Century Square",
+        "NAME": "Century Square"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9447221,
+          1.3525218
+        ]
+      },
+      "properties": {
+        "name": "Tampines Mall",
+        "NAME": "Tampines Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9451247,
+          1.35422
+        ]
+      },
+      "properties": {
+        "name": "Tampines 1",
+        "NAME": "Tampines 1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9405998,
+          1.3530588
+        ]
+      },
+      "properties": {
+        "name": "Our Tampines Hub",
+        "NAME": "Our Tampines Hub"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9497434,
+          1.3724965
+        ]
+      },
+      "properties": {
+        "name": "White Sands",
+        "NAME": "White Sands"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9628616,
+          1.3343099
+        ]
+      },
+      "properties": {
+        "name": "Changi City Point",
+        "NAME": "Changi City Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9896749,
+          1.3602243
+        ]
+      },
+      "properties": {
+        "name": "Jewel Changi Airport",
+        "NAME": "Jewel Changi Airport"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9546654,
+          1.3773302
+        ]
+      },
+      "properties": {
+        "name": "Downtown East",
+        "NAME": "Downtown East"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9528535,
+          1.3424679
+        ]
+      },
+      "properties": {
+        "name": "Eastpoint Mall",
+        "NAME": "Eastpoint Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9051778,
+          1.3013734
+        ]
+      },
+      "properties": {
+        "name": "Parkway Parade",
+        "NAME": "Parkway Parade"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.905036,
+          1.3052003
+        ]
+      },
+      "properties": {
+        "name": "i12 Katong",
+        "NAME": "i12 Katong"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9011731,
+          1.303878
+        ]
+      },
+      "properties": {
+        "name": "Katong Shopping Centre",
+        "NAME": "Katong Shopping Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8935976,
+          1.3168509
+        ]
+      },
+      "properties": {
+        "name": "Paya Lebar Quarter",
+        "NAME": "Paya Lebar Quarter"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8926348,
+          1.3186225
+        ]
+      },
+      "properties": {
+        "name": "Paya Lebar Square",
+        "NAME": "Paya Lebar Square"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8947901,
+          1.3189532
+        ]
+      },
+      "properties": {
+        "name": "SingPost Centre",
+        "NAME": "SingPost Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8727811,
+          1.3035502
+        ]
+      },
+      "properties": {
+        "name": "Kallang Wave Mall",
+        "NAME": "Kallang Wave Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8765544,
+          1.3022347
+        ]
+      },
+      "properties": {
+        "name": "Leisure Park Kallang",
+        "NAME": "Leisure Park Kallang"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9486867,
+          1.3737492
+        ]
+      },
+      "properties": {
+        "name": "Pasir Ris Mall",
+        "NAME": "Pasir Ris Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8722533,
+          1.3505193
+        ]
+      },
+      "properties": {
+        "name": "NEX",
+        "NAME": "NEX"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8949526,
+          1.3920337
+        ]
+      },
+      "properties": {
+        "name": "Compass One",
+        "NAME": "Compass One"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8937879,
+          1.3725735
+        ]
+      },
+      "properties": {
+        "name": "Hougang Mall",
+        "NAME": "Hougang Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8852177,
+          1.3594916
+        ]
+      },
+      "properties": {
+        "name": "Heartland Mall",
+        "NAME": "Heartland Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9020102,
+          1.4064266
+        ]
+      },
+      "properties": {
+        "name": "Waterway Point",
+        "NAME": "Waterway Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.91321,
+          1.402819
+        ]
+      },
+      "properties": {
+        "name": "Oasis Terraces",
+        "NAME": "Oasis Terraces"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9129336,
+          1.3942793
+        ]
+      },
+      "properties": {
+        "name": "Punggol Plaza",
+        "NAME": "Punggol Plaza"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8760293,
+          1.3917231
+        ]
+      },
+      "properties": {
+        "name": "The Seletar Mall",
+        "NAME": "The Seletar Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.892231,
+          1.3833252
+        ]
+      },
+      "properties": {
+        "name": "Sengkang Grand Mall",
+        "NAME": "Sengkang Grand Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9021341,
+          1.4167181
+        ]
+      },
+      "properties": {
+        "name": "Northshore Plaza I",
+        "NAME": "Northshore Plaza I"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.9012845,
+          1.4179029
+        ]
+      },
+      "properties": {
+        "name": "Northshore Plaza II",
+        "NAME": "Northshore Plaza II"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8861714,
+          1.3738173
+        ]
+      },
+      "properties": {
+        "name": "Hougang Village",
+        "NAME": "Hougang Village"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.830618,
+          1.4431568
+        ]
+      },
+      "properties": {
+        "name": "Canberra Plaza",
+        "NAME": "Canberra Plaza"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8249312,
+          1.4418683
+        ]
+      },
+      "properties": {
+        "name": "Sembawang Shopping Centre",
+        "NAME": "Sembawang Shopping Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8362451,
+          1.4281326
+        ]
+      },
+      "properties": {
+        "name": "Northpoint City",
+        "NAME": "Northpoint City"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8190194,
+          1.4480976
+        ]
+      },
+      "properties": {
+        "name": "Sun Plaza",
+        "NAME": "Sun Plaza"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8380948,
+          1.4157794
+        ]
+      },
+      "properties": {
+        "name": "Yishun 10",
+        "NAME": "Yishun 10"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.848334,
+          1.3694347
+        ]
+      },
+      "properties": {
+        "name": "AMK Hub",
+        "NAME": "AMK Hub"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8487447,
+          1.3505893
+        ]
+      },
+      "properties": {
+        "name": "Junction 9",
+        "NAME": "Junction 9"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.705254,
+          1.3394964
+        ]
+      },
+      "properties": {
+        "name": "Jurong Point",
+        "NAME": "Jurong Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7428671,
+          1.334194
+        ]
+      },
+      "properties": {
+        "name": "Westgate",
+        "NAME": "Westgate"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7433912,
+          1.3332962
+        ]
+      },
+      "properties": {
+        "name": "Jem",
+        "NAME": "Jem"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7467494,
+          1.334611
+        ]
+      },
+      "properties": {
+        "name": "IMM",
+        "NAME": "IMM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7492566,
+          1.3500765
+        ]
+      },
+      "properties": {
+        "name": "West Mall",
+        "NAME": "West Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7644927,
+          1.3151078
+        ]
+      },
+      "properties": {
+        "name": "The Clementi Mall",
+        "NAME": "The Clementi Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7658546,
+          1.303478
+        ]
+      },
+      "properties": {
+        "name": "West Coast Plaza",
+        "NAME": "West Coast Plaza"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8519072,
+          1.2899175
+        ]
+      },
+      "properties": {
+        "name": "Lot 1",
+        "NAME": "Lot 1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7633144,
+          1.3784471
+        ]
+      },
+      "properties": {
+        "name": "Hillion Mall",
+        "NAME": "Hillion Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7601304,
+          1.3803602
+        ]
+      },
+      "properties": {
+        "name": "Junction 10",
+        "NAME": "Junction 10"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7643116,
+          1.3800081
+        ]
+      },
+      "properties": {
+        "name": "Bukit Panjang Plaza",
+        "NAME": "Bukit Panjang Plaza"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7881631,
+          1.3069522
+        ]
+      },
+      "properties": {
+        "name": "The Star Vista",
+        "NAME": "The Star Vista"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.6971606,
+          1.3416979
+        ]
+      },
+      "properties": {
+        "name": "Pioneer Mall",
+        "NAME": "Pioneer Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7676646,
+          1.3592238
+        ]
+      },
+      "properties": {
+        "name": "The Rail Mall",
+        "NAME": "The Rail Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7710101,
+          1.3835485
+        ]
+      },
+      "properties": {
+        "name": "Fajar Shopping Centre",
+        "NAME": "Fajar Shopping Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7009,
+          1.3453
+        ]
+      },
+      "properties": {
+        "name": "Gek Poh Shopping Centre",
+        "NAME": "Gek Poh Shopping Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.6979296,
+          1.3488987
+        ]
+      },
+      "properties": {
+        "name": "Limbang Shopping Centre",
+        "NAME": "Limbang Shopping Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7481,
+          1.3798
+        ]
+      },
+      "properties": {
+        "name": "Teck Whye Shopping Centre",
+        "NAME": "Teck Whye Shopping Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7524705,
+          1.3807832
+        ]
+      },
+      "properties": {
+        "name": "Dairy Farm Mall",
+        "NAME": "Dairy Farm Mall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7661744,
+          1.3853336
+        ]
+      },
+      "properties": {
+        "name": "Greenridge Shopping Centre",
+        "NAME": "Greenridge Shopping Centre"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7411774,
+          1.3558894
+        ]
+      },
+      "properties": {
+        "name": "Le Quest",
+        "NAME": "Le Quest"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7643034,
+          1.3634932
+        ]
+      },
+      "properties": {
+        "name": "HillV2",
+        "NAME": "HillV2"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7342031,
+          1.3575214
+        ]
+      },
+      "properties": {
+        "name": "Plantation Plaza",
+        "NAME": "Plantation Plaza"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7465502,
+          1.3971484
+        ]
+      },
+      "properties": {
+        "name": "Yew Tee Point",
+        "NAME": "Yew Tee Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8884007,
+          1.3966592
+        ]
+      },
+      "properties": {
+        "name": "Anchorvale Village",
+        "NAME": "Anchorvale Village"
+      }
+    }
+  ]
+}
