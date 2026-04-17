@@ -8,7 +8,7 @@ class DbConnector:
         self.host = os.getenv("MYSQL_HOST", "localhost")
         self.user = os.getenv("MYSQL_USER", "root")
         self.password = os.getenv("MYSQL_PASSWORD", "P@ssw0rd+1")
-        self.database = os.getenv("MYSQL_DATABASE", "iss-irs-ai-estate-recommender-05")
+        self.database = os.getenv("MYSQL_DATABASE", "iss-irs-ai-estate-recommender-06")
         self.cursor = self.Connect()
         
 
