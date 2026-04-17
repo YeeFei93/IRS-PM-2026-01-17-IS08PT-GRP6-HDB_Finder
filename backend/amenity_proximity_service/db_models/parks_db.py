@@ -1,8 +1,8 @@
 
 
 from utils.db_connector import DbConnector
-from utils.db_controller import DbController
 from env import TABLE_NAME
+from utils.db_controller import DbController
 
 
 class ParksDB:
