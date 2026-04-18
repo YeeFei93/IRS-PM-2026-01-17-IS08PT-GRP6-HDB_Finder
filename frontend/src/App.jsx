@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import MapView from './pages//MapView';
-import TrendsView from './pages/TrendsView';
 import { REGIONS, ALL_TOWNS, API_BASE } from './constants';
 import { calcGrants, loanCapacity, checkEligibility, checkLoanLimit, checkLeaseAgeCriteria } from './engine';
 import { fetchTown, checkBackendHealth, runSearchBackend, normaliseBackendRec } from './api';
@@ -117,10 +116,6 @@ export default function App() {
           <MapView recs={recs} highlightedTown={highlightedTown} formState={formState} effectiveBudget={derived.effective} derived={derived} rawCount={rawCount} latestMonth={latestMonth} />
           )}
 
-          {/* Trends Tab */}
-          {activeTab === 'trends' && (
-            <TrendsView recs={recs} />
-          )}
         </main>
       </div>
     </div>

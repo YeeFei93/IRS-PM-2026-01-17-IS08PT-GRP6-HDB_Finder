@@ -69,9 +69,9 @@ _AMENITY_MAX_KM: dict[str, float] = {
 _AMENITY_COUNT_CAP: dict[str, int] = {
     "mrt":      3,    # 3+ MRT stations within 1km is excellent
     "hawker":   5,    # hawker centres are dense in HDB estates
-    "mall":     3,    # 3+ malls within 1.5km is very good
+    "mall":     5,    # data shows median=3, p90=4 → raised to 5 for discrimination
     "park":     4,    # parks are common, reward density up to 4
-    "school":   4,    # primary schools, 4+ is saturated
+    "school":   6,    # data shows p75=4 already at old cap → raised to 6
     "hospital": 2,    # hospitals are sparse, 2 within 3km is excellent
 }
 
