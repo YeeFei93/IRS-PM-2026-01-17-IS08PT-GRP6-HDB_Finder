@@ -28,6 +28,7 @@ class GeolocationConverter:
         def fetch_data():
             while True:
                 try:
+                    print(request_url)
                     with urlopen(request_url, timeout=timeout) as resp:
                         status_code = getattr(resp, "status", 200)
                         if status_code != 200:
@@ -107,3 +108,7 @@ class GeolocationConverter:
         given their latitude and longitude.
         """
         return math.sqrt((lat2 - lat1)**2 + (lon2 - lon1)**2)
+    
+
+
+GeolocationConverter().GetGeolocation("15", "BEACH RD")
