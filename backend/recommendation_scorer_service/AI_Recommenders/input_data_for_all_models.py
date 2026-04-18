@@ -339,6 +339,9 @@ def evaluate_profile_eligibility(profile: dict[str, Any]) -> dict[str, Any]:
 
 
 def _flat_id(flat_row: dict[str, Any]) -> str:
+    explicit_id = flat_row.get("flat_id") or flat_row.get("resale_flat_id")
+    if explicit_id:
+        return str(explicit_id)
     return "|".join(
         str(flat_row.get(key, ""))
         for key in ("estate", "block", "street_name", "flat_type", "sold_date", "resale_price")
@@ -664,6 +667,8 @@ class FlatCandidate:
             "remaining_lease_label": self.lease_label,
             "floor_label": self.floor_label,
             "sold_date": self.sold_date,
+            "latitude": float(self.latitude) if self.latitude is not None else None,
+            "longitude": float(self.longitude) if self.longitude is not None else None,
             "flat_vector": list(self.flat_vector),
             "amenity_counts": display_amenities["counts"],
             "amenity_summary": display_amenities["summary"],

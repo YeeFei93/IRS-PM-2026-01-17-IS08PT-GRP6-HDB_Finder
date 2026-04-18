@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { ALL_TOWNS, COORDS, AMENITIES } from '../constants';
 import { rankToColor, whyText } from '../engine';
-import { runFlatLookup, runFlatAmenities } from '../api';
+import { runFlatLookup, runFlatAmenities, recordRecommendationFeedback } from '../api';
 
 // Ray-casting point-in-polygon for GeoJSON ring coordinates [lng, lat]
 function pointInPolygon(lat, lng, ring) {
@@ -455,6 +455,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   const [activeFlatEstate, setActiveFlatEstate] = useState(null); // Phase 2: flat view
   const [selectedFlat, setSelectedFlat] = useState(null);         // Phase 3: flat detail
   const [hoveredFlatIdx, setHoveredFlatIdx] = useState(null);
+  const [likedFlatIds, setLikedFlatIds] = useState(() => new Set());
   const mapRef = useRef(null);
   const flyToFlatRef = useRef(null);
   const [filteredFlats, setFilteredFlats] = useState([]);
@@ -465,6 +466,8 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     setFlatAmenities(amenities);
     setFlatMustAmenities(snap);
   }, []);
+  const selectedModel = recs[0]?.selected_model || null;
+  const selectedModelLabel = selectedModel?.label || recs[0]?.recommendation_model_label || 'Adaptive model';
 
   const loadFlats = useCallback(async ({ estate, estates }) => {
     setDrillTown(estate || null);
@@ -498,6 +501,38 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     const r = recs.find(x => x.town === town);
     setDrillFlats(r?.top_flats || []);
   }, [recs]);
+
+  const sendFeedback = useCallback((event, flat) => {
+    const resaleFlatId = flat?.resale_flat_id;
+    const recommendation = flat?.recommendation_model || recs[0]?.recommendation_model;
+    if (!resaleFlatId || !recommendation) return;
+
+    recordRecommendationFeedback({
+      resaleFlatId,
+      recommendation,
+      event,
+    }).catch(() => {});
+  }, [recs]);
+
+  const handleFlatCardClick = useCallback((flat, index) => {
+    setSelectedFlat({ ...flat, _idx: index });
+    setFlatAmenities(null);
+    setFlatMustAmenities([]);
+    sendFeedback('view', flat);
+    if (flat.latitude && flyToFlatRef.current) flyToFlatRef.current(flat);
+  }, [sendFeedback]);
+
+  const handleFlatLike = useCallback((event, flat) => {
+    event.stopPropagation();
+    if (!flat?.resale_flat_id) return;
+
+    setLikedFlatIds(prev => {
+      const next = new Set(prev);
+      next.add(flat.resale_flat_id);
+      return next;
+    });
+    sendFeedback('like', flat);
+  }, [sendFeedback]);
 
   // Stable ref for auto-load effect
   const loadFlatsRef = useRef(loadFlats);
@@ -534,6 +569,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     setFilteredFlats([]);
     setFlatAmenities(null);
     setFlatMustAmenities([]);
+    setLikedFlatIds(new Set());
     // Map zoom is handled by the MapContent GeoJSON effect which fitBounds top-5 estates
   }, [recs]);
 
@@ -609,8 +645,8 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                 </div>
                 <div style={{ fontSize: '0.68rem', color: '#555', marginTop: 2 }}>
                   {activeFlatEstate
-                    ? `${formState?.ftype || ''} · hover card to highlight · click to zoom`
-                    : `${formState?.ftype || 'Any type'} · cosine similarity · ${recs[0]?.sc?.active?.length || 0} criteria`}
+                    ? `${formState?.ftype || ''} · ${selectedModelLabel} · hover card to highlight · click to zoom`
+                    : `${formState?.ftype || 'Any type'} · ${selectedModelLabel} · ${recs[0]?.sc?.active?.length || 0} criteria`}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -818,10 +854,10 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
               const budgetDelta = effectiveBudget ? flat.resale_price - effectiveBudget : null;
               const budgetPctStr = effectiveBudget ? `${over ? '+' : ''}${((flat.resale_price - effectiveBudget) / effectiveBudget * 100).toFixed(0)}%` : null;
               return (
-                <div key={i}
+                <div key={flat.resale_flat_id || i}
                   onMouseEnter={() => setHoveredFlatIdx(i)}
                   onMouseLeave={() => setHoveredFlatIdx(null)}
-                  onClick={() => { setSelectedFlat({ ...flat, _idx: i }); setFlatAmenities(null); setFlatMustAmenities([]); if (flat.latitude && flyToFlatRef.current) flyToFlatRef.current(flat); }}
+                  onClick={() => handleFlatCardClick(flat, i)}
                   style={{
                     background: isFlatSel ? '#0a1f12' : '#181818',
                     border: `1px solid ${isFlatSel ? '#27ae60' : '#242424'}`,
@@ -837,6 +873,23 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                           <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", color: over ? '#e67e22' : '#27ae60', fontWeight: 700, whiteSpace: 'nowrap' }}>${flat.resale_price.toLocaleString()}</div>
                           {psm && <div style={{ fontSize: '0.58rem', color: '#555', fontFamily: "'JetBrains Mono', monospace" }}>${psm}/sqm</div>}
                           {flat.score != null && <div style={{ fontSize: '0.62rem', color: '#1abc9c', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{Math.round(flat.score * 100)}/100</div>}
+                          <button
+                            onClick={(event) => handleFlatLike(event, flat)}
+                            style={{
+                              marginTop: 6,
+                              background: likedFlatIds.has(flat.resale_flat_id) ? '#1f5f3a' : 'transparent',
+                              color: likedFlatIds.has(flat.resale_flat_id) ? '#b8f5cd' : '#9aa09b',
+                              border: `1px solid ${likedFlatIds.has(flat.resale_flat_id) ? '#27ae60' : '#2a2a2a'}`,
+                              borderRadius: 999,
+                              padding: '3px 9px',
+                              fontSize: '0.58rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              letterSpacing: '0.2px',
+                            }}
+                          >
+                            {likedFlatIds.has(flat.resale_flat_id) ? '👍 Liked' : '👍 Like'}
+                          </button>
                         </div>
                       </div>
                       <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.65rem', color: '#555' }}>
@@ -844,9 +897,9 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                         <span>·</span><span>{flat.floor_area_sqm} sqm</span>
                         <span>·</span><span>Lease {flat.remaining_lease_years}y{flat.remaining_lease_months > 0 ? ` ${flat.remaining_lease_months}m` : ''}</span>
                       </div>
-                      <div style={{ marginTop: 3, fontSize: '0.62rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ marginTop: 6, fontSize: '0.62rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span style={{ color: '#3a3a3a' }}>Sold {flat.sold_date}</span>
-                        <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                           {budgetPctStr && !nearBudget && (
                             <span style={{ color: over ? '#e67e22' : '#27ae60', fontSize: '0.6rem', fontFamily: "'JetBrains Mono', monospace" }}>
                               {over ? '▲' : '▼'} {budgetPctStr} budget
@@ -1009,7 +1062,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             <span>
               {activeFlatEstate
                 ? `${filteredFlats.length} flats · click pin for amenities`
-                : `${recs.length} estates · flats ranked by cosine similarity`}
+                : `${recs.length} estates · flats ranked by ${selectedModelLabel}`}
             </span>
             {latestMonth && <span>{latestMonth} · data.gov.sg</span>}
           </div>

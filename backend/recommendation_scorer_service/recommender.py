@@ -1,265 +1,210 @@
 """
 recommendation_scorer_service/recommender.py
 ===================
-Orchestrates all services to produce the final cosine-similarity-ranked
-recommendation list.  Scores **every** individual flat (sold from 2025-10)
-and derives estate rankings from the globally-ranked flat list.
+Runs one of three flat-level recommenders, selected adaptively from
+historical user likes:
+  1. Euclidean Distance
+  2. Weighted Cosine
+  3. KNN Cosine Similarity
 
-Flow:
-  1. Eligibility check
-  2. Grant calculation + effective budget
-  3. Determine candidate towns (from selected regions, or all)
-  4. For each town: fetch price analysis for display metadata
-  5. For each town: fetch **all** flats, filter resale_price <= budget*1.05
-     + remaining_lease_years >= min_lease (SQL-level)
-  6. Per-block amenity stats + CB cosine scoring per flat via score_payload()
-  7. Sort all scored flats globally by score (descending)
-  8. Group flats into estates — estate ordered by most qualifying flats
-  9. Return all estates with qualifying flats, each with up to 10 cosine-ranked flats
+The selected model scores every qualifying flat, then the results are grouped
+back into estate-level recommendations so the existing frontend can keep its
+estate-first workflow while each flat carries the underlying model metadata.
 """
+
+from __future__ import annotations
 
 import os
 import sys
+from collections import Counter
 
-# Ensure recommendation_scorer_service/ is on sys.path so scorer bare-imports work
 _SERVICE_ROOT = os.path.dirname(os.path.abspath(__file__))
-if _SERVICE_ROOT not in sys.path:
-    sys.path.insert(0, _SERVICE_ROOT)
-
-# Ensure backend root is on sys.path for cross-service imports
 _BACKEND_ROOT = os.path.abspath(os.path.join(_SERVICE_ROOT, ".."))
-if _BACKEND_ROOT not in sys.path:
-    sys.path.insert(0, _BACKEND_ROOT)
 
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
+for _path in (_SERVICE_ROOT, _BACKEND_ROOT):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
-from eligibility_checker_service.eligibility import check_eligibility
-from budget_estimator_service.grants import calc_all_grants
-from budget_estimator_service.prices import analyse_town_prices
-from budget_estimator_service.effective_budget import effective_budget
-from estate_finder_service.queries import get_all_towns, get_flats_for_estate
-from amenity_proximity_service.utils.distances import block_amenity_stats, warm_all_estates
-from scorer import score_payload  # bare import — service dir is on sys.path above
+from euclidean_distance_recommender import recommend as recommend_euclidean
+from input_data_for_all_models import build_model_context
+from knn_recommender import recommend as recommend_knn
+from weighted_cosine_similarity import recommend as recommend_weighted
 
-# Pre-warm the amenity cache in the background the moment this module loads
-# so the first recommendation request hits the cache instead of the DB.
-def _bg_warm():
-    try:
-        warm_all_estates()
-    except Exception:
-        pass
-
-threading.Thread(target=_bg_warm, daemon=True, name="amenity-cache-warm").start()
+from recommendation_scorer_service.feedback_store import (
+    choose_recommendation_model,
+    get_model_selection_snapshot,
+)
+from recommendation_scorer_service.model_catalog import MODEL_LABELS, MODEL_KEYS
 
 
-# Town → Region mapping (mirrors frontend constants.js REGIONS)
-_REGIONS = {
-    'Central':   ['QUEENSTOWN', 'BUKIT MERAH', 'TOA PAYOH', 'CENTRAL AREA', 'MARINE PARADE', 'BUKIT TIMAH'],
-    'East':      ['TAMPINES', 'BEDOK', 'PASIR RIS', 'GEYLANG', 'KALLANG/WHAMPOA'],
-    'North':     ['WOODLANDS', 'SEMBAWANG', 'YISHUN', 'ANG MO KIO', 'BISHAN'],
-    'Northeast': ['SENGKANG', 'PUNGGOL', 'HOUGANG', 'SERANGOON', 'BUANGKOK'],
-    'West':      ['JURONG WEST', 'JURONG EAST', 'BUKIT BATOK', 'CHOA CHU KANG', 'CLEMENTI', 'BUKIT PANJANG'],
+_TOP_FLATS = 10
+_STRONG_MATCH_THRESHOLD = 0.75
+
+_MODEL_RUNNERS = {
+    "euclidean_distance": recommend_euclidean,
+    "weighted_cosine": recommend_weighted,
+    "knn_cosine_similarity": recommend_knn,
 }
 
-_TOP_FLATS = 10           # max flats to include per estate in response
 
-_EMPTY_AMENITY = {
-    "dist_km": None, "walk_mins": None,
-    "within_threshold": False, "count_within": 0,
-}
+def _run_ranker(context, model_key: str) -> list[dict]:
+    runner = _MODEL_RUNNERS[model_key]
+    items = runner(context, limit=len(context.flat_candidates))
+    label = MODEL_LABELS[model_key]
 
-_AMENITY_KEYS = ("mrt", "hawker", "mall", "park", "school", "hospital")
+    for rank, item in enumerate(items, start=1):
+        item["rank"] = rank
+        item["model_key"] = model_key
+        item["model_name"] = label
+        item["recommendation_model"] = model_key
+        item["recommendation_model_label"] = label
+
+    return items
 
 
-def _score_estate_flats(town, ftype, floor_pref, min_lease, profile, budget):
-    """Fetch **all** flats for one estate, compute per-block amenity stats, score each flat.
+def _group_into_estates(context, ranked_items: list[dict], selection: dict) -> list[dict]:
+    if not ranked_items:
+        return []
 
-    Returns (town, scored_flats, active_criteria).
-    scored_flats is sorted by score descending; each flat dict has extra
-    ``score`` and ``flat_amenities`` keys.
-    """
-    flats = get_flats_for_estate(
-        town, ftype, floor_pref,
-        budget=0, min_lease=min_lease, limit=0,  # limit=0 → fetch all
-    )
-    # Flat-level budget filter: only score flats within 105% of effective budget
-    if budget > 0:
-        cap = budget * 1.05
-        flats = [f for f in flats if f["resale_price"] <= cap]
-    if not flats:
-        return town, [], None
+    candidate_lookup = {
+        candidate.resale_flat_id: candidate
+        for candidate in context.flat_candidates
+    }
+    qualifying_counts = Counter(candidate.estate for candidate in context.flat_candidates)
+    estate_map: dict[str, dict] = {}
 
-    amenity_by_block = block_amenity_stats(town)
+    for item in ranked_items:
+        candidate = candidate_lookup.get(item["resale_flat_id"])
+        if candidate is None:
+            continue
 
-    scored_flats = []
-    active_criteria = None
+        town = candidate.estate
+        estate_entry = estate_map.get(town)
+        if estate_entry is None:
+            estate_entry = {
+                "town": town,
+                "ftype": context.profile.get("ftype", "4 ROOM"),
+                "price_data": dict(candidate.estate_price_data),
+                "amenities": dict(candidate.amenities),
+                "score": item["score"],
+                "active_criteria": list(context.active_criteria),
+                "top_flats": [],
+                "qualifying_flats": int(qualifying_counts.get(town, 0)),
+                "grants": context.grants,
+                "effective_budget": int(round(context.effective_budget)),
+                "recommendation_model": selection["key"],
+                "recommendation_model_label": selection["label"],
+            }
+            estate_map[town] = estate_entry
 
-    for flat in flats:
-        key = (str(flat["block"]), flat["street_name"])
-        flat_amenities = {}
-        for akey in _AMENITY_KEYS:
-            flat_amenities[akey] = amenity_by_block.get(key, {}).get(akey, _EMPTY_AMENITY)
+        if len(estate_entry["top_flats"]) < _TOP_FLATS:
+            estate_entry["top_flats"].append(
+                {
+                    **item,
+                    "latitude": candidate.latitude,
+                    "longitude": candidate.longitude,
+                }
+            )
 
-        storey_mid = (
-            (flat.get("storey_range_start", 5) + flat.get("storey_range_end", 10)) / 2.0
+    for estate in estate_map.values():
+        scores = [float(flat.get("score") or 0.0) for flat in estate["top_flats"]]
+        estate["avg_score"] = round(sum(scores) / len(scores), 4) if scores else 0.0
+        estate["strong_matches"] = sum(
+            1 for score in scores
+            if score >= _STRONG_MATCH_THRESHOLD
         )
 
-        result = score_payload({
-            "profile":      profile,
-            "price_data":   {"avg_storey": storey_mid},
-            "amenities":    flat_amenities,
-            "budget":       budget,
-            "resale_price": flat.get("resale_price", 0),
-        })
-
-        flat["score"] = result["score"]
-        flat["score_breakdown"] = result["breakdown"]
-        flat["flat_amenities"] = flat_amenities
-        if active_criteria is None:
-            active_criteria = result["active_criteria"]
-        scored_flats.append(flat)
-
-    scored_flats.sort(key=lambda f: f["score"], reverse=True)
-    return town, scored_flats, active_criteria
-
-
-def run_recommendation(profile: dict) -> dict:
-    """
-    Main entry point called by recommendation_adapter.py via Redis queue.
-    Accepts a BuyerProfile dict, returns a JSON-serialisable result dict.
-    """
-
-    # ── 1. Eligibility ────────────────────────────────────────────────────────
-    elig = check_eligibility(profile)
-    if not elig["eligible"]:
-        return {
-            "eligible":        False,
-            "warnings":        elig["warnings"],
-            "notes":           elig["notes"],
-            "recommendations": [],
-        }
-
-    # ── 2. Grants + effective budget ─────────────────────────────────────────
-    grants = calc_all_grants(profile)
-    budget = effective_budget(profile, grants)
-
-    # ── 3. Candidate towns ───────────────────────────────────────────────────
-    regions   = profile.get("regions", [])
-    ftype     = profile.get("ftype", "4 ROOM")
-    floor_pref = profile.get("floor", "any")
-    if ftype == "any":
-        ftype = "4 ROOM"  # default for price lookups
-
-    if regions:
-        # Normalise to title-case to match _REGIONS keys
-        towns = [t for r in regions for t in _REGIONS.get(r.title(), [])]
-    else:
-        towns = get_all_towns()
-
-    # ── 4. Price analysis per town (metadata only, no coarse filtering) ────
-    min_lease = profile.get("min_lease", 0)
-    candidates = []
-    for town in towns:
-        price_data = analyse_town_prices(town, ftype)
-        if price_data is None:
-            continue
-        candidates.append({"town": town, "price_data": price_data})
-
-    # ── 5. Fetch ALL flats + score individually (parallel per estate) ───────
-    all_scored = []  # list of (flat_dict, town, price_data, active_criteria)
-
-    if candidates:
-        with ThreadPoolExecutor(max_workers=min(len(candidates), 8)) as executor:
-            futures = {
-                executor.submit(
-                    _score_estate_flats, c["town"], ftype, floor_pref,
-                    min_lease, profile, budget,
-                ): c
-                for c in candidates
-            }
-            for future in as_completed(futures):
-                c = futures[future]
-                try:
-                    town, scored_flats, active_criteria = future.result()
-                except Exception as exc:
-                    print(f"[recommender] Estate scoring failed for {c['town']}: {exc}", flush=True)
-                    continue
-                for flat in scored_flats:
-                    all_scored.append({
-                        "flat": flat,
-                        "town": town,
-                        "price_data": c["price_data"],
-                        "active_criteria": active_criteria or [],
-                    })
-
-    # ── 6. Sort ALL flats globally by cosine score ───────────────────────────
-    all_scored.sort(key=lambda x: x["flat"]["score"], reverse=True)
-
-    # ── 7. Group into estates ────────────────────────────────────────────
-    estate_map = {}    # town → { estate result dict, total qualifying flat count }
-
-    for item in all_scored:
-        town = item["town"]
-        flat = item["flat"]
-        flat_amenities = flat.pop("flat_amenities", {})
-        flat_clean = {k: v for k, v in flat.items()}
-
-        if town not in estate_map:
-            estate_map[town] = {
-                "town":             town,
-                "ftype":            ftype,
-                "price_data":       item["price_data"],
-                "amenities":        flat_amenities,   # best flat's amenities
-                "score":            flat["score"],     # best flat's score
-                "active_criteria":  item["active_criteria"],
-                "top_flats":        [],
-                "qualifying_flats": 0,
-                "grants":           grants,
-                "effective_budget": int(budget),
-            }
-
-        estate_map[town]["qualifying_flats"] += 1
-
-        if len(estate_map[town]["top_flats"]) < _TOP_FLATS:
-            estate_map[town]["top_flats"].append(flat_clean)
-
-    # Compute per-estate avg score and strong-match count from top flats
-    for estate in estate_map.values():
-        scores = [f["score"] for f in estate["top_flats"]]
-        estate["avg_score"]      = round(sum(scores) / len(scores), 4) if scores else 0.0
-        estate["strong_matches"] = sum(1 for s in scores if s >= 0.75)
-
-    # Sort estates by avg score of top flats (primary), qualifying flats as tiebreaker
-    estate_results = sorted(estate_map.values(), key=lambda e: (e["avg_score"], e["qualifying_flats"]), reverse=True)
-
-    # ── Baseline rankings for academic comparison ─────────────────────────────
-    # Baseline 1 — Price proximity: rank by |median_price − effective_budget| ascending
-    #   Represents a naive "closest-to-budget" recommender with no preference modelling.
-    price_sorted = sorted(
-        estate_results,
-        key=lambda e: abs(e["price_data"]["median"] - budget),
-    )
-    price_rank_map = {e["town"]: i + 1 for i, e in enumerate(price_sorted)}
-
-    # Baseline 2 — Popularity: rank by transaction count (market liquidity signal)
-    #   Represents a non-personalised popularity-based recommender.
-    pop_sorted = sorted(
-        estate_results,
-        key=lambda e: e["price_data"]["n"],
+    estate_results = sorted(
+        estate_map.values(),
+        key=lambda estate: (estate["avg_score"], estate["qualifying_flats"]),
         reverse=True,
     )
-    pop_rank_map = {e["town"]: i + 1 for i, e in enumerate(pop_sorted)}
+
+    price_sorted = sorted(
+        estate_results,
+        key=lambda estate: abs(float(estate["price_data"].get("median") or 0) - context.effective_budget),
+    )
+    price_rank_map = {
+        estate["town"]: index
+        for index, estate in enumerate(price_sorted, start=1)
+    }
+
+    popularity_sorted = sorted(
+        estate_results,
+        key=lambda estate: int(estate["price_data"].get("n") or 0),
+        reverse=True,
+    )
+    popularity_rank_map = {
+        estate["town"]: index
+        for index, estate in enumerate(popularity_sorted, start=1)
+    }
 
     for estate in estate_results:
         estate["baseline_price_rank"] = price_rank_map[estate["town"]]
-        estate["baseline_pop_rank"]   = pop_rank_map[estate["town"]]
+        estate["baseline_pop_rank"] = popularity_rank_map[estate["town"]]
+
+    return estate_results
+
+
+def _response_notes(context) -> list[str]:
+    notes = []
+    for item in list(context.eligibility.get("notes", [])) + list(context.notes):
+        if item and item not in notes:
+            notes.append(item)
+    return notes
+
+
+def run_recommendation(profile: dict) -> dict:
+    selection = choose_recommendation_model(profile.get("recommendation_model"))
+    model_probabilities = get_model_selection_snapshot()
+    context = build_model_context(profile)
+
+    if not context.eligibility.get("eligible"):
+        return {
+            "eligible": False,
+            "warnings": list(context.eligibility.get("warnings", [])),
+            "notes": _response_notes(context),
+            "grants": context.grants,
+            "effective_budget": int(round(context.effective_budget)),
+            "selected_model": selection,
+            "model_probabilities": model_probabilities,
+            "available_models": [
+                {"key": key, "label": MODEL_LABELS[key]}
+                for key in MODEL_KEYS
+            ],
+            "recommendations": [],
+        }
+
+    if not context.flat_candidates:
+        return {
+            "eligible": True,
+            "warnings": list(context.eligibility.get("warnings", [])),
+            "notes": _response_notes(context),
+            "grants": context.grants,
+            "effective_budget": int(round(context.effective_budget)),
+            "selected_model": selection,
+            "model_probabilities": model_probabilities,
+            "available_models": [
+                {"key": key, "label": MODEL_LABELS[key]}
+                for key in MODEL_KEYS
+            ],
+            "recommendations": [],
+        }
+
+    ranked_items = _run_ranker(context, selection["key"])
+    recommendations = _group_into_estates(context, ranked_items, selection)
 
     return {
-        "eligible":         True,
-        "warnings":         elig["warnings"],
-        "notes":            elig["notes"],
-        "grants":           grants,
-        "effective_budget": int(budget),
-        "recommendations":  estate_results,
+        "eligible": True,
+        "warnings": list(context.eligibility.get("warnings", [])),
+        "notes": _response_notes(context),
+        "grants": context.grants,
+        "effective_budget": int(round(context.effective_budget)),
+        "selected_model": selection,
+        "model_probabilities": model_probabilities,
+        "available_models": [
+            {"key": key, "label": MODEL_LABELS[key]}
+            for key in MODEL_KEYS
+        ],
+        "recommendations": recommendations,
     }

@@ -214,7 +214,8 @@ def get_flats_for_estate(
     """Return flat transactions for a single estate, sorted by budget proximity."""
     cutoff = max((datetime.now() - timedelta(days=months * 30.5)).date(), _MIN_SOLD_DATE)
     query = """
-        SELECT rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
+        SELECT rf.resale_flat_id,
+               rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
                rf.storey_range_start, rf.storey_range_end,
                rf.floor_area_sqm,
                rf.remaining_lease_years, rf.remaining_lease_months,
@@ -256,7 +257,8 @@ def get_top_flats_across_estates(
     cutoff = max((datetime.now() - timedelta(days=months * 30.5)).date(), _MIN_SOLD_DATE)
     placeholders = ", ".join(["%s"] * len(estates))
     query = f"""
-        SELECT rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
+        SELECT rf.resale_flat_id,
+               rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
                rf.storey_range_start, rf.storey_range_end,
                rf.floor_area_sqm,
                rf.remaining_lease_years, rf.remaining_lease_months,
