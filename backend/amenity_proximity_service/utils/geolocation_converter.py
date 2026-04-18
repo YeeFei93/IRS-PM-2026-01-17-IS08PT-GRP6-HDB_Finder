@@ -100,3 +100,10 @@ class GeolocationConverter:
 
         return distance
         
+
+    def euclidean_distance(self, lat1, lon1, lat2, lon2):
+        """
+        Calculate Euclidean distance between two points
+        given their latitude and longitude.
+        """
+        return math.sqrt((lat2 - lat1)**2 + (lon2 - lon1)**2)
