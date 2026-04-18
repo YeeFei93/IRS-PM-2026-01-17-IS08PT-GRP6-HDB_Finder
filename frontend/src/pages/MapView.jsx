@@ -27,7 +27,7 @@ function pointInGeoJsonGeometry(lat, lng, geometry) {
   return polys.some(ring => pointInPolygon(lat, lng, ring));
 }
 
-function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, activeFlatEstate, onEstateSelect, effectiveBudget, flyToFlatRef, selectedEstate, hoveredFlatIdx, selectedFlat, onFilteredFlats }) {
+function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, activeFlatEstate, onEstateSelect, effectiveBudget, flyToFlatRef, selectedEstate, hoveredFlatIdx, selectedFlat, onFilteredFlats, mustAmenities }) {
   const map = useMap();
   const geoLayersRef = useRef([]);       // for mass-removal on recs change
   const geoLayerByTownRef = useRef({}); // town -> { layer, baseStyle }
@@ -66,12 +66,12 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
 
   // Config for each amenity type shown in Phase 3
   const FLAT_AMENITY_CFG = {
-    parks:     { color: '#27ae60', emoji: '🌳', label: 'Park',      threshold: '1km' },
-    hawkers:   { color: '#e67e22', emoji: '🍜', label: 'Hawker',    threshold: '1km' },
-    mrts:      { color: '#3498db', emoji: '🚇', label: 'MRT',       threshold: '1km' },
-    schools:   { color: '#9b59b6', emoji: '🏫', label: 'School',    threshold: '1km' },
-    malls:     { color: '#f3e412', emoji: '🛍️', label: 'Mall',      threshold: '1.5km' },
-    hospitals: { color: '#e74c3c', emoji: '🏥', label: 'Hospital',  threshold: '3km' },
+    parks:     { color: '#27ae60', emoji: '🌳', label: 'Park',      threshold: '1km',  mustKey: 'park' },
+    hawkers:   { color: '#e67e22', emoji: '🍜', label: 'Hawker',    threshold: '1km',  mustKey: 'hawker' },
+    mrts:      { color: '#3498db', emoji: '🚇', label: 'MRT',       threshold: '1km',  mustKey: 'mrt' },
+    schools:   { color: '#9b59b6', emoji: '🏫', label: 'School',    threshold: '1km',  mustKey: 'school' },
+    malls:     { color: '#f3e412', emoji: '🛍️', label: 'Mall',      threshold: '1.5km', mustKey: 'mall' },
+    hospitals: { color: '#e74c3c', emoji: '🏥', label: 'Hospital',  threshold: '3km',  mustKey: 'hospital' },
   };
 
   const showFlatAmenityMarkers = useCallback((amenities, flatLat, flatLng) => {
@@ -81,27 +81,30 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
       ? { parks: amenities }
       : amenities;
 
+    const hasMust = mustAmenities?.length > 0;
     Object.entries(byType).forEach(([type, items]) => {
       if (!items?.length) return;
-      const cfg = FLAT_AMENITY_CFG[type] || { color: '#888', emoji: '📍', label: type };
+      const cfg = FLAT_AMENITY_CFG[type] || { color: '#888', emoji: '📍', label: type, mustKey: type };
+      const isMust = hasMust && mustAmenities.includes(cfg.mustKey);
+      const opacity = hasMust && !isMust ? 0.25 : 1;
       items.forEach(item => {
         // support legacy park_name key; for hawkers show only the text inside () if present
         const rawName = item.name || item.park_name || '';
         const parenMatch = type === 'hawkers' && rawName.match(/\(([^)]+)\)/);
         const name = parenMatch ? parenMatch[1] : rawName;
         const icon = L.divIcon({
-          html: `<div style="background:${cfg.color};color:#fff;border-radius:8px;padding:3px 7px;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:600;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);white-space:nowrap">${cfg.emoji} ${name} · ${item.distance.toFixed(2)}km</div>`,
-          className: '', iconAnchor: [0, 0],
+          html: `<div style="display:flex;align-items:center;gap:6px;opacity:${opacity}"><div style="background:${cfg.color};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);flex-shrink:0">${cfg.emoji}</div><span style="background:rgba(15,15,15,0.82);color:#fff;border-radius:4px;padding:2px 7px;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;letter-spacing:.3px">${name} · ${item.distance.toFixed(2)}km</span></div>`,
+          className: '', iconAnchor: [14, 14],
         });
         const m = L.marker([item.latitude, item.longitude], { icon }).addTo(map);
         const line = L.polyline(
           [[flatLat, flatLng], [item.latitude, item.longitude]],
-          { color: cfg.color, weight: 1.5, dashArray: '4 4', opacity: 0.6 }
+          { color: cfg.color, weight: 1.5, dashArray: '4 4', opacity: hasMust && !isMust ? 0.15 : 0.6 }
         ).addTo(map);
         amenityMarkersPhase3Ref.current.push(m, line);
       });
     });
-  }, [map, clearFlatAmenityMarkers]);
+  }, [map, clearFlatAmenityMarkers, mustAmenities]);
 
   // Expose showParkMarkers and clearParkMarkers for external use
   const showAmenityMarkersRef = useRef(showFlatAmenityMarkers);
@@ -155,8 +158,8 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     amenityDefs.forEach(def => {
       if (!def.label) return;
       const icon = L.divIcon({
-        html: `<div style="background:${def.color};color:#fff;border-radius:8px;padding:3px 7px;font-size:11px;font-family:'DM Sans',sans-serif;font-weight:600;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);white-space:nowrap;display:flex;align-items:center;gap:4px">${def.icon} ${def.label}${def.mins ? ' · ' + def.mins + 'm' : ''}</div>`,
-        className: '', iconAnchor: [0, 0],
+        html: `<div style="display:flex;align-items:center;gap:6px"><div style="background:${def.color};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);flex-shrink:0">${def.icon}</div><span style="background:rgba(15,15,15,0.82);color:#fff;border-radius:4px;padding:2px 7px;font-size:11px;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;letter-spacing:.3px">${def.label}${def.mins ? ' · ' + def.mins + 'm' : ''}</span></div>`,
+        className: '', iconAnchor: [14, 14],
       });
       const m = L.marker([def.lat, def.lng], { icon }).addTo(map);
       const line = L.polyline(
@@ -522,7 +525,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
           subdomains="abcd"
           maxZoom={19}
         />
-        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={(town) => { const r = recs.find(x => x.town === town); setActiveFlatEstate(town); setDrillFlats(r?.top_flats || []); }} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} />
+        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={(town) => { const r = recs.find(x => x.town === town); setActiveFlatEstate(town); setDrillFlats(r?.top_flats || []); }} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} mustAmenities={formState?.mustAmenities} />
       </MapContainer>
 
       {/* Zoom-out button */}
