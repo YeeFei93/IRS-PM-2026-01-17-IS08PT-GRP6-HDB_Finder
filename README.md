@@ -67,9 +67,9 @@ Individual resale flats are scored using **weighted cosine similarity** between 
 | 0 | Floor preference | High → 1.0, Mid → 0.66, Low → 0.33, "Any" → 0.5; flat: storey midpoint / 50 | Genuinely bidirectional — "mid" means not too high and not too low; a one-sided constraint (e.g. min floor) would use a pre-filter instead |
 | 1 | MRT proximity | count within 1.0 km / cap 3, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Preference with diminishing returns — more MRT stations nearby is always better; cosine rewards alignment between buyer desire and flat supply |
 | 2 | Hawker centre | count within 1.0 km / cap 5, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale as MRT — amenity density is a genuine preference, not a hard constraint |
-| 3 | Shopping mall | count within 1.5 km / cap 3, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale; wider threshold (1.5 km) reflects typical acceptable walking distance to a mall |
+| 3 | Shopping mall | count within 1.5 km / cap 5, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale; wider threshold (1.5 km) reflects typical acceptable walking distance to a mall; cap raised to 5 (data p50=3, p90=4) |
 | 4 | Park | count within 1.0 km / cap 4, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale as MRT |
-| 5 | School | count within 1.0 km / cap 4, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale as MRT |
+| 5 | School | count within 1.0 km / cap 6, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale as MRT; cap raised to 6 (data p75=4 was already at old cap) |
 | 6 | Hospital | count within 3.0 km / cap 2, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale; wider threshold (3.0 km) reflects that hospitals are sparse and typically reached by transport |
 
 ### Why budget, remaining lease, flat type, and region are NOT vector dimensions
@@ -122,9 +122,9 @@ $$\text{amenity\_score} = \min\left(\frac{\text{count\_within}}{\text{cap}}, 1.0
 |---------|-----------|-----|
 | MRT station | 1.0 km | 3 |
 | Hawker centre | 1.0 km | 5 |
-| Shopping mall | 1.5 km | 3 |
+| Shopping mall | 1.5 km | 5 |
 | Park | 1.0 km | 4 |
-| Primary school | 1.0 km | 4 |
+| Primary school | 1.0 km | 6 |
 | Hospital | 3.0 km | 2 |
 
 This rewards **amenity density**: a flat whose block has 2 MRT stations within 1.0 km scores higher than one with 1, reflecting genuine liveability. Amenity counts are computed per block/street (all flats in the same block share the same amenity distances).
@@ -133,14 +133,14 @@ This rewards **amenity density**: a flat whose block has 2 MRT stations within 1
 
 Cosine similarity is scale-invariant: when all dimensions share the same weight (all active or all inactive), the score collapses to the unweighted version and clusters high (85–95) for any positive vectors. The **coverage factor** compensates by scaling the cosine score down when the buyer has expressed few preferences, reflecting lower confidence in the match signal.
 
-$$\text{coverage} = 0.40 + 0.60 \times \frac{n_{\text{active\_dims}}}{7}$$
+$$\text{coverage} = 0.55 + 0.45 \times \frac{n_{\text{active\_dims}}}{7}$$
 
 | Active dims | Coverage factor | Effect |
-|-------------|----------------|--------|
-| 0 | 0.40 | Score capped ~40/100 (low confidence) |
-| 1 | 0.486 | Score capped ~49/100 |
-| 3 | 0.657 | Score capped ~66/100 |
-| 5 | 0.829 | Score capped ~83/100 |
+|-------------|----------------|
+| 0 | 0.550 | Score capped ~55/100 (low confidence) |
+| 1 | 0.614 | Score capped ~61/100 |
+| 3 | 0.743 | Score capped ~74/100 |
+| 5 | 0.871 | Score capped ~87/100 |
 | 7 | 1.000 | No reduction (full confidence) |
 
 This ensures that a buyer who only selects "hawker" as must-have cannot receive misleadingly high scores (e.g. 95/100) — the system honestly communicates that the recommendation is based on limited preference data.
@@ -184,7 +184,7 @@ The UI provides three layers of scoring transparency:
 → W = [1.0, 1.0, 1.0, 0.25, 1.0, 0.25, 0.25]  
 *(Only mrt/hawker/park get W=1.0; mall/school/hospital stay at 0.25)*
 
-**Coverage:** 4 of 7 vector dims active (floor, mrt, hawker, park) → coverage = 0.40 + 0.60 × 4/7 = **0.743**
+**Coverage:** 4 of 7 vector dims active (floor, mrt, hawker, park) → coverage = 0.55 + 0.45 × 4/7 = **0.807**
 
 **Budget adjustment:** price/budget = 400k/500k = 80% → between 70–100%: reward = (1.0 − 0.80)/(1.0 − 0.70) × 0.05 = **+0.033**
 
@@ -207,9 +207,9 @@ The UI provides three layers of scoring transparency:
 | 0 | `storey_midpoint(37, 42) = 39.5 / 50` | 0.7900 |
 | 1 | `count_within=2 / _AMENITY_COUNT_CAP["mrt"]=3` | 0.6667 |
 | 2 | `count_within=4 / _AMENITY_COUNT_CAP["hawker"]=5` | 0.8000 |
-| 3 | `count_within=1 / _AMENITY_COUNT_CAP["mall"]=3` | 0.3333 |
+| 3 | `count_within=1 / _AMENITY_COUNT_CAP["mall"]=5` | 0.2000 |
 | 4 | `count_within=3 / _AMENITY_COUNT_CAP["park"]=4` | 0.7500 |
-| 5 | `count_within=3 / _AMENITY_COUNT_CAP["school"]=4` | 0.7500 |
+| 5 | `count_within=3 / _AMENITY_COUNT_CAP["school"]=6` | 0.5000 |
 | 6 | `count_within=1 / _AMENITY_COUNT_CAP["hospital"]=2` | 0.5000 |
 
 **Why ≈0.93:** Raw cosine ≈ 0.98 (floor close, active amenity dims well-aligned). Coverage ≈ 0.743 scales it to ≈ 0.73. Budget reward +0.033 bumps to ≈ 0.76. On a 0-100 display: **76/100**. *(Note: with all 7 dims active, coverage would be 1.0 and the score would reach ≈ 98 + 3 = ~100.)*
@@ -227,7 +227,7 @@ The UI provides three layers of scoring transparency:
 → W = [0.25, 1.0, 0.25, 0.25, 0.25, 0.25, 0.25]  
 *(Only mrt dim gets W=1.0; floor is inactive because "any")*
 
-**Coverage:** 1 of 7 vector dims active (mrt only) → coverage = 0.40 + 0.60 × 1/7 = **0.486**
+**Coverage:** 1 of 7 vector dims active (mrt only) → coverage = 0.55 + 0.45 × 1/7 = **0.614**
 
 **Budget adjustment:** price/budget = 350k/400k = 87.5% → reward = (1.0 − 0.875)/(1.0 − 0.70) × 0.05 = **+0.021**
 
@@ -270,7 +270,7 @@ The UI provides three layers of scoring transparency:
 → W = [1.0, 1.0, 1.0, 0.25, 1.0, 1.0, 0.25]  
 *(floor/mrt/hawker/park/school at 1.0; mall/hospital at 0.25)*
 
-**Coverage:** 5 of 7 vector dims active (floor, mrt, hawker, park, school) → coverage = 0.40 + 0.60 × 5/7 = **0.829**
+**Coverage:** 5 of 7 vector dims active (floor, mrt, hawker, park, school) → coverage = 0.55 + 0.45 × 5/7 = **0.871**
 
 **Budget adjustment:** price/budget = 580k/600k = 96.7% → reward = (1.0 − 0.967)/(1.0 − 0.70) × 0.05 = **+0.006**
 
@@ -313,7 +313,7 @@ The UI provides three layers of scoring transparency:
 → W = [1.0, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]  
 *(only floor dim active; all 6 amenity dims dampened to 0.25)*
 
-**Coverage:** 1 of 7 vector dims active (floor only) → coverage = 0.40 + 0.60 × 1/7 = **0.486**
+**Coverage:** 1 of 7 vector dims active (floor only) → coverage = 0.55 + 0.45 × 1/7 = **0.614**
 
 **Budget adjustment:** price/budget = 180k/300k = 60% → ≤ 70% → full reward = **+0.050**
 
