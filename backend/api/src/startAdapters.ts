@@ -30,6 +30,10 @@ export function startAdapters() {
       name: "flat_amenities",
       script: "../../adapters/flat_amenities_adapter.py",
     },
+    {
+      name: "recommendation_feedback",
+      script: "../../adapters/recommendation_feedback_adapter.py",
+    },
   ];
 
   const processes: ChildProcess[] = [];

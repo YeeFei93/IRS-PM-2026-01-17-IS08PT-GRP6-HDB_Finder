@@ -27,7 +27,10 @@ export async function runSearchBackend(payload) {
   return r.json();
 }
 
-export function normaliseBackendRec(r) {
+export function normaliseBackendRec(r, selectedModel = null) {
+  const resolvedModel = r.selected_model || selectedModel || null;
+  const recommendationModel = r.recommendation_model || resolvedModel?.key || null;
+  const recommendationModelLabel = r.recommendation_model_label || resolvedModel?.label || recommendationModel;
   // ── price data (price_data dict from backend) ──────────────────────────────
   const priceData = r.price_data || {};
   const pd = {
@@ -69,6 +72,9 @@ export function normaliseBackendRec(r) {
   return {
     town:      r.town,
     ftype:     r.ftype || '4 ROOM',
+    selected_model: resolvedModel,
+    recommendation_model: recommendationModel,
+    recommendation_model_label: recommendationModelLabel,
     pd,
     sc: {
       total,
@@ -94,7 +100,15 @@ export function normaliseBackendRec(r) {
     strong_matches: r.strong_matches ?? 0,
     baseline_price_rank: r.baseline_price_rank ?? null,
     baseline_pop_rank:   r.baseline_pop_rank   ?? null,
-    top_flats: (r.top_flats || []).map((f, i) => ({ ...f, _idx: i })),
+    top_flats: (r.top_flats || []).map((f, i) => ({
+      ...f,
+      _idx: i,
+      flat_id: f.flat_id ?? f.resale_flat_id ?? null,
+      latitude: f.latitude != null ? Number(f.latitude) : null,
+      longitude: f.longitude != null ? Number(f.longitude) : null,
+      recommendation_model: f.recommendation_model || recommendationModel,
+      recommendation_model_label: f.recommendation_model_label || recommendationModelLabel,
+    })),
   };
 }
 
@@ -115,6 +129,21 @@ export async function runFlatAmenities(block, streetName) {
     body: JSON.stringify({ block, street_name: streetName }),
   });
   if (!r.ok) throw new Error(`Flat parks ${r.status}`);
+  return r.json();
+}
+
+export async function recordRecommendationFeedback({ flatId, recommendation, event }) {
+  const r = await fetch(`${API_BASE}/api/recommendation-feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      flat_id: flatId,
+      recommendation,
+      event,
+    }),
+    keepalive: true,
+  });
+  if (!r.ok) throw new Error(`Recommendation feedback ${r.status}`);
   return r.json();
 }
 

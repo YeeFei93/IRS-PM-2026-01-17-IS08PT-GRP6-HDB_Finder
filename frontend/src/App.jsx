@@ -77,7 +77,7 @@ export default function App() {
         const res = await runSearchBackend(payload);
         // Express wraps the Python result in { status, result: {...} }
         const data = res.result ?? res;
-        const topRecs = (data.recommendations || []).map(normaliseBackendRec);
+        const topRecs = (data.recommendations || []).map(rec => normaliseBackendRec(rec, data.selected_model));
         setRawCount(data.raw_count || topRecs.length);
         setLatestMonth(data.latest_month || null);
         setRecs(topRecs);
