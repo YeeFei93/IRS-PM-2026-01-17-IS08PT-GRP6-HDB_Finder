@@ -168,15 +168,11 @@ def _candidate_towns(profile: dict[str, Any]) -> list[str]:
     return get_all_towns(regions)
 
 
-def _flat_id(flat_row: dict[str, Any]) -> str:
-    explicit_id = flat_row.get("flat_id") or flat_row.get("resale_flat_id")
+def _resale_flat_id(flat_row: dict[str, Any]) -> str:
+    explicit_id = flat_row.get("resale_flat_id")
     if explicit_id:
         return str(explicit_id)
-
-    return "|".join(
-        str(flat_row.get(key, ""))
-        for key in ("estate", "block", "street_name", "flat_type", "sold_date", "resale_price")
-    )
+    raise ValueError("Expected resale_flat_id in flat query result")
 
 
 def _flat_mid_storey(flat_row: dict[str, Any]) -> float:
@@ -290,7 +286,7 @@ class EstateCandidate:
 
 @dataclass(slots=True)
 class FlatCandidate:
-    flat_id: str
+    resale_flat_id: str
     estate: str
     block: str
     street_name: str
@@ -349,7 +345,7 @@ class FlatCandidate:
             "score": round(score, 6),
             "score_pct": round(score * 100, 2),
             "reason": reason,
-            "flat_id": self.flat_id,
+            "resale_flat_id": self.resale_flat_id,
             "estate": self.estate,
             "block": self.block,
             "street_name": self.street_name,
@@ -470,7 +466,7 @@ def _build_flat_candidates_for_estate(
 
         built.append(
             FlatCandidate(
-                flat_id=_flat_id(flat_row),
+                resale_flat_id=_resale_flat_id(flat_row),
                 estate=str(flat_row.get("estate") or estate.town),
                 block=block,
                 street_name=street_name,
@@ -527,9 +523,9 @@ def _flat_candidates_for_profile(
         }
         for future in as_completed(futures):
             for candidate in future.result():
-                if candidate.flat_id in seen_ids:
+                if candidate.resale_flat_id in seen_ids:
                     continue
-                seen_ids.add(candidate.flat_id)
+                seen_ids.add(candidate.resale_flat_id)
                 candidates.append(candidate)
 
     return candidates, notes

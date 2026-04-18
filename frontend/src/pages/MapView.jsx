@@ -503,12 +503,12 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   }, [recs]);
 
   const sendFeedback = useCallback((event, flat) => {
-    const flatId = flat?.flat_id;
+    const resaleFlatId = flat?.resale_flat_id;
     const recommendation = flat?.recommendation_model || recs[0]?.recommendation_model;
-    if (!flatId || !recommendation) return;
+    if (!resaleFlatId || !recommendation) return;
 
     recordRecommendationFeedback({
-      flatId,
+      resaleFlatId,
       recommendation,
       event,
     }).catch(() => {});
@@ -524,11 +524,11 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
 
   const handleFlatLike = useCallback((event, flat) => {
     event.stopPropagation();
-    if (!flat?.flat_id) return;
+    if (!flat?.resale_flat_id) return;
 
     setLikedFlatIds(prev => {
       const next = new Set(prev);
-      next.add(flat.flat_id);
+      next.add(flat.resale_flat_id);
       return next;
     });
     sendFeedback('like', flat);
@@ -854,7 +854,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
               const budgetDelta = effectiveBudget ? flat.resale_price - effectiveBudget : null;
               const budgetPctStr = effectiveBudget ? `${over ? '+' : ''}${((flat.resale_price - effectiveBudget) / effectiveBudget * 100).toFixed(0)}%` : null;
               return (
-                <div key={flat.flat_id || i}
+                <div key={flat.resale_flat_id || i}
                   onMouseEnter={() => setHoveredFlatIdx(i)}
                   onMouseLeave={() => setHoveredFlatIdx(null)}
                   onClick={() => handleFlatCardClick(flat, i)}
@@ -877,9 +877,9 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                             onClick={(event) => handleFlatLike(event, flat)}
                             style={{
                               marginTop: 6,
-                              background: likedFlatIds.has(flat.flat_id) ? '#1f5f3a' : 'transparent',
-                              color: likedFlatIds.has(flat.flat_id) ? '#b8f5cd' : '#9aa09b',
-                              border: `1px solid ${likedFlatIds.has(flat.flat_id) ? '#27ae60' : '#2a2a2a'}`,
+                              background: likedFlatIds.has(flat.resale_flat_id) ? '#1f5f3a' : 'transparent',
+                              color: likedFlatIds.has(flat.resale_flat_id) ? '#b8f5cd' : '#9aa09b',
+                              border: `1px solid ${likedFlatIds.has(flat.resale_flat_id) ? '#27ae60' : '#2a2a2a'}`,
                               borderRadius: 999,
                               padding: '3px 9px',
                               fontSize: '0.58rem',
@@ -888,7 +888,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                               letterSpacing: '0.2px',
                             }}
                           >
-                            {likedFlatIds.has(flat.flat_id) ? '👍 Liked' : '👍 Like'}
+                            {likedFlatIds.has(flat.resale_flat_id) ? '👍 Liked' : '👍 Like'}
                           </button>
                         </div>
                       </div>

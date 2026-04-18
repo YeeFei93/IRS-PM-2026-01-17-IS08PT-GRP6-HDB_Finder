@@ -103,7 +103,7 @@ export function normaliseBackendRec(r, selectedModel = null) {
     top_flats: (r.top_flats || []).map((f, i) => ({
       ...f,
       _idx: i,
-      flat_id: f.flat_id ?? f.resale_flat_id ?? null,
+      resale_flat_id: f.resale_flat_id ?? null,
       latitude: f.latitude != null ? Number(f.latitude) : null,
       longitude: f.longitude != null ? Number(f.longitude) : null,
       recommendation_model: f.recommendation_model || recommendationModel,
@@ -132,12 +132,12 @@ export async function runFlatAmenities(block, streetName) {
   return r.json();
 }
 
-export async function recordRecommendationFeedback({ flatId, recommendation, event }) {
+export async function recordRecommendationFeedback({ resaleFlatId, recommendation, event }) {
   const r = await fetch(`${API_BASE}/api/recommendation-feedback`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      flat_id: flatId,
+      resale_flat_id: resaleFlatId,
       recommendation,
       event,
     }),

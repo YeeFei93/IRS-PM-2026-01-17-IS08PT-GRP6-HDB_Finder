@@ -40,14 +40,14 @@ def _ensure_tables_with_db(db: DbConnector) -> None:
     db.cursor.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {USER_RATINGS_TABLE} (
-            flat_id VARCHAR(255) NOT NULL,
+            resale_flat_id VARCHAR(255) NOT NULL,
             recommendation VARCHAR(64) NOT NULL,
             user_like_count INT NOT NULL DEFAULT 0,
             user_view_count INT NOT NULL DEFAULT 0,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (flat_id, recommendation),
+            PRIMARY KEY (resale_flat_id, recommendation),
             INDEX idx_user_ratings_recommendation (recommendation)
         )
         """
@@ -103,6 +103,10 @@ def _dcg(rows: list[dict[str, Any]]) -> float:
     return total
 
 
+def _row_resale_flat_id(row: dict[str, Any]) -> str:
+    return str(row.get("resale_flat_id") or "")
+
+
 def _diversity_score(rows: list[dict[str, Any]], flat_meta: dict[str, dict[str, Any]]) -> float:
     if len(rows) < 2:
         return 0.0
@@ -112,8 +116,8 @@ def _diversity_score(rows: list[dict[str, Any]], flat_meta: dict[str, dict[str, 
 
     for left, right in combinations(rows, 2):
         pair_count += 1
-        left_meta = flat_meta.get(str(left["flat_id"]), {})
-        right_meta = flat_meta.get(str(right["flat_id"]), {})
+        left_meta = flat_meta.get(_row_resale_flat_id(left), {})
+        right_meta = flat_meta.get(_row_resale_flat_id(right), {})
 
         if not left_meta or not right_meta:
             dissimilarity_sum += 0.5
@@ -192,22 +196,22 @@ def calculate_model_evaluations(
     return metrics
 
 
-def _load_flat_meta(db: DbConnector, flat_ids: list[str]) -> dict[str, dict[str, Any]]:
-    if not flat_ids:
+def _load_flat_meta(db: DbConnector, resale_flat_ids: list[str]) -> dict[str, dict[str, Any]]:
+    if not resale_flat_ids:
         return {}
 
-    placeholders = ", ".join(["%s"] * len(flat_ids))
+    placeholders = ", ".join(["%s"] * len(resale_flat_ids))
     db.cursor.execute(
         f"""
-        SELECT resale_flat_id AS flat_id, estate, flat_type
+        SELECT resale_flat_id, estate, flat_type
         FROM resale_flats
         WHERE resale_flat_id IN ({placeholders})
         """,
-        tuple(flat_ids),
+        tuple(resale_flat_ids),
     )
 
     return {
-        str(row["flat_id"]): {
+        str(row["resale_flat_id"]): {
             "estate": row.get("estate"),
             "flat_type": row.get("flat_type"),
         }
@@ -224,12 +228,12 @@ def refresh_model_evaluations(db: DbConnector | None = None) -> list[dict[str, A
         _ensure_tables_with_db(db)
         db.cursor.execute(
             f"""
-            SELECT flat_id, recommendation, user_like_count, user_view_count
+            SELECT resale_flat_id, recommendation, user_like_count, user_view_count
             FROM {USER_RATINGS_TABLE}
             """
         )
         raw_rows = [dict(row) for row in db.cursor.fetchall()]
-        flat_meta = _load_flat_meta(db, [str(row["flat_id"]) for row in raw_rows])
+        flat_meta = _load_flat_meta(db, [_row_resale_flat_id(row) for row in raw_rows])
         metrics = calculate_model_evaluations(raw_rows, flat_meta)
 
         for metric in metrics:
@@ -368,10 +372,10 @@ def choose_recommendation_model(requested_model: str | None = None) -> dict[str,
     return choice
 
 
-def record_feedback(flat_id: str, recommendation: str, event: str) -> dict[str, Any]:
+def record_feedback(resale_flat_id: str, recommendation: str, event: str) -> dict[str, Any]:
     model_key = normalise_model_key(recommendation)
-    if not flat_id:
-        raise ValueError("flat_id is required")
+    if not resale_flat_id:
+        raise ValueError("resale_flat_id is required")
     if model_key not in MODEL_KEYS:
         raise ValueError("recommendation model is invalid")
     if event not in _INTERACTION_KINDS:
@@ -386,29 +390,29 @@ def record_feedback(flat_id: str, recommendation: str, event: str) -> dict[str, 
         db.cursor.execute(
             f"""
             INSERT INTO {USER_RATINGS_TABLE} (
-                flat_id, recommendation, user_like_count, user_view_count
+                resale_flat_id, recommendation, user_like_count, user_view_count
             ) VALUES (%s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
                 user_like_count = user_like_count + VALUES(user_like_count),
                 user_view_count = user_view_count + VALUES(user_view_count)
             """,
-            (str(flat_id), model_key, like_inc, view_inc),
+            (str(resale_flat_id), model_key, like_inc, view_inc),
         )
 
         db.cursor.execute(
             f"""
-            SELECT flat_id, recommendation, user_like_count, user_view_count
+            SELECT resale_flat_id, recommendation, user_like_count, user_view_count
             FROM {USER_RATINGS_TABLE}
-            WHERE flat_id = %s AND recommendation = %s
+            WHERE resale_flat_id = %s AND recommendation = %s
             """,
-            (str(flat_id), model_key),
+            (str(resale_flat_id), model_key),
         )
         row = dict(db.cursor.fetchone() or {})
         metrics = refresh_model_evaluations(db)
         db.Commit()
 
         return {
-            "flat_id": str(flat_id),
+            "resale_flat_id": str(resale_flat_id),
             "recommendation": model_key,
             "recommendation_label": MODEL_LABELS[model_key],
             "event": event,

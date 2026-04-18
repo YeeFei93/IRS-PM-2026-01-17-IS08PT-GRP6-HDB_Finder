@@ -21,11 +21,15 @@ def handle_recommendation_feedback(payload: dict) -> dict:
     if action == "get_model_evaluations":
         return {"evaluations": get_model_evaluations()}
 
-    flat_id = str(payload.get("flat_id", "")).strip()
+    resale_flat_id = str(payload.get("resale_flat_id", "")).strip()
     recommendation = str(payload.get("recommendation", "")).strip()
     event = str(payload.get("event", "")).strip().lower()
 
-    return record_feedback(flat_id=flat_id, recommendation=recommendation, event=event)
+    return record_feedback(
+        resale_flat_id=resale_flat_id,
+        recommendation=recommendation,
+        event=event,
+    )
 
 
 start_import_adapter(

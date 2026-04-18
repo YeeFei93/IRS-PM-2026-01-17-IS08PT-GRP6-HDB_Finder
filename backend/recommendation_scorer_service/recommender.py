@@ -67,14 +67,14 @@ def _group_into_estates(context, ranked_items: list[dict], selection: dict) -> l
         return []
 
     candidate_lookup = {
-        candidate.flat_id: candidate
+        candidate.resale_flat_id: candidate
         for candidate in context.flat_candidates
     }
     qualifying_counts = Counter(candidate.estate for candidate in context.flat_candidates)
     estate_map: dict[str, dict] = {}
 
     for item in ranked_items:
-        candidate = candidate_lookup.get(item["flat_id"])
+        candidate = candidate_lookup.get(item["resale_flat_id"])
         if candidate is None:
             continue
 
