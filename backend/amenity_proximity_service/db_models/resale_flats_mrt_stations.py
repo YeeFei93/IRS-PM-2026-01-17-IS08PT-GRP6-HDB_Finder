@@ -62,21 +62,10 @@ class ResaleFlatsMrtStationsDB:
             for b in mrt_exits:
                 distance = GeolocationConverter().CalculateDistance(a[KEY_NAME.LATITUDE], a[KEY_NAME.LONGITUDE], b[KEY_NAME.LATITUDE], b[KEY_NAME.LONGITUDE])
 
-                
-
-                
-
-
                 key_name = a[ID.BLOCK] + a[ID.STREET_NAME] + mrt_station_name
                
                 if not MIN_DISTANCE.get(key_name):
                     MIN_DISTANCE[key_name] = distance
-
-
-
-                if(mrt_station_name == "BUGIS MRT STATION" and a[ID.STREET_NAME] == "BEACH RD" and a[ID.BLOCK] == "1"):
-                    print({"MIN_DISTANCE": MIN_DISTANCE[key_name]})
-                    print({key_name: distance})
 
                 if distance > self.distance_limit:
                     continue
@@ -106,7 +95,7 @@ class ResaleFlatsMrtStationsDB:
                 new_data_arr.append(new_data)
                 with lock:
                     self.processed_count += 1
-                    # print(f"Processing {self.processed_count} resale flats to mrt stations...")
+                    print(f"Processing {self.processed_count} resale flats to mrt stations...")
 
         dbc.UpsertData(self.table_name, new_data_arr)
         print("Successfully saved.")

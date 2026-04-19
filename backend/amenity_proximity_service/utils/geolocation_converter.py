@@ -5,12 +5,65 @@ from time import sleep
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 from urllib.request import urlopen
+import requests
 
 ONEMAP_SEARCH_URL = "https://www.onemap.gov.sg/api/common/elastic/search"
+OPENSTREETMAP_SEARCH_URL = "https://nominatim.openstreetmap.org/search?q={{address}}&format=jsonv2"
 
 
 class GeolocationConverter:
-    def GetGeolocation(self, block: str, street_name: str,) -> Dict[str, Any]:
+
+    def OSM_Connect(self):
+        try:
+            home = "https://nominatim.openstreetmap.org/ui/search.html"
+            session = requests.session()
+            session.get(home, timeout=15)
+        except requests.exceptions.RequestException as e:
+            self.OSM_Connect()
+
+    def GetOSMGeolocation(self, block, street_name):
+        request_url = OPENSTREETMAP_SEARCH_URL.replace("{{address}}", f"{block} {street_name}")
+        # print(request_url)
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+                "Accept-Language": "en-US,en;q=0.9",
+            }
+            response = requests.get(request_url, headers=headers, timeout=15)
+
+            # Raise error for bad status codes (4xx, 5xx)
+            response.raise_for_status()
+            res = response.json()
+            out = None
+
+            for item in res: 
+                if item.get("type") == "residential":
+                    out = []
+                    out.append(item.get("lat"))
+                    out.append(item.get("lon"))
+                    break
+           
+            if out == None:
+                if len(res) == 0:
+                    return None
+                if res[0]:
+                    out = []
+                    out.append(res[0].get("lat"))
+                    out.append(item.get("lon"))
+
+
+            # print(out)
+            return out 
+
+            
+
+        except Exception as e:
+            print(request_url)
+            print(f"Error occurred: {e}")
+        
+        self.GetOSMGeolocation(block, street_name)
+
+    def GetOnemapGeolocation(self, block: str, street_name: str,) -> Dict[str, Any]:
         timeout: int = 15
         # Build query string
         parts = [str(block).strip()]
@@ -109,6 +162,3 @@ class GeolocationConverter:
         """
         return math.sqrt((lat2 - lat1)**2 + (lon2 - lon1)**2)
     
-
-
-GeolocationConverter().GetGeolocation("15", "BEACH RD")

@@ -71,7 +71,7 @@ class DbController:
             try:
                 db.cursor.execute(query, values)
                 db.Commit()
-                print({74: "Successfuly Updated."})
+                print("Successfuly Updated.")
             except mysql.connector.Error as err:
                 if err.errno == errorcode.ER_DUP_ENTRY:
                     # print(err)
