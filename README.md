@@ -68,7 +68,7 @@ Individual resale flats are scored using **weighted cosine similarity** between 
 | 1 | MRT proximity | count within 1.0 km / cap 3, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Preference with diminishing returns — more MRT stations nearby is always better; cosine rewards alignment between buyer desire and flat supply |
 | 2 | Hawker centre | count within 1.0 km / cap 5, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale as MRT — amenity density is a genuine preference, not a hard constraint |
 | 3 | Shopping mall | count within 1.5 km / cap 5, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale; wider threshold (1.5 km) reflects typical acceptable walking distance to a mall; cap raised to 5 (data p50=3, p90=4) |
-| 4 | Park | count within 1.0 km / cap 4, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale as MRT |
+| 4 | Park | count within 1.0 km / cap 5, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale as MRT; cap raised to 5 (data p90=4, p95=5) |
 | 5 | School | count within 1.0 km / cap 6, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale as MRT; cap raised to 6 (data p75=4 was already at old cap) |
 | 6 | Hospital | count within 3.0 km / cap 2, clamped [0,1]; buyer: 1.0 if must-have, else 0.5 | Same rationale; wider threshold (3.0 km) reflects that hospitals are sparse and typically reached by transport |
 
@@ -123,7 +123,7 @@ $$\text{amenity\_score} = \min\left(\frac{\text{count\_within}}{\text{cap}}, 1.0
 | MRT station | 1.0 km | 3 |
 | Hawker centre | 1.0 km | 5 |
 | Shopping mall | 1.5 km | 5 |
-| Park | 1.0 km | 4 |
+| Park | 1.0 km | 5 |
 | Primary school | 1.0 km | 6 |
 | Hospital | 3.0 km | 2 |
 
@@ -173,7 +173,7 @@ The UI provides three layers of scoring transparency:
 
 ### Worked examples
 
-#### Scenario 1 — Strong match (score ≈ 0.93)
+#### Scenario 1 — Strong match (score ≈ 0.82)
 
 **Inputs:** `ftype="4 ROOM"`, `regions=["central"]`, `floor="high"`, `must_have=["mrt","hawker","park"]`, `budget=$500k`  
 **Flat:** Blk 123 TOA PAYOH CENTRAL (central), `storey_range_start=37, storey_range_end=42`, block amenities: mrt×2, hawker×4, mall×1, park×3, school×3, hospital×1, `resale_price=$400k`  
@@ -208,15 +208,15 @@ The UI provides three layers of scoring transparency:
 | 1 | `count_within=2 / _AMENITY_COUNT_CAP["mrt"]=3` | 0.6667 |
 | 2 | `count_within=4 / _AMENITY_COUNT_CAP["hawker"]=5` | 0.8000 |
 | 3 | `count_within=1 / _AMENITY_COUNT_CAP["mall"]=5` | 0.2000 |
-| 4 | `count_within=3 / _AMENITY_COUNT_CAP["park"]=4` | 0.7500 |
+| 4 | `count_within=3 / _AMENITY_COUNT_CAP["park"]=5` | 0.6000 |
 | 5 | `count_within=3 / _AMENITY_COUNT_CAP["school"]=6` | 0.5000 |
 | 6 | `count_within=1 / _AMENITY_COUNT_CAP["hospital"]=2` | 0.5000 |
 
-**Why ≈0.93:** Raw cosine ≈ 0.98 (floor close, active amenity dims well-aligned). Coverage ≈ 0.743 scales it to ≈ 0.73. Budget reward +0.033 bumps to ≈ 0.76. On a 0-100 display: **76/100**. *(Note: with all 7 dims active, coverage would be 1.0 and the score would reach ≈ 98 + 3 = ~100.)*
+**Why ≈0.76:** Raw cosine ≈ 0.98 (floor close, active amenity dims well-aligned). Coverage ≈ 0.807 scales it to ≈ 0.79. Budget reward +0.033 bumps to ≈ 0.82. On a 0-100 display this sits in the high-match range. *(Note: with all 7 dims active, coverage would be 1.0 and there would be no coverage reduction.)*
 
 ---
 
-#### Scenario 2 — Moderate match (score ≈ 0.50)
+#### Scenario 2 — Moderate match (score ≈ 0.40)
 
 **Inputs:** `ftype="4 ROOM"`, `regions=["east"]`, `floor="any"`, `must_have=["mrt"]`, `budget=$400k`  
 **Flat:** Blk 456 JURONG WEST ST 41, `storey_range_start=1, storey_range_end=3`, block amenities: mrt×3, hawker×2, mall×1, park×1, school×2, hospital×0, `resale_price=$350k`  
@@ -250,16 +250,16 @@ The UI provides three layers of scoring transparency:
 | 0 | `storey_midpoint(1, 3) = 2 / 50` | 0.0400 |
 | 1 | `count_within=3 / _AMENITY_COUNT_CAP["mrt"]=3` | 1.0000 |
 | 2 | `count_within=2 / _AMENITY_COUNT_CAP["hawker"]=5` | 0.4000 |
-| 3 | `count_within=1 / _AMENITY_COUNT_CAP["mall"]=3` | 0.3333 |
-| 4 | `count_within=1 / _AMENITY_COUNT_CAP["park"]=4` | 0.2500 |
-| 5 | `count_within=2 / _AMENITY_COUNT_CAP["school"]=4` | 0.5000 |
+| 3 | `count_within=1 / _AMENITY_COUNT_CAP["mall"]=5` | 0.2000 |
+| 4 | `count_within=1 / _AMENITY_COUNT_CAP["park"]=5` | 0.2000 |
+| 5 | `count_within=2 / _AMENITY_COUNT_CAP["school"]=6` | 0.3333 |
 | 6 | `count_within=0 / _AMENITY_COUNT_CAP["hospital"]=2` | 0.0000 |
 
-**Why ≈0.50:** MRT matches perfectly (1.0 vs 1.0) but that's the only active dim. Raw cosine ≈ 0.78 but coverage = 0.486 scales it to ≈ 0.38. Budget reward +0.021 bumps to ≈ 0.40. On a 0-100 display: **40/100**. The low coverage reflects that only 1 preference dimension was expressed.
+**Why ≈0.40:** MRT matches perfectly (1.0 vs 1.0) but that's the only active dim. Raw cosine ≈ 0.78 but coverage = 0.614 scales it down before the budget reward is applied. The low coverage reflects that only 1 preference dimension was expressed.
 
 ---
 
-#### Scenario 3 — Poor match (score ≈ 0.43)
+#### Scenario 3 — Poor match (score ≈ 0.46)
 
 **Inputs:** `ftype="5 ROOM"`, `regions=["central"]`, `floor="high"`, `must_have=["mrt","hawker","park","school"]`, `budget=$600k`  
 **Flat:** Blk 789 JURONG WEST ST 52, `storey_range_start=1, storey_range_end=3`, block amenities: mrt×0, hawker×1, mall×0, park×0, school×0, hospital×0, `resale_price=$580k`  
@@ -293,16 +293,16 @@ The UI provides three layers of scoring transparency:
 | 0 | `storey_midpoint(1, 3) = 2 / 50` | 0.0400 |
 | 1 | `count_within=0 / _AMENITY_COUNT_CAP["mrt"]=3` | 0.0000 |
 | 2 | `count_within=1 / _AMENITY_COUNT_CAP["hawker"]=5` | 0.2000 |
-| 3 | `count_within=0 / _AMENITY_COUNT_CAP["mall"]=3` | 0.0000 |
-| 4 | `count_within=0 / _AMENITY_COUNT_CAP["park"]=4` | 0.0000 |
-| 5 | `count_within=0 / _AMENITY_COUNT_CAP["school"]=4` | 0.0000 |
+| 3 | `count_within=0 / _AMENITY_COUNT_CAP["mall"]=5` | 0.0000 |
+| 4 | `count_within=0 / _AMENITY_COUNT_CAP["park"]=5` | 0.0000 |
+| 5 | `count_within=0 / _AMENITY_COUNT_CAP["school"]=6` | 0.0000 |
 | 6 | `count_within=0 / _AMENITY_COUNT_CAP["hospital"]=2` | 0.0000 |
 
-**Why ≈0.43:** Nearly every active dim is mismatched — floor (1.0 vs 0.04), mrt (1.0 vs 0.0), park (1.0 vs 0.0), school (1.0 vs 0.0). Even hawker only partially matches (1.0 vs 0.2). Raw cosine ≈ 0.55, coverage 0.829 → ≈ 0.46, budget reward +0.006 → **~46/100**.
+**Why ≈0.46:** Nearly every active dim is mismatched — floor (1.0 vs 0.04), mrt (1.0 vs 0.0), park (1.0 vs 0.0), school (1.0 vs 0.0). Even hawker only partially matches (1.0 vs 0.2). Raw cosine ≈ 0.55, coverage 0.871 → ≈ 0.48, budget reward +0.006 → **~49/100**.
 
 ---
 
-#### Scenario 4 — No amenity preference (score ≈ 0.37)
+#### Scenario 4 — No amenity preference (score ≈ 0.52)
 
 **Inputs:** `ftype="3 ROOM"`, `regions=["north"]`, `floor="mid"`, `must_have=[]`, `budget=$300k`  
 **Flat:** Blk 321 WOODLANDS DR 14, `storey_range_start=10, storey_range_end=12`, block amenities: mrt×1, hawker×2, mall×1, park×2, school×3, hospital×0, `resale_price=$180k`  
@@ -336,11 +336,11 @@ The UI provides three layers of scoring transparency:
 | 0 | `storey_midpoint(10, 12) = 11 / 50` | 0.2200 |
 | 1 | `count_within=1 / _AMENITY_COUNT_CAP["mrt"]=3` | 0.3333 |
 | 2 | `count_within=2 / _AMENITY_COUNT_CAP["hawker"]=5` | 0.4000 |
-| 3 | `count_within=1 / _AMENITY_COUNT_CAP["mall"]=3` | 0.3333 |
-| 4 | `count_within=2 / _AMENITY_COUNT_CAP["park"]=4` | 0.5000 |
-| 5 | `count_within=3 / _AMENITY_COUNT_CAP["school"]=4` | 0.7500 |
+| 3 | `count_within=1 / _AMENITY_COUNT_CAP["mall"]=5` | 0.2000 |
+| 4 | `count_within=2 / _AMENITY_COUNT_CAP["park"]=5` | 0.4000 |
+| 5 | `count_within=3 / _AMENITY_COUNT_CAP["school"]=6` | 0.5000 |
 | 6 | `count_within=0 / _AMENITY_COUNT_CAP["hospital"]=2` | 0.0000 |
 
-**Why ≈0.37:** Raw cosine ≈ 0.96 (floor is the only fully weighted dim; dampened amenities contribute little to the angle). But coverage = 0.486 scales it to ≈ 0.47. Budget reward +0.05 bumps to ≈ 0.52. On 0-100 display: **~52/100**. Previously (without coverage factor) this would have scored ~96 — misleadingly high for a buyer who expressed only one preference.
+**Why ≈0.52:** Raw cosine can still be high (floor is the only fully weighted dim; dampened amenities contribute little to the angle), but coverage = 0.614 scales it down before budget adjustment. Previously (without coverage factor) this would have scored misleadingly high for a buyer who expressed only one preference.
 
 ---

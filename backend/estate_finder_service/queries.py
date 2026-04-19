@@ -370,7 +370,10 @@ def _get_mrt_for_flat(
         SELECT a.`{amenity_name_col}` AS name,
                a.latitude,
                a.longitude,
-               j.distance
+               j.distance,
+               (SELECT GROUP_CONCAT(DISTINCT sl.mrt_line_name ORDER BY sl.mrt_line_name SEPARATOR ',')
+                FROM mrt_stations_lines sl
+                WHERE sl.mrt_station_name = a.`{amenity_name_col}`) AS line_names
         FROM `{join_table}` j
         JOIN `{amenity_table}` a ON a.`{amenity_name_col}` = j.`{amenity_name_col}`
         and a.exit_code = j.exit_code
@@ -395,6 +398,7 @@ def _get_mrt_for_flat(
             "latitude":  float(r["latitude"]),
             "longitude": float(r["longitude"]),
             "distance":  round(float(r["distance"]), 3),
+            "lines":     r["line_names"].split(",") if r.get("line_names") else [],
         }
         for r in rows
     ]
@@ -411,7 +415,7 @@ def get_all_amenities_for_flat(block: str, street_name: str) -> dict:
         "hawkers":   _get_amenity_for_flat(block, street_name,
                          "resale_flats_hawker_centres",   "hawker_centres",   "hawker_centre_name"),
         "mrts":      _get_mrt_for_flat(block, street_name,
-                         "resale_flats_mrt_stations",     "mrt_stations",     "mrt_station_name"),
+                         "resale_flats_mrt_stations",     "mrt_stations_exits", "mrt_station_name"),
         "schools":   _get_amenity_for_flat(block, street_name,
                          "resale_flats_schools",          "schools",          "school_name"),
         "malls":     _get_amenity_for_flat(block, street_name,
