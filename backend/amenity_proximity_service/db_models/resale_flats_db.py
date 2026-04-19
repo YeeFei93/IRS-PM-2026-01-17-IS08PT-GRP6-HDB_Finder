@@ -76,7 +76,7 @@ class ResaleFlatsDB:
         last_geolocation = self.GetLastGeolocation() or {}
 
         new_batch = None
-        for item in addresses[batch_i: batch_i * items_per_batch]:
+        for item in addresses[batch_i * items_per_batch: (batch_i + 1) * items_per_batch]:
             if new_batch != None:
                 new_batch.append(item)
 
@@ -89,7 +89,7 @@ class ResaleFlatsDB:
         GeolocationConverter().OSM_Connect()
 
         if new_batch == None:
-            new_batch = addresses
+            new_batch = addresses[batch_i * items_per_batch: (batch_i + 1) * items_per_batch]
 
         self.InitialiseGeolocationsBatch(new_batch)
        
