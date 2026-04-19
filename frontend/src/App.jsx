@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo } from 'react';
-import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import MapView from './pages//MapView';
 import { REGIONS, ALL_TOWNS, API_BASE } from './constants';
@@ -26,7 +25,6 @@ const INITIAL_FORM = {
 
 export default function App() {
   const [formState, setFormState] = useState(INITIAL_FORM);
-  const [activeTab, setActiveTab] = useState('map');
   const [isSearching, setIsSearching] = useState(false);
   const [recs, setRecs] = useState([]);
   const [rawCount, setRawCount] = useState(0);
@@ -56,7 +54,6 @@ export default function App() {
     }
 
     setIsSearching(true);
-    setActiveTab('map');
 
     const { selRegions, ftype, lease: minLease, age: buyerAge } = formState;
     const towns = selRegions.length
@@ -96,8 +93,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <Header activeTab={activeTab} onTabChange={setActiveTab} />
-      <div className="grid grid-cols-[400px_1fr] min-h-[calc(100vh-56px)]">
+      <div className="grid grid-cols-[400px_1fr] min-h-screen">
         <Sidebar
           formState={formState}
           onFormChange={onFormChange}
@@ -110,11 +106,8 @@ export default function App() {
           onSearch={runSearch}
           isSearching={isSearching}
         />
-        <main className="flex flex-col overflow-y-auto h-[calc(100vh-56px)]">
-          {/* Map Tab */}
-          {activeTab === 'map' && (
+        <main className="flex flex-col overflow-y-auto h-screen">
           <MapView recs={recs} highlightedTown={highlightedTown} formState={formState} effectiveBudget={derived.effective} derived={derived} rawCount={rawCount} latestMonth={latestMonth} />
-          )}
 
         </main>
       </div>
