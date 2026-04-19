@@ -9,6 +9,8 @@ from configs.raw_to_db_mappings import resale_flats_mapping
 import uuid
 import threading
 import math
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 import time
 import random
 
@@ -28,13 +30,41 @@ class ResaleFlatsDB:
     def InitializeData(self):
         db = self.db
         raw_data = self.GetRawData()
-        num_threads = 3
-        batch_size =  math.ceil(len(raw_data) / num_threads)
+
+        MAX_SOLD_DATE = None
+        # Get the last sold date
+        new_data = []
+        for item in raw_data:
+            sold_date = item.get("month")
+            if MAX_SOLD_DATE == None:
+                MAX_SOLD_DATE = sold_date
+
+            if sold_date > MAX_SOLD_DATE:
+                MAX_SOLD_DATE = sold_date
+
+        for item in raw_data:
+            sold_date = datetime.strptime(item.get("month") + "-01", "%Y-%m-%d")
+            min_sold_date = datetime.strptime(MAX_SOLD_DATE  + "-01", "%Y-%m-%d") - relativedelta(months=6)
+
+            if sold_date < min_sold_date:
+                continue
+            
+            item[KEY_NAME.SOLD_DATE] = sold_date
+            new_data.append(item)
+        print({54: len(new_data)})
+        batches = {}
+        for item in new_data:
+            key_name = item["town"]
+            if not key_name in batches:
+                batches[key_name] = []
+            
+            batches[key_name].append(item)
+
+
 
         threads = []
-
-        for i in range(0,num_threads):
-            t = threading.Thread(target=self.InitializeBatch, args=(raw_data[i * batch_size : (i +1) * batch_size],))
+        for k, v in batches.items():
+            t = threading.Thread(target=self.InitializeBatch, args=(v,))
             threads.append(t)
             t.start()
 
@@ -83,36 +113,11 @@ class ResaleFlatsDB:
                 else: 
                     processed_resale_flat[KEY_NAME.REMAINING_LEASE_YEARS] = int(years_months[0].replace(" years", "").replace(" year", ""))
                     processed_resale_flat[KEY_NAME.REMAINING_LEASE_MONTHS] = 0
-
-            if KEY_NAME.SOLD_DATE in processed_resale_flat:
-                processed_resale_flat[KEY_NAME.SOLD_DATE] = processed_resale_flat[KEY_NAME.SOLD_DATE] + "-01"
-
-
-            if processed_estate[KEY_NAME.ESTATE] not in self.new_estates_uniques:
-                with lock:
-                    if processed_estate[KEY_NAME.ESTATE] not in self.new_estates_uniques:
-                        self.new_estates_uniques[processed_estate[KEY_NAME.ESTATE]] = None
-                        new_estates.append(processed_estate)
-            
-            if processed_flat_type[KEY_NAME.FLAT_TYPE] not in self.new_flat_types_uniques:
-                with lock:
-                    if processed_flat_type[KEY_NAME.FLAT_TYPE] not in self.new_flat_types_uniques:
-                        self.new_flat_types_uniques[processed_flat_type[KEY_NAME.FLAT_TYPE]] = None
-                        new_flat_types.append(processed_flat_type)
-            
-            if processed_flat_model[KEY_NAME.FLAT_MODEL] not in self.new_flat_models_uniques:
-                with lock:
-                    if processed_flat_model[KEY_NAME.FLAT_MODEL] not in self.new_flat_models_uniques:
-                        self.new_flat_models_uniques[processed_flat_model[KEY_NAME.FLAT_MODEL]] = None
-                        new_flat_models.append(processed_flat_model)
-
-            temp_key = f"{processed_resale_flats_geolocation[KEY_NAME.BLOCK]}-{processed_resale_flats_geolocation[KEY_NAME.STREET_NAME]}"
-            if temp_key not in self.new_resale_flats_geolocations_uniques:
-                with lock:
-                    if temp_key not in self.new_resale_flats_geolocations_uniques:
-                        self.new_resale_flats_geolocations_uniques[temp_key] = None
-                        new_resale_flats_geolocations.append(processed_resale_flats_geolocation)
-
+        
+            new_estates.append(processed_estate)
+            new_flat_types.append(processed_flat_type)
+            new_flat_models.append(processed_flat_model)
+            new_resale_flats_geolocations.append(processed_resale_flats_geolocation)
             new_resale_flats.append(processed_resale_flat)
 
             counter +=1
@@ -120,12 +125,14 @@ class ResaleFlatsDB:
                 with lock:
                     self.processed_count += 100
                     print(f"Processing {self.processed_count} resale flats...")
-   
-        dbc.InsertData(TABLE_NAME.ESTATES, new_estates)
-        dbc.InsertData(TABLE_NAME.FLAT_TYPES, new_flat_types)
-        dbc.InsertData(TABLE_NAME.FLAT_MODELS, new_flat_models)
-        dbc.InsertData(TABLE_NAME.RESALE_FLATS_GEOLOCATION, new_resale_flats_geolocations)
-        dbc.InsertData(TABLE_NAME.RESALE_FLATS, new_resale_flats)
+
+
+        with lock:
+            dbc.InsertData(TABLE_NAME.ESTATES, new_estates)
+            dbc.InsertData(TABLE_NAME.FLAT_TYPES, new_flat_types)
+            dbc.InsertData(TABLE_NAME.FLAT_MODELS, new_flat_models)
+            dbc.InsertData(TABLE_NAME.RESALE_FLATS_GEOLOCATION, new_resale_flats_geolocations)
+            dbc.InsertData(TABLE_NAME.RESALE_FLATS, new_resale_flats)
            
         print("Successfully saved resale flats")
         db.Close()
