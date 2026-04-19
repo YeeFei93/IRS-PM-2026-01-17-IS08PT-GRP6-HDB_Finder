@@ -16,6 +16,7 @@ import cors from "cors";
 import { connectRedis } from "./redis/client";
 import eligibilityRoute from "./routes/eligibility";
 import recommendationRoute from "./routes/recommendation";
+import recommendationFeedbackRoute from "./routes/recommendationFeedback";
 import flatLookupRoute from "./routes/flatLookup";
 import flatAmenitiesRoute from "./routes/flatAmenities";
 import { startAdapters } from "./startAdapters";
@@ -30,6 +31,7 @@ async function startServer() {
 
   app.use(eligibilityRoute);
   app.use(recommendationRoute);
+  app.use(recommendationFeedbackRoute);
   app.use(flatLookupRoute);
   app.use(flatAmenitiesRoute);
 

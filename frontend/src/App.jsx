@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import MapView from './pages//MapView';
-import TrendsView from './pages/TrendsView';
 import { REGIONS, ALL_TOWNS, API_BASE } from './constants';
 import { calcGrants, loanCapacity, checkEligibility, checkLoanLimit, checkLeaseAgeCriteria } from './engine';
 import { fetchTown, checkBackendHealth, runSearchBackend, normaliseBackendRec } from './api';
@@ -78,7 +77,7 @@ export default function App() {
         const res = await runSearchBackend(payload);
         // Express wraps the Python result in { status, result: {...} }
         const data = res.result ?? res;
-        const topRecs = (data.recommendations || []).map(normaliseBackendRec);
+        const topRecs = (data.recommendations || []).map(rec => normaliseBackendRec(rec, data.selected_model));
         setRawCount(data.raw_count || topRecs.length);
         setLatestMonth(data.latest_month || null);
         setRecs(topRecs);
@@ -117,10 +116,6 @@ export default function App() {
           <MapView recs={recs} highlightedTown={highlightedTown} formState={formState} effectiveBudget={derived.effective} derived={derived} rawCount={rawCount} latestMonth={latestMonth} />
           )}
 
-          {/* Trends Tab */}
-          {activeTab === 'trends' && (
-            <TrendsView recs={recs} />
-          )}
         </main>
       </div>
     </div>

@@ -1,5 +1,5 @@
-const TABS = ['map', 'trends'];
-const TAB_LABELS = ['Map View', 'Price Trends'];
+const TABS = ['map'];
+const TAB_LABELS = ['Map View'];
 
 export default function Header({ activeTab, onTabChange }) {
   return (

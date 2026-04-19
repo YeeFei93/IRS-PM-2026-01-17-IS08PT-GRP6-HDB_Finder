@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { ALL_TOWNS, COORDS, AMENITIES } from '../constants';
 import { rankToColor, whyText } from '../engine';
-import { runFlatLookup, runFlatAmenities } from '../api';
+import { runFlatLookup, runFlatAmenities, recordRecommendationFeedback } from '../api';
 
 // Ray-casting point-in-polygon for GeoJSON ring coordinates [lng, lat]
 function pointInPolygon(lat, lng, ring) {
@@ -27,7 +27,7 @@ function pointInGeoJsonGeometry(lat, lng, geometry) {
   return polys.some(ring => pointInPolygon(lat, lng, ring));
 }
 
-function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, activeFlatEstate, onEstateSelect, effectiveBudget, flyToFlatRef, selectedEstate, hoveredFlatIdx, selectedFlat, onFilteredFlats }) {
+function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, activeFlatEstate, onEstateSelect, effectiveBudget, flyToFlatRef, selectedEstate, hoveredFlatIdx, selectedFlat, onFilteredFlats, mustAmenities, onFlatAmenities }) {
   const map = useMap();
   const geoLayersRef = useRef([]);       // for mass-removal on recs change
   const geoLayerByTownRef = useRef({}); // town -> { layer, baseStyle }
@@ -59,6 +59,9 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
   const recsRef = useRef(recs);
   useEffect(() => { recsRef.current = recs; }, [recs]);
 
+  const mustAmenitiesRef = useRef(mustAmenities);
+  useEffect(() => { mustAmenitiesRef.current = mustAmenities; }, [mustAmenities]);
+
   const clearFlatAmenityMarkers = useCallback(() => {
     amenityMarkersPhase3Ref.current.forEach(m => map.removeLayer(m));
     amenityMarkersPhase3Ref.current = [];
@@ -66,12 +69,12 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
 
   // Config for each amenity type shown in Phase 3
   const FLAT_AMENITY_CFG = {
-    parks:     { color: '#27ae60', emoji: '🌳', label: 'Park',      threshold: '1km' },
-    hawkers:   { color: '#e67e22', emoji: '🍜', label: 'Hawker',    threshold: '1km' },
-    mrts:      { color: '#3498db', emoji: '🚇', label: 'MRT',       threshold: '1km' },
-    schools:   { color: '#9b59b6', emoji: '🏫', label: 'School',    threshold: '1km' },
-    malls:     { color: '#f3e412', emoji: '🛍️', label: 'Mall',      threshold: '1.5km' },
-    hospitals: { color: '#e74c3c', emoji: '🏥', label: 'Hospital',  threshold: '3km' },
+    parks:     { color: '#27ae60', emoji: '🌳', label: 'Park',      threshold: '1km',  mustKey: 'park' },
+    hawkers:   { color: '#e67e22', emoji: '🍜', label: 'Hawker',    threshold: '1km',  mustKey: 'hawker' },
+    mrts:      { color: '#3498db', emoji: '🚇', label: 'MRT',       threshold: '1km',  mustKey: 'mrt' },
+    schools:   { color: '#9b59b6', emoji: '🏫', label: 'School',    threshold: '1km',  mustKey: 'school' },
+    malls:     { color: '#f3e412', emoji: '🛍️', label: 'Mall',      threshold: '1.5km', mustKey: 'mall' },
+    hospitals: { color: '#e74c3c', emoji: '🏥', label: 'Hospital',  threshold: '3km',  mustKey: 'hospital' },
   };
 
   const showFlatAmenityMarkers = useCallback((amenities, flatLat, flatLng) => {
@@ -81,27 +84,45 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
       ? { parks: amenities }
       : amenities;
 
+    const hasMust = mustAmenities?.length > 0;
     Object.entries(byType).forEach(([type, items]) => {
       if (!items?.length) return;
-      const cfg = FLAT_AMENITY_CFG[type] || { color: '#888', emoji: '📍', label: type };
+      const cfg = FLAT_AMENITY_CFG[type] || { color: '#888', emoji: '📍', label: type, mustKey: type };
+      const isMust = hasMust && mustAmenities.includes(cfg.mustKey);
+      const opacity = hasMust && !isMust ? 0.25 : 1;
       items.forEach(item => {
         // support legacy park_name key; for hawkers show only the text inside () if present
         const rawName = item.name || item.park_name || '';
         const parenMatch = type === 'hawkers' && rawName.match(/\(([^)]+)\)/);
         const name = parenMatch ? parenMatch[1] : rawName;
+        // MRT line code badges
+        const MRT_LINE_META = {
+          'CIRCLE LINE':        { code: 'CCL', color: '#fa9e0d' },
+          'DOWNTOWN LINE':      { code: 'DTL', color: '#005ec4' },
+          'EAST WEST LINE':     { code: 'EWL', color: '#009645' },
+          'NORTH EAST LINE':    { code: 'NEL', color: '#9900aa' },
+          'NORTH SOUTH LINE':   { code: 'NSL', color: '#d42e12' },
+          'THOMSON-EAST COAST LINE': { code: 'TEL', color: '#9D5B25' },
+        };
+        const lineBadges = type === 'mrts' && item.lines?.length
+          ? item.lines.map(l => {
+              const m = MRT_LINE_META[l];
+              return m ? `<span style="background:${m.color};color:#fff;border-radius:3px;padding:1px 4px;font-size:8px;font-weight:700;letter-spacing:.3px;margin-right:2px">${m.code}</span>` : '';
+            }).join('')
+          : '';
         const icon = L.divIcon({
-          html: `<div style="background:${cfg.color};color:#fff;border-radius:8px;padding:3px 7px;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:600;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);white-space:nowrap">${cfg.emoji} ${name} · ${item.distance.toFixed(2)}km</div>`,
-          className: '', iconAnchor: [0, 0],
+          html: `<div style="display:flex;align-items:center;gap:6px;opacity:${opacity}"><div style="background:${cfg.color};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);flex-shrink:0">${cfg.emoji}</div><span style="background:rgba(15,15,15,0.82);color:#fff;border-radius:4px;padding:2px 7px;font-size:10px;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;letter-spacing:.3px">${lineBadges}${name} · ${item.distance.toFixed(2)}km</span></div>`,
+          className: '', iconAnchor: [14, 14],
         });
         const m = L.marker([item.latitude, item.longitude], { icon }).addTo(map);
         const line = L.polyline(
           [[flatLat, flatLng], [item.latitude, item.longitude]],
-          { color: cfg.color, weight: 1.5, dashArray: '4 4', opacity: 0.6 }
+          { color: cfg.color, weight: 1.5, dashArray: '4 4', opacity: hasMust && !isMust ? 0.15 : 0.6 }
         ).addTo(map);
         amenityMarkersPhase3Ref.current.push(m, line);
       });
     });
-  }, [map, clearFlatAmenityMarkers]);
+  }, [map, clearFlatAmenityMarkers, mustAmenities]);
 
   // Expose showParkMarkers and clearParkMarkers for external use
   const showAmenityMarkersRef = useRef(showFlatAmenityMarkers);
@@ -127,9 +148,10 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
         const { block: _b, street_name: _s, ...amenities } = data;
         const hasAny = Object.values(amenities).some(arr => arr?.length);
         if (hasAny) showAmenityMarkersRef.current(amenities, flat.latitude, flat.longitude);
+        onFlatAmenities?.(amenities, mustAmenitiesRef.current ?? []);
       })
       .catch(() => {});
-  }, [map]);
+  }, [map, onFlatAmenities]);
   useEffect(() => { if (flyToFlatRef) flyToFlatRef.current = flyToFlat; }, [flyToFlat, flyToFlatRef]);
 
   const clearAmenityMarkers = useCallback(() => {
@@ -155,8 +177,8 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     amenityDefs.forEach(def => {
       if (!def.label) return;
       const icon = L.divIcon({
-        html: `<div style="background:${def.color};color:#fff;border-radius:8px;padding:3px 7px;font-size:11px;font-family:'DM Sans',sans-serif;font-weight:600;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);white-space:nowrap;display:flex;align-items:center;gap:4px">${def.icon} ${def.label}${def.mins ? ' · ' + def.mins + 'm' : ''}</div>`,
-        className: '', iconAnchor: [0, 0],
+        html: `<div style="display:flex;align-items:center;gap:6px"><div style="background:${def.color};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #0f0f0f;box-shadow:0 2px 8px rgba(0,0,0,.7);flex-shrink:0">${def.icon}</div><span style="background:rgba(15,15,15,0.82);color:#fff;border-radius:4px;padding:2px 7px;font-size:11px;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;letter-spacing:.3px">${def.label}${def.mins ? ' · ' + def.mins + 'm' : ''}</span></div>`,
+        className: '', iconAnchor: [14, 14],
       });
       const m = L.marker([def.lat, def.lng], { icon }).addTo(map);
       const line = L.polyline(
@@ -200,7 +222,6 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
         const am = AMENITIES[town] || {};
         let popupHtml;
         if (rec) {
-          const tr = rec.pd.trend12;
           popupHtml = `
             <div style="font-size:.9rem;font-weight:600;margin-bottom:3px">#${rank} ${town}</div>
             <div style="font-size:.72rem;color:#888;margin-bottom:8px">${rec.ftype} · Rank: <strong style="color:${col}">#${rank} of ${total}</strong></div>
@@ -209,8 +230,6 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
                 <div style="font-family:'JetBrains Mono',monospace;font-size:.82rem;color:#d4a843">$${(rec.pd.p25/1000).toFixed(0)}k–$${(rec.pd.p75/1000).toFixed(0)}k</div></div>
               <div><div style="font-size:.62rem;color:#666;text-transform:uppercase;letter-spacing:.8px">Median</div>
                 <div style="font-family:'JetBrains Mono',monospace;font-size:.82rem">$${rec.pd.median.toLocaleString()}</div></div>
-              <div><div style="font-size:.62rem;color:#666;text-transform:uppercase;letter-spacing:.8px">12-mo</div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:.82rem;color:${tr > 0 ? '#e67e22' : '#27ae60'}">${tr > 0 ? '▲' : '▼'}${Math.abs(tr)}%</div></div>
             </div>
             ${am.mrt ? `<div style="font-size:.72rem;color:#aaa;margin-bottom:2px">🚇 ${am.mrt} — ${am.mrtMin} min walk</div>` : ''}
             ${am.hawker ? `<div style="font-size:.72rem;color:#aaa;margin-bottom:2px">🍜 ${am.hawker}</div>` : ''}
@@ -300,7 +319,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     applyHotStyle();
 
     // In overview mode (no active estate), fit map to top-5 recommended estates
-    const hotTowns = activeFlatEstate ? [activeFlatEstate] : recs.map(r => r.town);
+    const hotTowns = activeFlatEstate ? [activeFlatEstate] : recs.slice(0, 5).map(r => r.town);
     if (hotTowns.length > 0 && !activeFlatEstate) {
       const bounds = L.latLngBounds();
       hotTowns.forEach(town => {
@@ -436,10 +455,19 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   const [activeFlatEstate, setActiveFlatEstate] = useState(null); // Phase 2: flat view
   const [selectedFlat, setSelectedFlat] = useState(null);         // Phase 3: flat detail
   const [hoveredFlatIdx, setHoveredFlatIdx] = useState(null);
+  const [likedFlatIds, setLikedFlatIds] = useState(() => new Set());
   const mapRef = useRef(null);
   const flyToFlatRef = useRef(null);
   const [filteredFlats, setFilteredFlats] = useState([]);
+  const [flatAmenities, setFlatAmenities] = useState(null);
+  const [flatMustAmenities, setFlatMustAmenities] = useState([]);
   const handleFilteredFlats = useCallback((flats) => setFilteredFlats(flats), []);
+  const handleFlatAmenities = useCallback((amenities, snap) => {
+    setFlatAmenities(amenities);
+    setFlatMustAmenities(snap);
+  }, []);
+  const selectedModel = recs[0]?.selected_model || null;
+  const selectedModelLabel = selectedModel?.label || recs[0]?.recommendation_model_label || 'Adaptive model';
 
   const loadFlats = useCallback(async ({ estate, estates }) => {
     setDrillTown(estate || null);
@@ -474,6 +502,38 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     setDrillFlats(r?.top_flats || []);
   }, [recs]);
 
+  const sendFeedback = useCallback((event, flat) => {
+    const resaleFlatId = flat?.resale_flat_id;
+    const recommendation = flat?.recommendation_model || recs[0]?.recommendation_model;
+    if (!resaleFlatId || !recommendation) return;
+
+    recordRecommendationFeedback({
+      resaleFlatId,
+      recommendation,
+      event,
+    }).catch(() => {});
+  }, [recs]);
+
+  const handleFlatCardClick = useCallback((flat, index) => {
+    setSelectedFlat({ ...flat, _idx: index });
+    setFlatAmenities(null);
+    setFlatMustAmenities([]);
+    sendFeedback('view', flat);
+    if (flat.latitude && flyToFlatRef.current) flyToFlatRef.current(flat);
+  }, [sendFeedback]);
+
+  const handleFlatLike = useCallback((event, flat) => {
+    event.stopPropagation();
+    if (!flat?.resale_flat_id) return;
+
+    setLikedFlatIds(prev => {
+      const next = new Set(prev);
+      next.add(flat.resale_flat_id);
+      return next;
+    });
+    sendFeedback('like', flat);
+  }, [sendFeedback]);
+
   // Stable ref for auto-load effect
   const loadFlatsRef = useRef(loadFlats);
   useEffect(() => { loadFlatsRef.current = loadFlats; }, [loadFlats]);
@@ -493,6 +553,8 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     setHoveredFlatIdx(null);
     setDrillFlats([]);
     setFilteredFlats([]);
+    setFlatAmenities(null);
+    setFlatMustAmenities([]);
     // MapContent GeoJSON effect will fitBounds top-5 estates when activeFlatEstate clears
   }, []);
 
@@ -505,6 +567,9 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     setHoveredFlatIdx(null);
     setDrillFlats([]);
     setFilteredFlats([]);
+    setFlatAmenities(null);
+    setFlatMustAmenities([]);
+    setLikedFlatIds(new Set());
     // Map zoom is handled by the MapContent GeoJSON effect which fitBounds top-5 estates
   }, [recs]);
 
@@ -522,7 +587,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
           subdomains="abcd"
           maxZoom={19}
         />
-        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={(town) => { const r = recs.find(x => x.town === town); setActiveFlatEstate(town); setDrillFlats(r?.top_flats || []); }} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} />
+        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={(town) => { const r = recs.find(x => x.town === town); setActiveFlatEstate(town); setDrillFlats(r?.top_flats || []); }} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} mustAmenities={formState?.mustAmenities} onFlatAmenities={handleFlatAmenities} />
       </MapContainer>
 
       {/* Zoom-out button */}
@@ -580,8 +645,8 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                 </div>
                 <div style={{ fontSize: '0.68rem', color: '#555', marginTop: 2 }}>
                   {activeFlatEstate
-                    ? `${formState?.ftype || ''} · hover card to highlight · click to zoom`
-                    : `${formState?.ftype || 'Any type'} · cosine similarity · ${recs[0]?.sc?.active?.length || 0} criteria`}
+                    ? `${formState?.ftype || ''} · ${selectedModelLabel} · hover card to highlight · click to zoom`
+                    : `${formState?.ftype || 'Any type'} · ${selectedModelLabel} · ${recs[0]?.sc?.active?.length || 0} criteria`}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -618,7 +683,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             {/* Phase 1: estate cards — sorted by avg_score desc */}
             {!activeFlatEstate && [...recs].sort((a, b) => (b.avg_score ?? 0) - (a.avg_score ?? 0)).map((rec, i) => {
               const isSel = selectedEstate === rec.town;
-              const tr = rec.pd?.trend12;
               const bestScore  = rec.sc.total;                          // best flat × 100
               const avgScore   = Math.round((rec.avg_score ?? 0) * 100);
               const strong     = rec.strong_matches ?? 0;
@@ -701,7 +765,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                         <span>${(rec.pd.median/1000).toFixed(0)}k med</span>
                         <span>·</span>
                         <span>${rec.pd.psm.toLocaleString()}/sqm</span>
-                        {tr !== undefined && <><span>·</span><span style={{ color: tr > 0 ? '#e67e22' : '#27ae60' }}>{tr > 0 ? '▲' : '▼'}{Math.abs(tr)}%</span></>}
                       </div>
 
                       {/* Criteria pills — removed: budget/flat always active (no info),
@@ -757,11 +820,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                   <div style={{ display: 'flex', gap: 8, fontSize: '0.6rem', color: '#666', flexWrap: 'wrap' }}>
                     <span>Median <span style={{ color: '#aaa' }}>${(estateRec.pd.median/1000).toFixed(0)}k</span></span>
                     <span>${estateRec.pd.psm.toLocaleString()}/sqm</span>
-                    {estateRec.pd.trend12 !== undefined && (
-                      <span style={{ color: estateRec.pd.trend12 > 0 ? '#e67e22' : '#27ae60' }}>
-                        {estateRec.pd.trend12 > 0 ? '▲' : '▼'}{Math.abs(estateRec.pd.trend12)}%
-                      </span>
-                    )}
                   </div>
                 </div>
               );
@@ -796,10 +854,10 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
               const budgetDelta = effectiveBudget ? flat.resale_price - effectiveBudget : null;
               const budgetPctStr = effectiveBudget ? `${over ? '+' : ''}${((flat.resale_price - effectiveBudget) / effectiveBudget * 100).toFixed(0)}%` : null;
               return (
-                <div key={i}
+                <div key={flat.resale_flat_id || i}
                   onMouseEnter={() => setHoveredFlatIdx(i)}
                   onMouseLeave={() => setHoveredFlatIdx(null)}
-                  onClick={() => { setSelectedFlat({ ...flat, _idx: i }); if (flat.latitude && flyToFlatRef.current) flyToFlatRef.current(flat); }}
+                  onClick={() => handleFlatCardClick(flat, i)}
                   style={{
                     background: isFlatSel ? '#0a1f12' : '#181818',
                     border: `1px solid ${isFlatSel ? '#27ae60' : '#242424'}`,
@@ -815,6 +873,23 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                           <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", color: over ? '#e67e22' : '#27ae60', fontWeight: 700, whiteSpace: 'nowrap' }}>${flat.resale_price.toLocaleString()}</div>
                           {psm && <div style={{ fontSize: '0.58rem', color: '#555', fontFamily: "'JetBrains Mono', monospace" }}>${psm}/sqm</div>}
                           {flat.score != null && <div style={{ fontSize: '0.62rem', color: '#1abc9c', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{Math.round(flat.score * 100)}/100</div>}
+                          <button
+                            onClick={(event) => handleFlatLike(event, flat)}
+                            style={{
+                              marginTop: 6,
+                              background: likedFlatIds.has(flat.resale_flat_id) ? '#1f5f3a' : 'transparent',
+                              color: likedFlatIds.has(flat.resale_flat_id) ? '#b8f5cd' : '#9aa09b',
+                              border: `1px solid ${likedFlatIds.has(flat.resale_flat_id) ? '#27ae60' : '#2a2a2a'}`,
+                              borderRadius: 999,
+                              padding: '3px 9px',
+                              fontSize: '0.58rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              letterSpacing: '0.2px',
+                            }}
+                          >
+                            {likedFlatIds.has(flat.resale_flat_id) ? '👍 Liked' : '👍 Like'}
+                          </button>
                         </div>
                       </div>
                       <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.65rem', color: '#555' }}>
@@ -822,9 +897,9 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                         <span>·</span><span>{flat.floor_area_sqm} sqm</span>
                         <span>·</span><span>Lease {flat.remaining_lease_years}y{flat.remaining_lease_months > 0 ? ` ${flat.remaining_lease_months}m` : ''}</span>
                       </div>
-                      <div style={{ marginTop: 3, fontSize: '0.62rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ marginTop: 6, fontSize: '0.62rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span style={{ color: '#3a3a3a' }}>Sold {flat.sold_date}</span>
-                        <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                           {budgetPctStr && !nearBudget && (
                             <span style={{ color: over ? '#e67e22' : '#27ae60', fontSize: '0.6rem', fontFamily: "'JetBrains Mono', monospace" }}>
                               {over ? '▲' : '▼'} {budgetPctStr} budget
@@ -835,6 +910,57 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                             : nearBudget && <span style={{ color: '#27ae60', fontWeight: 700 }}>✓ Near budget</span>}
                         </span>
                       </div>
+
+                      {/* Nearby amenities — shown for each selected must-have when flat is selected */}
+                      {isFlatSel && flatAmenities && flatMustAmenities.length > 0 && (() => {
+                        const AMEN_CFG = {
+                          mrt:      { dataKey: 'mrts',      icon: '🚇', color: '#3498db', title: 'Nearby MRT Stations',    strip: ' MRT STATION' },
+                          hawker:   { dataKey: 'hawkers',   icon: '🍜', color: '#e67e22', title: 'Nearby Hawker Centres',  parenOnly: true },
+                          park:     { dataKey: 'parks',     icon: '🌳', color: '#27ae60', title: 'Nearby Parks' },
+                          school:   { dataKey: 'schools',   icon: '🏫', color: '#9b59b6', title: 'Nearby Primary Schools' },
+                          mall:     { dataKey: 'malls',     icon: '🛍️', color: '#f3e412', title: 'Nearby Shopping Malls' },
+                          hospital: { dataKey: 'hospitals', icon: '🏥', color: '#e74c3c', title: 'Nearby Public Hospitals' },
+                        };
+                        const MRT_LINE_META = {
+                          'CIRCLE LINE':             { code: 'CCL', color: '#fa9e0d' },
+                          'DOWNTOWN LINE':           { code: 'DTL', color: '#005ec4' },
+                          'EAST WEST LINE':          { code: 'EWL', color: '#009645' },
+                          'NORTH EAST LINE':         { code: 'NEL', color: '#9900aa' },
+                          'NORTH SOUTH LINE':        { code: 'NSL', color: '#d42e12' },
+                          'THOMSON-EAST COAST LINE': { code: 'TEL', color: '#9D5B25' },
+                        };
+                        return (flatMustAmenities).map(amenKey => {
+                          const cfg = AMEN_CFG[amenKey];
+                          if (!cfg) return null;
+                          const items = flatAmenities[cfg.dataKey];
+                          if (!items?.length) return null;
+                          const unique = [...new Map(items.map(m => [m.name, m])).values()].sort((a, b) => a.distance - b.distance);
+                          return (
+                            <div key={amenKey} style={{ marginTop: 8, background: '#111', border: `1px solid ${cfg.color}33`, borderRadius: 6, padding: '8px 10px', fontSize: '0.62rem' }}>
+                              <div style={{ fontSize: '0.65rem', fontWeight: 700, color: cfg.color, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{cfg.icon} {cfg.title}</div>
+                              {unique.map((item, idx) => {
+                                const rawName = item.name || '';
+                                const parenMatch = cfg.parenOnly && rawName.match(/\(([^)]+)\)/);
+                                const displayName = parenMatch ? parenMatch[1] : cfg.strip ? rawName.replace(cfg.strip, '') : rawName;
+                                const lineBadges = amenKey === 'mrt' && item.lines?.length
+                                  ? item.lines.map(l => {
+                                      const lm = MRT_LINE_META[l];
+                                      return lm
+                                        ? <span key={l} style={{ background: lm.color, color: '#fff', borderRadius: 3, padding: '1px 4px', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.3px', marginRight: 3 }}>{lm.code}</span>
+                                        : null;
+                                    })
+                                  : null;
+                                return (
+                                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderTop: idx > 0 ? '1px solid #1a1a1a' : 'none' }}>
+                                    <span style={{ color: '#aaa', display: 'flex', alignItems: 'center', gap: 2 }}>{lineBadges}{displayName}</span>
+                                    <span style={{ color: '#555', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0, marginLeft: 8 }}>{item.distance.toFixed(2)} km</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        });
+                      })()}
 
                       {/* Score Breakdown Table — shown when flat is selected */}
                       {isFlatSel && flat.score_breakdown && (
@@ -936,7 +1062,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
             <span>
               {activeFlatEstate
                 ? `${filteredFlats.length} flats · click pin for amenities`
-                : `${recs.length} estates · flats ranked by cosine similarity`}
+                : `${recs.length} estates · flats ranked by ${selectedModelLabel}`}
             </span>
             {latestMonth && <span>{latestMonth} · data.gov.sg</span>}
           </div>

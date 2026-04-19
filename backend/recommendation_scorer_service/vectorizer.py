@@ -69,9 +69,9 @@ _AMENITY_MAX_KM: dict[str, float] = {
 _AMENITY_COUNT_CAP: dict[str, int] = {
     "mrt":      3,    # 3+ MRT stations within 1km is excellent
     "hawker":   5,    # hawker centres are dense in HDB estates
-    "mall":     3,    # 3+ malls within 1.5km is very good
-    "park":     4,    # parks are common, reward density up to 4
-    "school":   4,    # primary schools, 4+ is saturated
+    "mall":     5,    # data shows median=3, p90=4 → raised to 5 for discrimination
+    "park":     5,    # data p90=4, p95=5 → raised to 5 for discrimination
+    "school":   6,    # data shows p75=4 already at old cap → raised to 6
     "hospital": 2,    # hospitals are sparse, 2 within 3km is excellent
 }
 
@@ -279,7 +279,7 @@ def flat_vector(price_data: dict, amenities: dict) -> list[float]:
     1  nearby_mrt      — count within 1.0km / 3  (cap 3)
     2  nearby_hawker   — count within 1.0km / 5  (cap 5)
     3  nearby_mall     — count within 1.5km / 3  (cap 3)
-    4  nearby_park     — count within 1.0km / 4  (cap 4)
+    4  nearby_park     — count within 1.0km / 5  (cap 5)
     5  nearby_school   — count within 1.0km / 4  (cap 4)
     6  nearby_hospital — count within 3.0km / 2  (cap 2)
     """

@@ -214,7 +214,8 @@ def get_flats_for_estate(
     """Return flat transactions for a single estate, sorted by budget proximity."""
     cutoff = max((datetime.now() - timedelta(days=months * 30.5)).date(), _MIN_SOLD_DATE)
     query = """
-        SELECT rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
+        SELECT rf.resale_flat_id,
+               rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
                rf.storey_range_start, rf.storey_range_end,
                rf.floor_area_sqm,
                rf.remaining_lease_years, rf.remaining_lease_months,
@@ -256,7 +257,8 @@ def get_top_flats_across_estates(
     cutoff = max((datetime.now() - timedelta(days=months * 30.5)).date(), _MIN_SOLD_DATE)
     placeholders = ", ".join(["%s"] * len(estates))
     query = f"""
-        SELECT rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
+        SELECT rf.resale_flat_id,
+               rf.estate, rf.block, rf.street_name, rf.flat_type, rf.flat_model,
                rf.storey_range_start, rf.storey_range_end,
                rf.floor_area_sqm,
                rf.remaining_lease_years, rf.remaining_lease_months,
@@ -354,6 +356,52 @@ def _get_amenity_for_flat(
         for r in rows
     ]
 
+def _get_mrt_for_flat(
+    block: str, street_name: str,
+    join_table: str, amenity_table: str, amenity_name_col: str,
+) -> list[dict]:
+    """
+    Generic amenity query for name-based FK schema (-05).
+    join_table has columns: block, street_name, <amenity_name_col>, distance.
+    amenity_table has columns: <amenity_name_col>, latitude, longitude.
+    Returns [] gracefully on any error (table not yet populated, etc.).
+    """
+    query = f"""
+        SELECT a.`{amenity_name_col}` AS name,
+               a.latitude,
+               a.longitude,
+               j.distance,
+               (SELECT GROUP_CONCAT(DISTINCT sl.mrt_line_name ORDER BY sl.mrt_line_name SEPARATOR ',')
+                FROM mrt_stations_lines sl
+                WHERE sl.mrt_station_name = a.`{amenity_name_col}`) AS line_names
+        FROM `{join_table}` j
+        JOIN `{amenity_table}` a ON a.`{amenity_name_col}` = j.`{amenity_name_col}`
+        and a.exit_code = j.exit_code
+        WHERE j.block = %s AND j.street_name = %s
+          AND a.latitude IS NOT NULL AND a.longitude IS NOT NULL
+        ORDER BY j.distance
+    """
+    db = DbConnector()
+    try:
+        db.cursor.execute(query, (block, street_name))
+        rows = db.cursor.fetchall()
+    except Exception:
+        return []
+    finally:
+        try:
+            db.Close()
+        except Exception:
+            pass
+    return [
+        {
+            "name":      r["name"],
+            "latitude":  float(r["latitude"]),
+            "longitude": float(r["longitude"]),
+            "distance":  round(float(r["distance"]), 3),
+            "lines":     r["line_names"].split(",") if r.get("line_names") else [],
+        }
+        for r in rows
+    ]
 
 def get_all_amenities_for_flat(block: str, street_name: str) -> dict:
     """
@@ -366,8 +414,8 @@ def get_all_amenities_for_flat(block: str, street_name: str) -> dict:
         "parks":     get_parks_for_flat(block, street_name),
         "hawkers":   _get_amenity_for_flat(block, street_name,
                          "resale_flats_hawker_centres",   "hawker_centres",   "hawker_centre_name"),
-        "mrts":      _get_amenity_for_flat(block, street_name,
-                         "resale_flats_mrt_stations",     "mrt_stations",     "mrt_station_name"),
+        "mrts":      _get_mrt_for_flat(block, street_name,
+                         "resale_flats_mrt_stations",     "mrt_stations_exits", "mrt_station_name"),
         "schools":   _get_amenity_for_flat(block, street_name,
                          "resale_flats_schools",          "schools",          "school_name"),
         "malls":     _get_amenity_for_flat(block, street_name,

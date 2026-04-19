@@ -1,3 +1,7 @@
+# Temp / dev artifacts
+tmp/
+.dev-logs/
+
 # Logs
 logs
 *.log

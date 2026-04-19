@@ -230,8 +230,6 @@ export function checkEligibility(cit, income, age, marital, ftimer) {
 export function whyText(town, ftype, score, pd, budget, active = [], avgScore = 0, qualifyingFlats = 0) {
   const savings = budget - pd.median;
   const under = savings > 0;
-  const tr = pd.trend12;
-
   // Amenity criteria the user actively selected (exclude budget/flat/region/floor/lease)
   const NON_PREF = new Set(['budget', 'flat', 'region', 'floor', 'lease']);
   const amenLabels = { mrt: 'MRT stations', hawker: 'hawker centres', mall: 'shopping malls', park: 'parks', school: 'schools', hospital: 'hospitals' };

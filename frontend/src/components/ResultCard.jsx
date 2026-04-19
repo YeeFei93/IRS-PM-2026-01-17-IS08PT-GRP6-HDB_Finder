@@ -60,9 +60,6 @@ function AmenityRow({ icon, label, d, isMust, amenKey }) {
 export default function ResultCard({ rec, index, mustAmenities, isHighlighted, onClick, onJumpMap }) {
   const { town, ftype, pd, sc, grants } = rec;
   const am = AMENITIES[town] || {};
-  const tr = pd.trend12;
-  const trStr = `${tr > 0 ? '▲' : '▼'} ${Math.abs(tr)}%`;
-  const trCol = tr > 0 ? 'text-orange' : 'text-green';
   const confCls = pd.conf === 'high' ? 'text-[#55d98d] bg-[rgba(39,174,96,0.1)]'
     : pd.conf === 'medium' ? 'text-orange bg-[rgba(230,126,34,0.1)]'
       : 'text-[#ff8080] bg-[rgba(192,57,43,0.1)]';
@@ -162,10 +159,6 @@ export default function ResultCard({ rec, index, mustAmenities, isHighlighted, o
           <div>
             <div className="text-[0.62rem] text-muted uppercase tracking-wide mb-0.5">$/sqm</div>
             <div className="font-mono text-[0.8rem] text-light">${pd.psm.toLocaleString()}</div>
-          </div>
-          <div>
-            <div className="text-[0.62rem] text-muted uppercase tracking-wide mb-0.5">12-mo Trend</div>
-            <div className={`font-mono text-[0.8rem] ${trCol}`}>{trStr}</div>
           </div>
           <div>
             <div className="text-[0.62rem] text-muted uppercase tracking-wide mb-0.5">Avg Area</div>

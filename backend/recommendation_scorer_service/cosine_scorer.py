@@ -54,9 +54,9 @@ INACTIVE_WEIGHT = 0.25
 #
 #   coverage = COVERAGE_FLOOR + (1 - COVERAGE_FLOOR) * (n_active_dims / 7)
 #
-# With 0 active dims  → factor 0.40 (score capped ~40/100)
+# With 0 active dims  → factor 0.55 (score capped ~55/100)
 # With 7 active dims  → factor 1.00 (no change)
-COVERAGE_FLOOR = 0.40   # minimum coverage multiplier (no active dims)
+COVERAGE_FLOOR = 0.55   # minimum coverage multiplier (no active dims)
 
 
 def _coverage_factor(active_criteria: list[str]) -> float:
@@ -65,7 +65,8 @@ def _coverage_factor(active_criteria: list[str]) -> float:
     Cosine similarity is scale-invariant: uniform weights produce the same
     score regardless of their magnitude.  When the buyer expresses few
     preferences the match signal is weak, so we scale the score down to
-    reflect that low confidence.
+    reflect that lower confidence.  Floor raised to 0.55 so a minimal-input
+    buyer (e.g. 1-2 amenities) still sees a meaningful score range.
     """
     active_set = set(active_criteria)
     n_active = sum(1 for c in _DIM_CRITERION if c in active_set)
