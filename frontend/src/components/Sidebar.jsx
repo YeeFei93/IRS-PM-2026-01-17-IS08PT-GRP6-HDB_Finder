@@ -186,7 +186,17 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="bg-dk2 border-r border-dk4 overflow-y-auto h-[calc(100vh-56px)] sticky top-14 w-[400px] shrink-0">
+    <aside className="bg-dk2 border-r border-dk4 overflow-y-auto h-screen sticky top-0 w-[400px] shrink-0">
+      {/* Title */}
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-dk4">
+        <div className="w-8 h-8 bg-gradient-to-br from-red to-gold rounded-[7px] flex items-center justify-center text-base shrink-0">
+          🏠
+        </div>
+        <div>
+          <div className="font-serif text-[1.15rem] text-white">HDB Finder</div>
+          <div className="text-[0.62rem] text-muted tracking-[1.5px] uppercase">Singapore Estate Recommender</div>
+        </div>
+      </div>
       {/* Buyer Profile */}
       <SidebarSection icon="👤" title="Buyer Profile">
         <Field label="Citizenship Status">
