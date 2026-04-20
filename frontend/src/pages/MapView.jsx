@@ -418,6 +418,11 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     });
   }, [hoveredFlatIdx, selectedFlat, makeFlatIcon]);
 
+  useEffect(() => {
+    if (!activeFlatEstate || !selectedFlat?.latitude || !selectedFlat?.longitude) return;
+    flyToFlat(selectedFlat);
+  }, [activeFlatEstate, selectedFlat, flyToFlat]);
+
   // Phase 1: zoom to selectedEstate when estate card is clicked
   useEffect(() => {
     if (!selectedEstate || activeFlatEstate) return;
@@ -594,7 +599,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     setFlatAmenities(null);
     setFlatMustAmenities([]);
     sendFeedback('view', flat);
-    if (flat.latitude && flyToFlatRef.current) flyToFlatRef.current(flat);
   }, [sendFeedback]);
 
   const handleFlatLike = useCallback((event, flat) => {
@@ -660,21 +664,30 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
 
     setPanelTab('plotting');
     setSelectedEstate(flat.estate || null);
-    setSelectedFlat(null);
+    setHoveredFlatIdx(null);
     setFlatAmenities(null);
     setFlatMustAmenities([]);
 
     const estateRec = recs.find((rec) => rec.town === flat.estate);
     const visibleTopFlats = getGeolocatedFlats(estateRec?.top_flats || []);
-    setActiveFlatEstate(visibleTopFlats.length ? flat.estate : null);
-    setDrillFlats(visibleTopFlats);
+    const matchedTopFlat = visibleTopFlats.find(
+      (candidate) => candidate.resale_flat_id === flat.resale_flat_id
+    );
+    const drilldownFlats = matchedTopFlat
+      ? visibleTopFlats
+      : hasFlatGeolocation(flat)
+        ? [flat]
+        : [];
+    const targetFlat = matchedTopFlat || drilldownFlats[0] || null;
+    const targetIndex = targetFlat
+      ? drilldownFlats.findIndex((candidate) => candidate.resale_flat_id === targetFlat.resale_flat_id)
+      : -1;
 
-    if (flat.latitude && flyToFlatRef.current) {
-      flyToFlatRef.current(flat);
-      return;
-    }
+    setActiveFlatEstate(drilldownFlats.length ? flat.estate : null);
+    setDrillFlats(drilldownFlats);
+    setSelectedFlat(targetFlat && targetIndex >= 0 ? { ...targetFlat, _idx: targetIndex } : null);
 
-    if (flat.estate) {
+    if (!targetFlat?.latitude && flat.estate) {
       flyToEstate(flat.estate);
     }
   }, [flyToEstate, recs]);
