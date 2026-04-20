@@ -651,7 +651,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     event.stopPropagation();
     if (!flat) return;
 
-    setPanelTab('plotting');
     setSelectedEstate(flat.estate || null);
     setHoveredFlatIdx(null);
     setFlatAmenities(null);
