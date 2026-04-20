@@ -81,7 +81,6 @@ class ResaleFlatsDB:
         estate_column_names = dbc.GetColumnNames(TABLE_NAME.ESTATES)
         flat_type_column_names = dbc.GetColumnNames(TABLE_NAME.FLAT_TYPES)
         flat_model_column_names = dbc.GetColumnNames(TABLE_NAME.FLAT_MODELS)
-        resale_flats_geolocation_column_names = dbc.GetColumnNames(TABLE_NAME.RESALE_FLATS_GEOLOCATION)
         resale_flat_column_names = dbc.GetColumnNames(TABLE_NAME.RESALE_FLATS)
 
         new_estates = []
@@ -95,9 +94,9 @@ class ResaleFlatsDB:
             processed_estate = dbc.PreprocessData(item, mapping=resale_flats_mapping, column_names=estate_column_names)
             processed_flat_type = dbc.PreprocessData(item, column_names=flat_type_column_names)
             processed_flat_model = dbc.PreprocessData(item, column_names=flat_model_column_names)
-            processed_resale_flats_geolocation = dbc.PreprocessData(item, column_names=resale_flats_geolocation_column_names)
             processed_resale_flat = dbc.PreprocessData(item, mapping=resale_flats_mapping, column_names=resale_flat_column_names)
             processed_resale_flat[ID.RESALE_FLAT_ID] = str(uuid.uuid4())
+
             if KEY_NAME.STOREY_RANGE in item:
                 temp_str: str = item[KEY_NAME.STOREY_RANGE]
                 storeys = temp_str.split(" TO ")
@@ -117,7 +116,6 @@ class ResaleFlatsDB:
             new_estates.append(processed_estate)
             new_flat_types.append(processed_flat_type)
             new_flat_models.append(processed_flat_model)
-            new_resale_flats_geolocations.append(processed_resale_flats_geolocation)
             new_resale_flats.append(processed_resale_flat)
 
             counter +=1
@@ -131,7 +129,6 @@ class ResaleFlatsDB:
             dbc.InsertData(TABLE_NAME.ESTATES, new_estates)
             dbc.InsertData(TABLE_NAME.FLAT_TYPES, new_flat_types)
             dbc.InsertData(TABLE_NAME.FLAT_MODELS, new_flat_models)
-            dbc.InsertData(TABLE_NAME.RESALE_FLATS_GEOLOCATION, new_resale_flats_geolocations)
             dbc.InsertData(TABLE_NAME.RESALE_FLATS, new_resale_flats)
            
         print("Successfully saved resale flats")
