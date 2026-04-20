@@ -19,6 +19,7 @@ import recommendationRoute from "./routes/recommendation";
 import recommendationFeedbackRoute from "./routes/recommendationFeedback";
 import flatLookupRoute from "./routes/flatLookup";
 import flatAmenitiesRoute from "./routes/flatAmenities";
+import favouritesRoute from "./routes/favourites";
 import { startAdapters } from "./startAdapters";
 
 async function startServer() {
@@ -34,6 +35,7 @@ async function startServer() {
   app.use(recommendationFeedbackRoute);
   app.use(flatLookupRoute);
   app.use(flatAmenitiesRoute);
+  app.use(favouritesRoute);
 
   const port = Number(process.env.PORT || 3000);
 

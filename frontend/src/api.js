@@ -147,6 +147,31 @@ export async function recordRecommendationFeedback({ resaleFlatId, recommendatio
   return r.json();
 }
 
+export async function fetchFavourites() {
+  if (!API_BASE) return { favourites: [] };
+  const r = await fetch(`${API_BASE}/api/favourites`);
+  if (!r.ok) throw new Error(`Favourites ${r.status}`);
+  return r.json();
+}
+
+export async function toggleFavourite(resaleFlatId) {
+  const r = await fetch(`${API_BASE}/api/favourites/toggle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resale_flat_id: resaleFlatId }),
+  });
+  if (!r.ok) throw new Error(`Toggle favourite ${r.status}`);
+  return r.json();
+}
+
+export async function removeFavourite(resaleFlatId) {
+  const r = await fetch(`${API_BASE}/api/favourites/${encodeURIComponent(resaleFlatId)}`, {
+    method: 'DELETE',
+  });
+  if (!r.ok) throw new Error(`Remove favourite ${r.status}`);
+  return r.json();
+}
+
 // ── data.gov.sg fallback API ──
 
 async function apiCall(town, ftype, limit = 500, offset = 0) {

@@ -34,6 +34,10 @@ export function startAdapters() {
       name: "recommendation_feedback",
       script: "../../adapters/recommendation_feedback_adapter.py",
     },
+    {
+      name: "favourites",
+      script: "../../adapters/favourites_adapter.py",
+    },
   ];
 
   const processes: ChildProcess[] = [];
