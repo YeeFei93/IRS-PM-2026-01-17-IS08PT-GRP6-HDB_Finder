@@ -132,15 +132,25 @@ export async function runFlatAmenities(block, streetName) {
   return r.json();
 }
 
-export async function recordRecommendationFeedback({ resaleFlatId, recommendation, event }) {
+export async function recordRecommendationFeedback({
+  resaleFlatId,
+  recommendation,
+  event,
+  viewed,
+  favourite,
+}) {
+  const body = {
+    resale_flat_id: resaleFlatId,
+  };
+  if (recommendation) body.recommendation = recommendation;
+  if (event !== undefined) body.event = event;
+  if (viewed !== undefined) body.viewed = viewed;
+  if (favourite !== undefined) body.favourite = favourite;
+
   const r = await fetch(`${API_BASE}/api/recommendation-feedback`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      resale_flat_id: resaleFlatId,
-      recommendation,
-      event,
-    }),
+    body: JSON.stringify(body),
     keepalive: true,
   });
   if (!r.ok) throw new Error(`Recommendation feedback ${r.status}`);
@@ -154,11 +164,14 @@ export async function fetchFavourites() {
   return r.json();
 }
 
-export async function toggleFavourite(resaleFlatId) {
+export async function toggleFavourite(resaleFlatId, recommendationModel = null) {
   const r = await fetch(`${API_BASE}/api/favourites/toggle`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ resale_flat_id: resaleFlatId }),
+    body: JSON.stringify({
+      resale_flat_id: resaleFlatId,
+      recommendation_model: recommendationModel,
+    }),
   });
   if (!r.ok) throw new Error(`Toggle favourite ${r.status}`);
   return r.json();

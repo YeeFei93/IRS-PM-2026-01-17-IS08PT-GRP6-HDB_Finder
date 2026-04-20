@@ -2,7 +2,7 @@
 recommendation_scorer_service/recommender.py
 ===================
 Runs one of three flat-level recommenders, selected adaptively from
-historical user likes:
+historical user favourite/view behaviour:
   1. Euclidean Distance
   2. Weighted Cosine
   3. KNN Cosine Similarity
