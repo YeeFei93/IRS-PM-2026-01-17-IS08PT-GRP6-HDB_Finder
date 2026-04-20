@@ -1,6 +1,7 @@
 import math
 import json
-from time import sleep
+import time
+
 
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
@@ -22,46 +23,40 @@ class GeolocationConverter:
             self.OSM_Connect()
 
     def GetOSMGeolocation(self, block, street_name):
-        request_url = OPENSTREETMAP_SEARCH_URL.replace("{{address}}", f"{block} {street_name}")
-        # print(request_url)
+        request_url = OPENSTREETMAP_SEARCH_URL.replace(
+            "{{address}}", f"{block} {street_name}"
+        )
+
+        headers = {
+            "User-Agent": "my-geocoder/1.0 (cheez214@hotmail.com)" #Change to your email hahaha
+        }
+
         try:
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-                "Accept-Language": "en-US,en;q=0.9",
-            }
             response = requests.get(request_url, headers=headers, timeout=15)
-
-            # Raise error for bad status codes (4xx, 5xx)
             response.raise_for_status()
+
             res = response.json()
-            out = None
 
-            for item in res: 
+            for item in res:
                 if item.get("type") == "residential":
-                    out = []
-                    out.append(item.get("lat"))
-                    out.append(item.get("lon"))
-                    break
-           
-            if out == None:
-                if len(res) == 0:
-                    return None
-                if res[0]:
-                    out = []
-                    out.append(res[0].get("lat"))
-                    out.append(item.get("lon"))
+                    return [item.get("lat"), item.get("lon")]
 
+            if res:
+                return [res[0].get("lat"), res[0].get("lon")]
 
-            # print(out)
-            return out 
+            return None
+
+        except requests.exceptions.HTTPError as e:
+            if response.status_code == 429:
+                time.sleep(2)  # backoff
+                return self.GetOSMGeolocation(block, street_name)
+            raise
+
+        finally:
+            time.sleep(1)  # ← CRITICAL
 
             
 
-        except Exception as e:
-            print(request_url)
-            print(f"Error occurred: {e}")
-        
-        self.GetOSMGeolocation(block, street_name)
 
     def GetOnemapGeolocation(self, block: str, street_name: str,) -> Dict[str, Any]:
         timeout: int = 15

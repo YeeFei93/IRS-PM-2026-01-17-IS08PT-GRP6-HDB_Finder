@@ -10,7 +10,7 @@ import math
 lock = threading.Lock()
 db = DbConnector()
 resale_flats_db = ResaleFlatsDB(db)
-# resale_flats_db.DeleteGeolocations()
-resale_flats_db.batch_num = 1
+#resale_flats_db.DeleteGeolocations()
+resale_flats_db.batch_num = 4
 resale_flats_geolocations = resale_flats_db.InitialiseGeolocations()
 db.Close()
