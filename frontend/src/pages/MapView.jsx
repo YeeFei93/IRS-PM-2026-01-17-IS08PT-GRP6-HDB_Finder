@@ -34,7 +34,7 @@ function pointInGeoJsonGeometry(lat, lng, geometry) {
   return polys.some(ring => pointInPolygon(lat, lng, ring));
 }
 
-function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, activeFlatEstate, onEstateSelect, effectiveBudget, flyToFlatRef, selectedEstate, hoveredFlatIdx, selectedFlat, onFilteredFlats, mustAmenities, onFlatAmenities }) {
+function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, activeFlatEstate, onEstateSelect, effectiveBudget, flyToFlatRef, selectedEstate, hoveredFlatIdx, selectedFlat, onFilteredFlats, mustAmenities, onFlatAmenities, onFlatSelect }) {
   const map = useMap();
   const geoLayersRef = useRef([]);       // for mass-removal on recs change
   const geoLayerByTownRef = useRef({}); // town -> { layer, baseStyle }
@@ -62,6 +62,9 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
 
   const onEstateSelectRef = useRef(onEstateSelect);
   useEffect(() => { onEstateSelectRef.current = onEstateSelect; }, [onEstateSelect]);
+
+  const onFlatSelectRef = useRef(onFlatSelect);
+  useEffect(() => { onFlatSelectRef.current = onFlatSelect; }, [onFlatSelect]);
 
   const recsRef = useRef(recs);
   useEffect(() => { recsRef.current = recs; }, [recs]);
@@ -389,7 +392,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
         <div style="font-size:.68rem;color:#666;margin-top:2px">${flat.estate} · ${flat.sold_date}</div>`;
       const m = L.marker([flat.latitude, flat.longitude], { icon });
       m.bindPopup(popupHtml, { maxWidth: 260 });
-      m.on('click', () => flyToFlat(flat));
+      m.on('click', () => onFlatSelectRef.current?.(flat, cardIndex));
       m.addTo(map);
       flatMarkersRef.current.push(m);
     });
@@ -491,7 +494,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   const [activeFlatEstate, setActiveFlatEstate] = useState(null); // Phase 2: flat view
   const [selectedFlat, setSelectedFlat] = useState(null);         // Phase 3: flat detail
   const [hoveredFlatIdx, setHoveredFlatIdx] = useState(null);
-  const [likedFlatIds, setLikedFlatIds] = useState(() => new Set());
   const [favouriteFlats, setFavouriteFlats] = useState([]);
   const [favouriteFlatIds, setFavouriteFlatIds] = useState(() => new Set());
   const [favouritesLoading, setFavouritesLoading] = useState(false);
@@ -582,15 +584,15 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     openEstateDrilldown(town);
   }, [openEstateDrilldown]);
 
-  const sendFeedback = useCallback((event, flat) => {
+  const syncFlatInteraction = useCallback((flat, updates) => {
     const resaleFlatId = flat?.resale_flat_id;
-    const recommendation = flat?.recommendation_model || recs[0]?.recommendation_model;
-    if (!resaleFlatId || !recommendation) return;
+    const recommendation = flat?.recommendation_model || recs[0]?.recommendation_model || recs[0]?.selected_model?.key;
+    if (!resaleFlatId) return;
 
     recordRecommendationFeedback({
       resaleFlatId,
       recommendation,
-      event,
+      ...updates,
     }).catch(() => {});
   }, [recs]);
 
@@ -598,38 +600,24 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     setSelectedFlat({ ...flat, _idx: index });
     setFlatAmenities(null);
     setFlatMustAmenities([]);
-    sendFeedback('view', flat);
-  }, [sendFeedback]);
-
-  const handleFlatLike = useCallback((event, flat) => {
-    event.stopPropagation();
-    if (!flat?.resale_flat_id || likedFlatIds.has(flat.resale_flat_id)) return;
-
-    setLikedFlatIds(prev => {
-      const next = new Set(prev);
-      next.add(flat.resale_flat_id);
-      return next;
-    });
-    sendFeedback('like', flat);
-  }, [likedFlatIds, sendFeedback]);
+    syncFlatInteraction(flat, { viewed: true });
+  }, [syncFlatInteraction]);
 
   const handleFavouriteToggle = useCallback(async (event, flat) => {
     event.stopPropagation();
     if (!flat?.resale_flat_id) return;
     setFavouritesBusyId(flat.resale_flat_id);
     try {
-      const result = await toggleFavourite(flat.resale_flat_id);
+      const result = await toggleFavourite(flat.resale_flat_id, flat.recommendation_model);
       const data = result.result ?? result;
       applyFavourites(data.favourites || []);
-      if (data.is_favourite) {
-        sendFeedback('like', flat);
-      }
+      syncFlatInteraction(flat, { viewed: true, favourite: Boolean(data.is_favourite) });
     } catch (error) {
       setFavouritesError(error instanceof Error ? error.message : 'Failed to update favorite');
     } finally {
       setFavouritesBusyId(null);
     }
-  }, [applyFavourites, sendFeedback]);
+  }, [applyFavourites, syncFlatInteraction]);
 
   // Stable ref for auto-load effect
   const loadFlatsRef = useRef(loadFlats);
@@ -643,20 +631,21 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     }
   }, []);
 
-  const handleFavouriteRemove = useCallback(async (event, resaleFlatId) => {
+  const handleFavouriteRemove = useCallback(async (event, flat) => {
     event.stopPropagation();
-    if (!resaleFlatId) return;
-    setFavouritesBusyId(resaleFlatId);
+    if (!flat?.resale_flat_id) return;
+    setFavouritesBusyId(flat.resale_flat_id);
     try {
-      const result = await removeFavourite(resaleFlatId);
+      const result = await removeFavourite(flat.resale_flat_id);
       const data = result.result ?? result;
       applyFavourites(data.favourites || []);
+      syncFlatInteraction(flat, { viewed: true, favourite: false });
     } catch (error) {
       setFavouritesError(error instanceof Error ? error.message : 'Failed to remove favorite');
     } finally {
       setFavouritesBusyId(null);
     }
-  }, [applyFavourites]);
+  }, [applyFavourites, syncFlatInteraction]);
 
   const showFavouriteOnMap = useCallback((event, flat) => {
     event.stopPropagation();
@@ -715,7 +704,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     setHoveredFlatIdx(null);
     setDrillFlats([]);
     setFilteredFlats([]);
-    setLikedFlatIds(new Set());
     setFlatAmenities(null);
     setFlatMustAmenities([]);
     // Map zoom is handled by the MapContent GeoJSON effect which fitBounds top-5 estates
@@ -735,7 +723,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
           subdomains="abcd"
           maxZoom={19}
         />
-        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={openEstateDrilldown} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} mustAmenities={formState?.mustAmenities} onFlatAmenities={handleFlatAmenities} />
+        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={openEstateDrilldown} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} mustAmenities={formState?.mustAmenities} onFlatAmenities={handleFlatAmenities} onFlatSelect={handleFlatCardClick} />
       </MapContainer>
 
       {/* Zoom-out button */}
@@ -1065,24 +1053,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                           {flat.score != null && <div style={{ fontSize: '0.62rem', color: '#1abc9c', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{Math.round(flat.score * 100)}/100</div>}
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 6 }}>
                             <button
-                              onClick={(event) => handleFlatLike(event, flat)}
-                              disabled={likedFlatIds.has(flat.resale_flat_id)}
-                              style={{
-                                background: likedFlatIds.has(flat.resale_flat_id) ? '#1f5f3a' : 'transparent',
-                                color: likedFlatIds.has(flat.resale_flat_id) ? '#b8f5cd' : '#9aa09b',
-                                border: `1px solid ${likedFlatIds.has(flat.resale_flat_id) ? '#27ae60' : '#2a2a2a'}`,
-                                borderRadius: 999,
-                                padding: '3px 9px',
-                                fontSize: '0.58rem',
-                                fontWeight: 700,
-                                cursor: likedFlatIds.has(flat.resale_flat_id) ? 'default' : 'pointer',
-                                letterSpacing: '0.2px',
-                                opacity: likedFlatIds.has(flat.resale_flat_id) ? 0.85 : 1,
-                              }}
-                            >
-                              {likedFlatIds.has(flat.resale_flat_id) ? '👍 Liked' : '👍 Like'}
-                            </button>
-                            <button
                               onClick={(event) => handleFavouriteToggle(event, flat)}
                               disabled={isFavouriteBusy}
                               title={isFavourite ? 'Remove favorite' : 'Add favorite'}
@@ -1355,7 +1325,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                           Show on Map
                         </button>
                         <button
-                          onClick={(event) => handleFavouriteRemove(event, flatId)}
+                          onClick={(event) => handleFavouriteRemove(event, flat)}
                           disabled={isBusy}
                           style={{
                             background: '#241514',
@@ -1395,3 +1365,4 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     </div>
   );
 }
+

@@ -12,6 +12,7 @@ for _path in (_SERVICE_ROOT, _BACKEND_ROOT):
         sys.path.insert(0, _path)
 
 from amenity_proximity_service.utils.db_connector import DbConnector
+from recommendation_scorer_service.model_catalog import normalise_model_key
 
 
 FAVOURITES_TABLE = "favourites"
@@ -22,6 +23,7 @@ def _ensure_table_with_db(db: DbConnector) -> None:
         f"""
         CREATE TABLE IF NOT EXISTS {FAVOURITES_TABLE} (
             resale_flat_id VARCHAR(255) NOT NULL,
+            recommendation_model VARCHAR(64) NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 ON UPDATE CURRENT_TIMESTAMP,
@@ -30,6 +32,15 @@ def _ensure_table_with_db(db: DbConnector) -> None:
         )
         """
     )
+    db.cursor.execute(f"SHOW COLUMNS FROM {FAVOURITES_TABLE}")
+    columns = {str(row.get("Field") or "") for row in db.cursor.fetchall() or []}
+    if "recommendation_model" not in columns:
+        db.cursor.execute(
+            f"""
+            ALTER TABLE {FAVOURITES_TABLE}
+            ADD COLUMN recommendation_model VARCHAR(64) NULL
+            """
+        )
 
 
 def _format_timestamp(value: Any) -> str | None:
@@ -63,6 +74,7 @@ def list_favourites_with_db(db: DbConnector) -> list[dict[str, Any]]:
     db.cursor.execute(
         f"""
         SELECT f.resale_flat_id,
+               f.recommendation_model,
                rf.estate,
                rf.block,
                rf.street_name,
@@ -112,8 +124,9 @@ def _flat_exists(db: DbConnector, resale_flat_id: str) -> bool:
     return db.cursor.fetchone() is not None
 
 
-def toggle_favourite(resale_flat_id: str) -> dict[str, Any]:
+def toggle_favourite(resale_flat_id: str, recommendation_model: str | None = None) -> dict[str, Any]:
     resale_flat_id = str(resale_flat_id or "").strip()
+    recommendation_model = normalise_model_key(recommendation_model)
     if not resale_flat_id:
         raise ValueError("resale_flat_id is required")
 
@@ -141,8 +154,11 @@ def toggle_favourite(resale_flat_id: str) -> dict[str, Any]:
             if not _flat_exists(db, resale_flat_id):
                 raise ValueError("Flat not found")
             db.cursor.execute(
-                f"INSERT INTO {FAVOURITES_TABLE} (resale_flat_id) VALUES (%s)",
-                (resale_flat_id,),
+                f"""
+                INSERT INTO {FAVOURITES_TABLE} (resale_flat_id, recommendation_model)
+                VALUES (%s, %s)
+                """,
+                (resale_flat_id, recommendation_model),
             )
             is_favourite = True
 

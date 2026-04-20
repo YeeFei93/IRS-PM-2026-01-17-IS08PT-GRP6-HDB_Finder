@@ -19,9 +19,10 @@ from estate_finder_service.favourites_store import (
 def handle_favourites(payload: dict) -> dict:
     action = str(payload.get("action", "list")).strip().lower()
     resale_flat_id = str(payload.get("resale_flat_id", "")).strip()
+    recommendation_model = str(payload.get("recommendation_model", "")).strip() or None
 
     if action == "toggle":
-        return toggle_favourite(resale_flat_id)
+        return toggle_favourite(resale_flat_id, recommendation_model=recommendation_model)
     if action == "remove":
         return remove_favourite(resale_flat_id)
     return list_favourites()
