@@ -1061,7 +1061,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                         <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#d0d0d0', lineHeight: 1.3 }}>Blk {flat.block} {flat.street_name}</div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                           <div style={{ fontSize: '0.78rem', fontFamily: "'JetBrains Mono', monospace", color: over ? '#e67e22' : '#27ae60', fontWeight: 700, whiteSpace: 'nowrap' }}>${flat.resale_price.toLocaleString()}</div>
-                          {psm && <div style={{ fontSize: '0.58rem', color: '#555', fontFamily: "'JetBrains Mono', monospace" }}>${psm}/sqm</div>}
+                          {psm && <div style={{ fontSize: '0.58rem', color: '#aaa', fontFamily: "'JetBrains Mono', monospace" }}>${psm}/sqm</div>}
                           {flat.score != null && <div style={{ fontSize: '0.62rem', color: '#1abc9c', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{Math.round(flat.score * 100)}/100</div>}
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 6 }}>
                             <button
@@ -1109,13 +1109,13 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                           </div>
                         </div>
                       </div>
-                      <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.65rem', color: '#555' }}>
+                      <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.65rem', color: '#aaa' }}>
                         <span>Floor {flat.storey_range_start}–{flat.storey_range_end}</span>
                         <span>·</span><span>{flat.floor_area_sqm} sqm</span>
                         <span>·</span><span>Lease {flat.remaining_lease_years}y{flat.remaining_lease_months > 0 ? ` ${flat.remaining_lease_months}m` : ''}</span>
                       </div>
                       <div style={{ marginTop: 6, fontSize: '0.62rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ color: '#3a3a3a' }}>Sold {flat.sold_date}</span>
+                        <span style={{ color: '#999' }}>Sold {flat.sold_date}</span>
                         <span style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                           {budgetPctStr && !nearBudget && (
                             <span style={{ color: over ? '#e67e22' : '#27ae60', fontSize: '0.6rem', fontFamily: "'JetBrains Mono', monospace" }}>
@@ -1169,8 +1169,8 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                                   : null;
                                 return (
                                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderTop: idx > 0 ? '1px solid #1a1a1a' : 'none' }}>
-                                    <span style={{ color: '#aaa', display: 'flex', alignItems: 'center', gap: 2 }}>{lineBadges}{displayName}</span>
-                                    <span style={{ color: '#555', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0, marginLeft: 8 }}>{item.distance.toFixed(2)} km</span>
+                                    <span style={{ color: '#ccc', display: 'flex', alignItems: 'center', gap: 2 }}>{lineBadges}{displayName}</span>
+                                    <span style={{ color: '#aaa', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0, marginLeft: 8 }}>{item.distance.toFixed(2)} km</span>
                                   </div>
                                 );
                               })}
@@ -1319,20 +1319,20 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                             {flat.resale_price != null ? `$${Number(flat.resale_price).toLocaleString()}` : 'Price unavailable'}
                           </div>
                           {flat.floor_area_sqm != null && (
-                            <div style={{ fontSize: '0.58rem', color: '#555', fontFamily: "'JetBrains Mono', monospace" }}>
+                            <div style={{ fontSize: '0.58rem', color: '#aaa', fontFamily: "'JetBrains Mono', monospace" }}>
                               {flat.floor_area_sqm} sqm
                             </div>
                           )}
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.62rem', color: '#666' }}>
+                      <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '0.62rem', color: '#aaa' }}>
                         <span>Floor {flat.storey_range_start}-{flat.storey_range_end}</span>
                         <span>-</span>
                         <span>Lease {flat.remaining_lease_years}y{flat.remaining_lease_months > 0 ? ` ${flat.remaining_lease_months}m` : ''}</span>
                       </div>
 
-                      <div style={{ marginTop: 6, fontSize: '0.6rem', color: '#555' }}>
+                      <div style={{ marginTop: 6, fontSize: '0.6rem', color: '#999' }}>
                         Saved {flat.created_at || '-'}
                       </div>
 
