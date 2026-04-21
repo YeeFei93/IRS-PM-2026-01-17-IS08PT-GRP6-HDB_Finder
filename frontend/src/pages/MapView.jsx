@@ -7,6 +7,7 @@ import {
   runFlatLookup,
   runFlatAmenities,
   recordRecommendationFeedback,
+  syncRecommendationSnapshot,
   fetchFavourites,
   toggleFavourite,
   removeFavourite,
@@ -484,8 +485,6 @@ function countStrongGeolocatedFlats(flats) {
   return getGeolocatedFlats(flats).filter(flat => Number(flat?.score || 0) >= 0.75).length;
 }
 
-const EVALUATION_K = 10;
-
 function createRecommendationSessionId() {
   if (globalThis?.crypto && typeof globalThis.crypto.randomUUID === 'function') {
     return globalThis.crypto.randomUUID();
@@ -519,6 +518,13 @@ function flattenRecommendationsForEvaluation(recommendations) {
   return flattened;
 }
 
+function buildRecommendationSnapshot(recommendations) {
+  return flattenRecommendationsForEvaluation(recommendations).map((item, index) => ({
+    resale_flat_id: item.resale_flat_id,
+    position: index + 1,
+  }));
+}
+
 export default function MapView({ recs, highlightedTown, formState, effectiveBudget, derived, rawCount, latestMonth }) {
   const [drillTown, setDrillTown] = useState(null);
   const [drillFlats, setDrillFlats] = useState([]);
@@ -535,6 +541,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   const [favouritesError, setFavouritesError] = useState(null);
   const [favouritesBusyId, setFavouritesBusyId] = useState(null);
   const [recommendationSessionId, setRecommendationSessionId] = useState(null);
+  const syncedRecommendationSessionRef = useRef(null);
   const mapRef = useRef(null);
   const flyToFlatRef = useRef(null);
   const [filteredFlats, setFilteredFlats] = useState([]);
@@ -551,10 +558,33 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   useEffect(() => {
     if (!recs?.length) {
       setRecommendationSessionId(null);
+      syncedRecommendationSessionRef.current = null;
       return;
     }
     setRecommendationSessionId(createRecommendationSessionId());
   }, [recs]);
+
+  useEffect(() => {
+    const recommendation = recs[0]?.recommendation_model || recs[0]?.selected_model?.key;
+    if (!recommendationSessionId || !recommendation || !recs?.length) return;
+
+    const recommendationSnapshot = buildRecommendationSnapshot(recs);
+    if (!recommendationSnapshot.length) return;
+
+    const syncKey = `${recommendationSessionId}:${recommendation}`;
+    if (syncedRecommendationSessionRef.current === syncKey) return;
+    syncedRecommendationSessionRef.current = syncKey;
+
+    syncRecommendationSnapshot({
+      recommendation,
+      sessionId: recommendationSessionId,
+      recommendationSnapshot,
+    }).catch(() => {
+      if (syncedRecommendationSessionRef.current === syncKey) {
+        syncedRecommendationSessionRef.current = null;
+      }
+    });
+  }, [recs, recommendationSessionId]);
 
   const applyFavourites = useCallback((nextFavourites) => {
     const safeFavourites = Array.isArray(nextFavourites) ? nextFavourites : [];
@@ -633,22 +663,16 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     const recommendation = flat?.recommendation_model || recs[0]?.recommendation_model || recs[0]?.selected_model?.key;
     if (!resaleFlatId) return;
 
-    const flattenedRecommendations = flattenRecommendationsForEvaluation(recs);
-    const isCurrentRecommendationFlat = flattenedRecommendations.some(
+    const recommendationSnapshot = buildRecommendationSnapshot(recs);
+    const isCurrentRecommendationFlat = recommendationSnapshot.some(
       (item) => item.resale_flat_id === resaleFlatId
     );
-    const topKSnapshot = isCurrentRecommendationFlat
-      ? flattenedRecommendations.slice(0, EVALUATION_K).map((item, index) => ({
-          resale_flat_id: item.resale_flat_id,
-          position: index + 1,
-        }))
-      : undefined;
 
     recordRecommendationFeedback({
       resaleFlatId,
       recommendation,
       sessionId: isCurrentRecommendationFlat ? recommendationSessionId : undefined,
-      topKSnapshot,
+      recommendationSnapshot,
       ...updates,
     }).catch(() => {});
   }, [recs, recommendationSessionId]);

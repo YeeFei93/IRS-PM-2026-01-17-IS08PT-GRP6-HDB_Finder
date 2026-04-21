@@ -139,7 +139,7 @@ export async function recordRecommendationFeedback({
   viewed,
   favourite,
   sessionId,
-  topKSnapshot,
+  recommendationSnapshot,
 }) {
   const body = {
     resale_flat_id: resaleFlatId,
@@ -149,7 +149,7 @@ export async function recordRecommendationFeedback({
   if (viewed !== undefined) body.viewed = viewed;
   if (favourite !== undefined) body.favourite = favourite;
   if (sessionId) body.session_id = sessionId;
-  if (topKSnapshot !== undefined) body.top_k_snapshot = topKSnapshot;
+  if (recommendationSnapshot !== undefined) body.recommendation_snapshot = recommendationSnapshot;
 
   const r = await fetch(`${API_BASE}/api/recommendation-feedback`, {
     method: 'POST',
@@ -158,6 +158,28 @@ export async function recordRecommendationFeedback({
     keepalive: true,
   });
   if (!r.ok) throw new Error(`Recommendation feedback ${r.status}`);
+  return r.json();
+}
+
+export async function syncRecommendationSnapshot({
+  recommendation,
+  sessionId,
+  recommendationSnapshot,
+}) {
+  const body = {
+    action: 'sync_recommendation_snapshot',
+    recommendation,
+    session_id: sessionId,
+    recommendation_snapshot: recommendationSnapshot,
+  };
+
+  const r = await fetch(`${API_BASE}/api/recommendation-feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    keepalive: true,
+  });
+  if (!r.ok) throw new Error(`Recommendation snapshot sync ${r.status}`);
   return r.json();
 }
 
