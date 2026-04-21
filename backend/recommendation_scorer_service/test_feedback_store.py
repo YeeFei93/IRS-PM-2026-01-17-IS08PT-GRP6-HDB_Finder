@@ -72,16 +72,26 @@ class TestModelEvaluations(unittest.TestCase):
         )
 
         self.assertEqual(euclidean["sessions"], 1)
-        self.assertAlmostEqual(euclidean["precision_score"], 0.1, places=6)
-        self.assertAlmostEqual(euclidean["recall_score"], 1.0, places=6)
+        self.assertAlmostEqual(euclidean["precision_at_10"], 0.1, places=6)
+        self.assertAlmostEqual(euclidean["recall_at_10"], 1.0, places=6)
         self.assertAlmostEqual(
-            euclidean["ndcg_score"],
+            euclidean["ndcg_at_10"],
             1.0 / math.log2(3),
             places=6,
         )
         self.assertEqual(euclidean["viewed_flats"], 3)
-        self.assertEqual(euclidean["favourited_flats"], 1)
-        self.assertAlmostEqual(euclidean["favourite_rate"], 1 / 3, places=6)
+        self.assertEqual(euclidean["favorited_flats"], 1)
+        self.assertAlmostEqual(euclidean["favorite_rate"], 1 / 3, places=6)
+        for removed_key in (
+            "precision_score",
+            "recall_score",
+            "ndcg_score",
+            "interacted_flats",
+            "relevant_flats",
+            "favourited_flats",
+            "favourite_rate",
+        ):
+            self.assertNotIn(removed_key, euclidean)
 
     def test_recall_uses_all_favourites_even_when_not_in_top_10(self):
         metrics = calculate_model_evaluations(
@@ -126,12 +136,12 @@ class TestModelEvaluations(unittest.TestCase):
         )
 
         self.assertEqual(weighted["sessions"], 1)
-        self.assertAlmostEqual(weighted["precision_score"], 0.0, places=6)
-        self.assertAlmostEqual(weighted["recall_score"], 0.0, places=6)
-        self.assertAlmostEqual(weighted["ndcg_score"], 0.0, places=6)
+        self.assertAlmostEqual(weighted["precision_at_10"], 0.0, places=6)
+        self.assertAlmostEqual(weighted["recall_at_10"], 0.0, places=6)
+        self.assertAlmostEqual(weighted["ndcg_at_10"], 0.0, places=6)
         self.assertEqual(weighted["viewed_flats"], 4)
-        self.assertEqual(weighted["favourited_flats"], 1)
-        self.assertAlmostEqual(weighted["favourite_rate"], 0.25, places=6)
+        self.assertEqual(weighted["favorited_flats"], 1)
+        self.assertAlmostEqual(weighted["favorite_rate"], 0.25, places=6)
 
 
 if __name__ == "__main__":

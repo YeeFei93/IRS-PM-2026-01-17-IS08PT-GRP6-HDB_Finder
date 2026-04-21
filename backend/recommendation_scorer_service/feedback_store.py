@@ -64,6 +64,18 @@ def _ensure_column(
     )
 
 
+def _drop_column(
+    db: DbConnector,
+    table_name: str,
+    column_name: str,
+) -> None:
+    if column_name not in _table_columns(db, table_name):
+        return
+    db.cursor.execute(
+        f"ALTER TABLE {table_name} DROP COLUMN {column_name}"
+    )
+
+
 def _ensure_tables_with_db(db: DbConnector) -> None:
     db.cursor.execute(
         f"""
@@ -107,11 +119,8 @@ def _ensure_tables_with_db(db: DbConnector) -> None:
             recommendation_label VARCHAR(255) NOT NULL,
             k_value INT NOT NULL DEFAULT 10,
             sessions INT NOT NULL DEFAULT 0,
-            precision_score DECIMAL(10, 6) NOT NULL DEFAULT 0,
             precision_at_10 DECIMAL(10, 6) NOT NULL DEFAULT 0,
-            recall_score DECIMAL(10, 6) NOT NULL DEFAULT 0,
             recall_at_10 DECIMAL(10, 6) NOT NULL DEFAULT 0,
-            ndcg_score DECIMAL(10, 6) NOT NULL DEFAULT 0,
             ndcg_at_10 DECIMAL(10, 6) NOT NULL DEFAULT 0,
             viewed_flats INT NOT NULL DEFAULT 0,
             favorited_flats INT NOT NULL DEFAULT 0,
@@ -148,31 +157,13 @@ def _ensure_tables_with_db(db: DbConnector) -> None:
     _ensure_column(
         db,
         MODEL_EVALUATION_TABLE,
-        "precision_score",
-        "DECIMAL(10, 6) NOT NULL DEFAULT 0",
-    )
-    _ensure_column(
-        db,
-        MODEL_EVALUATION_TABLE,
         "precision_at_10",
         "DECIMAL(10, 6) NOT NULL DEFAULT 0",
     )
     _ensure_column(
         db,
         MODEL_EVALUATION_TABLE,
-        "recall_score",
-        "DECIMAL(10, 6) NOT NULL DEFAULT 0",
-    )
-    _ensure_column(
-        db,
-        MODEL_EVALUATION_TABLE,
         "recall_at_10",
-        "DECIMAL(10, 6) NOT NULL DEFAULT 0",
-    )
-    _ensure_column(
-        db,
-        MODEL_EVALUATION_TABLE,
-        "ndcg_score",
         "DECIMAL(10, 6) NOT NULL DEFAULT 0",
     )
     _ensure_column(
@@ -199,6 +190,18 @@ def _ensure_tables_with_db(db: DbConnector) -> None:
         "favorite_rate",
         "DECIMAL(10, 6) NOT NULL DEFAULT 0",
     )
+    for obsolete_column in (
+        "precision_score",
+        "recall_score",
+        "ndcg_score",
+        "coverage_score",
+        "diversity_score",
+        "interacted_flats",
+        "relevant_flats",
+        "favourited_flats",
+        "favourite_rate",
+    ):
+        _drop_column(db, MODEL_EVALUATION_TABLE, obsolete_column)
 
     # Older versions stored growing counters. Normalize them into 0/1 state
     # so repeated clicks do not keep increasing the model signal.
@@ -374,19 +377,12 @@ def calculate_model_evaluations(raw_rows: list[dict[str, Any]]) -> list[dict[str
             "recommendation_label": MODEL_LABELS[model_key],
             "k": EVALUATION_K,
             "sessions": len(evaluated_sessions),
-            "precision_score": round(precision, 6),
             "precision_at_10": round(precision, 6),
-            "recall_score": round(recall, 6),
             "recall_at_10": round(recall, 6),
-            "ndcg_score": round(ndcg, 6),
             "ndcg_at_10": round(ndcg, 6),
-            "interacted_flats": total_viewed,
-            "relevant_flats": total_favourited,
             "viewed_flats": total_viewed,
             "favorited_flats": total_favourited,
-            "favourited_flats": total_favourited,
             "favorite_rate": round(favourite_rate, 6),
-            "favourite_rate": round(favourite_rate, 6),
         }
         metrics.append(metric)
 
@@ -416,25 +412,19 @@ def refresh_model_evaluations(db: DbConnector | None = None) -> list[dict[str, A
                     recommendation_label,
                     k_value,
                     sessions,
-                    precision_score,
                     precision_at_10,
-                    recall_score,
                     recall_at_10,
-                    ndcg_score,
                     ndcg_at_10,
                     viewed_flats,
                     favorited_flats,
                     favorite_rate
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     recommendation_label = VALUES(recommendation_label),
                     k_value = VALUES(k_value),
                     sessions = VALUES(sessions),
-                    precision_score = VALUES(precision_score),
                     precision_at_10 = VALUES(precision_at_10),
-                    recall_score = VALUES(recall_score),
                     recall_at_10 = VALUES(recall_at_10),
-                    ndcg_score = VALUES(ndcg_score),
                     ndcg_at_10 = VALUES(ndcg_at_10),
                     viewed_flats = VALUES(viewed_flats),
                     favorited_flats = VALUES(favorited_flats),
@@ -445,11 +435,8 @@ def refresh_model_evaluations(db: DbConnector | None = None) -> list[dict[str, A
                     metric["recommendation_label"],
                     metric["k"],
                     metric["sessions"],
-                    metric["precision_score"],
                     metric["precision_at_10"],
-                    metric["recall_score"],
                     metric["recall_at_10"],
-                    metric["ndcg_score"],
                     metric["ndcg_at_10"],
                     metric["viewed_flats"],
                     metric["favorited_flats"],
@@ -474,19 +461,12 @@ def get_model_evaluations() -> list[dict[str, Any]]:
                    recommendation_label,
                    k_value AS k,
                    sessions,
-                   precision_score,
                    precision_at_10,
-                   recall_score,
                    recall_at_10,
-                   ndcg_score,
                    ndcg_at_10,
                    viewed_flats,
-                   viewed_flats AS interacted_flats,
                    favorited_flats,
-                   favorited_flats AS favourited_flats,
-                   favorited_flats AS relevant_flats,
                    favorite_rate,
-                   favorite_rate AS favourite_rate,
                    updated_at
             FROM {MODEL_EVALUATION_TABLE}
             ORDER BY recommendation
