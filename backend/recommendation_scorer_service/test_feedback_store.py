@@ -10,12 +10,12 @@ for path in (CURRENT_DIR, BACKEND_ROOT):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from feedback_store import _parse_top_k_snapshot, calculate_model_evaluations
+from feedback_store import _parse_recommendation_snapshot, calculate_model_evaluations
 
 
 class TestTopKSnapshotParsing(unittest.TestCase):
-    def test_parse_top_k_snapshot_filters_invalid_entries(self):
-        parsed = _parse_top_k_snapshot(
+    def test_parse_recommendation_snapshot_filters_invalid_entries(self):
+        parsed = _parse_recommendation_snapshot(
             [
                 {"resale_flat_id": "flat-1", "position": 1},
                 {"resale_flat_id": "flat-1", "position": 2},
@@ -32,6 +32,7 @@ class TestTopKSnapshotParsing(unittest.TestCase):
             [
                 {"resale_flat_id": "flat-1", "position": 1},
                 {"resale_flat_id": "flat-4", "position": 5},
+                {"resale_flat_id": "flat-3", "position": 11},
             ],
         )
 
@@ -72,10 +73,10 @@ class TestModelEvaluations(unittest.TestCase):
         )
 
         self.assertEqual(euclidean["sessions"], 1)
-        self.assertAlmostEqual(euclidean["precision_at_10"], 0.1, places=6)
-        self.assertAlmostEqual(euclidean["recall_at_10"], 1.0, places=6)
+        self.assertAlmostEqual(euclidean["precision_at_k"], 0.1, places=6)
+        self.assertAlmostEqual(euclidean["recall_at_k"], 1.0, places=6)
         self.assertAlmostEqual(
-            euclidean["ndcg_at_10"],
+            euclidean["ndcg_at_k"],
             1.0 / math.log2(3),
             places=6,
         )
@@ -136,12 +137,39 @@ class TestModelEvaluations(unittest.TestCase):
         )
 
         self.assertEqual(weighted["sessions"], 1)
-        self.assertAlmostEqual(weighted["precision_at_10"], 0.0, places=6)
-        self.assertAlmostEqual(weighted["recall_at_10"], 0.0, places=6)
-        self.assertAlmostEqual(weighted["ndcg_at_10"], 0.0, places=6)
+        self.assertAlmostEqual(weighted["precision_at_k"], 0.0, places=6)
+        self.assertAlmostEqual(weighted["recall_at_k"], 0.0, places=6)
+        self.assertAlmostEqual(weighted["ndcg_at_k"], 0.0, places=6)
         self.assertEqual(weighted["viewed_flats"], 4)
         self.assertEqual(weighted["favorited_flats"], 1)
         self.assertAlmostEqual(weighted["favorite_rate"], 0.25, places=6)
+
+    def test_metrics_only_use_first_10_positions_even_when_more_are_stored(self):
+        rows = []
+        for position in range(1, 13):
+            rows.append(
+                {
+                    "session_id": "session-3",
+                    "recommendation": "knn_cosine_similarity",
+                    "resale_flat_id": f"flat-{position}",
+                    "position": position,
+                    "user_view_count": 1,
+                    "user_like_count": 1 if position in {11, 12} else 0,
+                }
+            )
+
+        metrics = calculate_model_evaluations(rows)
+        knn = next(
+            item for item in metrics if item["recommendation"] == "knn_cosine_similarity"
+        )
+
+        self.assertEqual(knn["sessions"], 1)
+        self.assertAlmostEqual(knn["precision_at_k"], 0.0, places=6)
+        self.assertAlmostEqual(knn["recall_at_k"], 0.0, places=6)
+        self.assertAlmostEqual(knn["ndcg_at_k"], 0.0, places=6)
+        self.assertEqual(knn["viewed_flats"], 12)
+        self.assertEqual(knn["favorited_flats"], 2)
+        self.assertAlmostEqual(knn["favorite_rate"], 2 / 12, places=6)
 
 
 if __name__ == "__main__":

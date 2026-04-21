@@ -13,6 +13,7 @@ from recommendation_scorer_service.feedback_store import (
     get_model_evaluations,
     record_feedback,
     set_feedback_state,
+    sync_recommendation_snapshot,
 )
 
 
@@ -44,7 +45,14 @@ def handle_recommendation_feedback(payload: dict) -> dict:
         payload["favourite"] if "favourite" in payload else payload.get("favorite")
     )
     session_id = str(payload.get("session_id", "")).strip() or None
-    top_k_snapshot = payload.get("top_k_snapshot")
+    recommendation_snapshot = payload.get("recommendation_snapshot")
+
+    if action == "sync_recommendation_snapshot":
+        return sync_recommendation_snapshot(
+            recommendation=recommendation,
+            session_id=session_id,
+            recommendation_snapshot=recommendation_snapshot,
+        )
 
     if action == "set_state" or viewed is not None or favourite is not None:
         return set_feedback_state(
@@ -53,7 +61,7 @@ def handle_recommendation_feedback(payload: dict) -> dict:
             viewed=viewed,
             favourite=favourite,
             session_id=session_id,
-            top_k_snapshot=top_k_snapshot,
+            recommendation_snapshot=recommendation_snapshot,
         )
 
     return record_feedback(
@@ -61,7 +69,7 @@ def handle_recommendation_feedback(payload: dict) -> dict:
         recommendation=recommendation,
         event=event,
         session_id=session_id,
-        top_k_snapshot=top_k_snapshot,
+        recommendation_snapshot=recommendation_snapshot,
     )
 
 
