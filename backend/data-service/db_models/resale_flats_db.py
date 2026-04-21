@@ -136,7 +136,7 @@ class ResaleFlatsDB:
 
     
     def GetRawData(self):
-        return CsvToJson("./raw-data/hdb-resale-price").data
+        return CsvToJson("./raw-data/hdb-resale-prices").data
     
     def DeleteData(self):
         db = self.db
