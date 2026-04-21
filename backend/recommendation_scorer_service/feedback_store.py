@@ -6,7 +6,6 @@ import random
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
-from itertools import combinations
 from typing import Any
 
 _SERVICE_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +26,9 @@ from recommendation_scorer_service.model_catalog import (
 
 
 USER_RATINGS_TABLE = "user_ratings"
+RECOMMENDATION_SESSION_TABLE = "recommendation_session_feedback"
 MODEL_EVALUATION_TABLE = "model_evaluation"
+EVALUATION_K = 10
 _INTERACTION_KINDS = {
     "view",
     "like",
@@ -63,6 +64,18 @@ def _ensure_column(
     )
 
 
+def _drop_column(
+    db: DbConnector,
+    table_name: str,
+    column_name: str,
+) -> None:
+    if column_name not in _table_columns(db, table_name):
+        return
+    db.cursor.execute(
+        f"ALTER TABLE {table_name} DROP COLUMN {column_name}"
+    )
+
+
 def _ensure_tables_with_db(db: DbConnector) -> None:
     db.cursor.execute(
         f"""
@@ -81,22 +94,83 @@ def _ensure_tables_with_db(db: DbConnector) -> None:
     )
     db.cursor.execute(
         f"""
+        CREATE TABLE IF NOT EXISTS {RECOMMENDATION_SESSION_TABLE} (
+            session_id VARCHAR(255) NOT NULL,
+            recommendation VARCHAR(64) NOT NULL,
+            resale_flat_id VARCHAR(255) NOT NULL,
+            position INT NULL,
+            user_like_count INT NOT NULL DEFAULT 0,
+            user_view_count INT NOT NULL DEFAULT 0,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ON UPDATE CURRENT_TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (session_id, recommendation, resale_flat_id),
+            INDEX idx_recommendation_session_feedback_recommendation (recommendation),
+            INDEX idx_recommendation_session_feedback_position (
+                session_id, recommendation, position
+            )
+        )
+        """
+    )
+    db.cursor.execute(
+        f"""
         CREATE TABLE IF NOT EXISTS {MODEL_EVALUATION_TABLE} (
             recommendation VARCHAR(64) NOT NULL PRIMARY KEY,
-            precision_score DECIMAL(10, 6) NOT NULL DEFAULT 0,
-            recall_score DECIMAL(10, 6) NOT NULL DEFAULT 0,
-            ndcg_score DECIMAL(10, 6) NOT NULL DEFAULT 0,
-            coverage_score DECIMAL(10, 6) NOT NULL DEFAULT 0,
-            diversity_score DECIMAL(10, 6) NOT NULL DEFAULT 0,
-            interacted_flats INT NOT NULL DEFAULT 0,
-            relevant_flats INT NOT NULL DEFAULT 0,
+            recommendation_label VARCHAR(255) NOT NULL,
+            k_value INT NOT NULL DEFAULT 10,
+            sessions INT NOT NULL DEFAULT 0,
+            precision_at_10 DECIMAL(10, 6) NOT NULL DEFAULT 0,
+            recall_at_10 DECIMAL(10, 6) NOT NULL DEFAULT 0,
+            ndcg_at_10 DECIMAL(10, 6) NOT NULL DEFAULT 0,
             viewed_flats INT NOT NULL DEFAULT 0,
-            favourited_flats INT NOT NULL DEFAULT 0,
-            favourite_rate DECIMAL(10, 6) NOT NULL DEFAULT 0,
+            favorited_flats INT NOT NULL DEFAULT 0,
+            favorite_rate DECIMAL(10, 6) NOT NULL DEFAULT 0,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 ON UPDATE CURRENT_TIMESTAMP
         )
         """
+    )
+    _ensure_column(
+        db,
+        RECOMMENDATION_SESSION_TABLE,
+        "position",
+        "INT NULL",
+    )
+    _ensure_column(
+        db,
+        MODEL_EVALUATION_TABLE,
+        "recommendation_label",
+        "VARCHAR(255) NOT NULL DEFAULT ''",
+    )
+    _ensure_column(
+        db,
+        MODEL_EVALUATION_TABLE,
+        "k_value",
+        "INT NOT NULL DEFAULT 10",
+    )
+    _ensure_column(
+        db,
+        MODEL_EVALUATION_TABLE,
+        "sessions",
+        "INT NOT NULL DEFAULT 0",
+    )
+    _ensure_column(
+        db,
+        MODEL_EVALUATION_TABLE,
+        "precision_at_10",
+        "DECIMAL(10, 6) NOT NULL DEFAULT 0",
+    )
+    _ensure_column(
+        db,
+        MODEL_EVALUATION_TABLE,
+        "recall_at_10",
+        "DECIMAL(10, 6) NOT NULL DEFAULT 0",
+    )
+    _ensure_column(
+        db,
+        MODEL_EVALUATION_TABLE,
+        "ndcg_at_10",
+        "DECIMAL(10, 6) NOT NULL DEFAULT 0",
     )
     _ensure_column(
         db,
@@ -107,21 +181,47 @@ def _ensure_tables_with_db(db: DbConnector) -> None:
     _ensure_column(
         db,
         MODEL_EVALUATION_TABLE,
-        "favourited_flats",
+        "favorited_flats",
         "INT NOT NULL DEFAULT 0",
     )
     _ensure_column(
         db,
         MODEL_EVALUATION_TABLE,
-        "favourite_rate",
+        "favorite_rate",
         "DECIMAL(10, 6) NOT NULL DEFAULT 0",
     )
+    for obsolete_column in (
+        "precision_score",
+        "recall_score",
+        "ndcg_score",
+        "coverage_score",
+        "diversity_score",
+        "interacted_flats",
+        "relevant_flats",
+        "favourited_flats",
+        "favourite_rate",
+    ):
+        _drop_column(db, MODEL_EVALUATION_TABLE, obsolete_column)
 
     # Older versions stored growing counters. Normalize them into 0/1 state
     # so repeated clicks do not keep increasing the model signal.
     db.cursor.execute(
         f"""
         UPDATE {USER_RATINGS_TABLE}
+        SET
+            user_like_count = CASE WHEN user_like_count > 0 THEN 1 ELSE 0 END,
+            user_view_count = CASE
+                WHEN user_view_count > 0 OR user_like_count > 0 THEN 1
+                ELSE 0
+            END
+        WHERE user_like_count NOT IN (0, 1)
+           OR user_view_count NOT IN (0, 1)
+           OR (user_like_count > 0 AND user_view_count = 0)
+        """
+    )
+    db.cursor.execute(
+        f"""
+        UPDATE {RECOMMENDATION_SESSION_TABLE}
         SET
             user_like_count = CASE WHEN user_like_count > 0 THEN 1 ELSE 0 END,
             user_view_count = CASE
@@ -144,148 +244,149 @@ def ensure_feedback_tables() -> None:
         db.Close()
 
 
-def _interaction_rows(raw_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        row for row in raw_rows
-        if int(row.get("user_view_count") or 0) > 0 or int(row.get("user_like_count") or 0) > 0
-    ]
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
-def _relevant_rows(raw_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        row for row in raw_rows
-        if int(row.get("user_like_count") or 0) > 0
-    ]
+def _session_has_ranked_rows(session_rows: list[dict[str, Any]]) -> bool:
+    return any(1 <= _safe_int(row.get("position")) <= EVALUATION_K for row in session_rows)
 
 
-def _dcg(rows: list[dict[str, Any]]) -> float:
-    total = 0.0
-    for index, row in enumerate(rows, start=1):
-        gain = int(row.get("user_like_count") or 0)
-        if gain <= 0:
+def _session_favourited_flat_ids(session_rows: list[dict[str, Any]]) -> set[str]:
+    return {
+        str(row.get("resale_flat_id") or "")
+        for row in session_rows
+        if _safe_int(row.get("user_like_count")) > 0 and str(row.get("resale_flat_id") or "")
+    }
+
+
+def _session_viewed_flat_ids(session_rows: list[dict[str, Any]]) -> set[str]:
+    return {
+        str(row.get("resale_flat_id") or "")
+        for row in session_rows
+        if (
+            _safe_int(row.get("user_view_count")) > 0
+            or _safe_int(row.get("user_like_count")) > 0
+        )
+        and str(row.get("resale_flat_id") or "")
+    }
+
+
+def _session_relevance_at_k(session_rows: list[dict[str, Any]], k: int = EVALUATION_K) -> list[int]:
+    favourited_flat_ids = _session_favourited_flat_ids(session_rows)
+    flat_id_by_position: dict[int, str] = {}
+
+    ordered_rows = sorted(
+        session_rows,
+        key=lambda row: (
+            _safe_int(row.get("position"), k + 1),
+            str(row.get("resale_flat_id") or ""),
+        ),
+    )
+    for row in ordered_rows:
+        position = _safe_int(row.get("position"))
+        flat_id = str(row.get("resale_flat_id") or "")
+        if not flat_id or position < 1 or position > k or position in flat_id_by_position:
             continue
-        total += ((2 ** gain) - 1) / math.log2(index + 1)
+        flat_id_by_position[position] = flat_id
+
+    return [
+        1 if flat_id_by_position.get(position) in favourited_flat_ids else 0
+        for position in range(1, k + 1)
+    ]
+
+
+def _dcg_at_k(relevance: list[int], k: int = EVALUATION_K) -> float:
+    total = 0.0
+    for index, rel in enumerate(relevance[:k], start=1):
+        if rel <= 0:
+            continue
+        total += rel / math.log2(index + 1)
     return total
 
 
-def _row_resale_flat_id(row: dict[str, Any]) -> str:
-    return str(row.get("resale_flat_id") or "")
+def _idcg_at_k(total_relevant: int, k: int = EVALUATION_K) -> float:
+    ideal_hits = min(k, max(total_relevant, 0))
+    return sum(1.0 / math.log2(index + 1) for index in range(1, ideal_hits + 1))
 
 
-def _diversity_score(rows: list[dict[str, Any]], flat_meta: dict[str, dict[str, Any]]) -> float:
-    if len(rows) < 2:
-        return 0.0
-
-    dissimilarity_sum = 0.0
-    pair_count = 0
-
-    for left, right in combinations(rows, 2):
-        pair_count += 1
-        left_meta = flat_meta.get(_row_resale_flat_id(left), {})
-        right_meta = flat_meta.get(_row_resale_flat_id(right), {})
-
-        if not left_meta or not right_meta:
-            dissimilarity_sum += 0.5
-            continue
-
-        estate_same = left_meta.get("estate") == right_meta.get("estate")
-        flat_type_same = left_meta.get("flat_type") == right_meta.get("flat_type")
-        similarity = (0.7 if estate_same else 0.0) + (0.3 if flat_type_same else 0.0)
-        dissimilarity_sum += max(0.0, 1.0 - similarity)
-
-    return round(dissimilarity_sum / pair_count, 6) if pair_count else 0.0
-
-
-def calculate_model_evaluations(
-    raw_rows: list[dict[str, Any]],
-    flat_meta: dict[str, dict[str, Any]] | None = None,
-) -> list[dict[str, Any]]:
-    flat_meta = flat_meta or {}
-    interacted_rows = _interaction_rows(raw_rows)
-    relevant_rows = _relevant_rows(interacted_rows)
-
-    total_interacted = len(interacted_rows)
-    total_relevant = len(relevant_rows)
-
-    rows_by_model: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in interacted_rows:
+def calculate_model_evaluations(raw_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows_by_model_and_session: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    for row in raw_rows:
         model_key = normalise_model_key(row.get("recommendation"))
-        if model_key in MODEL_KEYS:
-            rows_by_model[model_key].append(row)
+        session_id = str(row.get("session_id") or "").strip()
+        if model_key not in MODEL_KEYS or not session_id:
+            continue
+        rows_by_model_and_session[model_key][session_id].append(row)
 
     metrics: list[dict[str, Any]] = []
     for config in MODEL_CONFIGS:
         model_key = config["key"]
-        model_rows = rows_by_model.get(model_key, [])
-        relevant_for_model = _relevant_rows(model_rows)
+        session_rows_map = rows_by_model_and_session.get(model_key, {})
+        evaluated_sessions: list[dict[str, Any]] = []
 
-        observed_rank = sorted(
-            model_rows,
-            key=lambda row: (
-                int(row.get("user_like_count") or 0),
-                int(row.get("user_view_count") or 0),
-            ),
-            reverse=True,
+        for session_id, session_rows in session_rows_map.items():
+            if not _session_has_ranked_rows(session_rows):
+                continue
+
+            relevance = _session_relevance_at_k(session_rows, EVALUATION_K)
+            viewed_flat_ids = _session_viewed_flat_ids(session_rows)
+            favourited_flat_ids = _session_favourited_flat_ids(session_rows)
+            hits_at_k = sum(relevance)
+            total_favourited = len(favourited_flat_ids)
+            dcg = _dcg_at_k(relevance, EVALUATION_K)
+            idcg = _idcg_at_k(total_favourited, EVALUATION_K)
+
+            evaluated_sessions.append(
+                {
+                    "session_id": session_id,
+                    "precision": hits_at_k / EVALUATION_K,
+                    "recall": (hits_at_k / total_favourited) if total_favourited else 0.0,
+                    "ndcg": (dcg / idcg) if idcg else 0.0,
+                    "viewed_flats": len(viewed_flat_ids),
+                    "favourited_flats": total_favourited,
+                }
+            )
+
+        total_viewed = sum(session["viewed_flats"] for session in evaluated_sessions)
+        total_favourited = sum(session["favourited_flats"] for session in evaluated_sessions)
+        favourite_rate = (total_favourited / total_viewed) if total_viewed else 0.0
+        precision = (
+            sum(session["precision"] for session in evaluated_sessions) / len(evaluated_sessions)
+            if evaluated_sessions
+            else 0.0
         )
-        ideal_rank = sorted(
-            model_rows,
-            key=lambda row: int(row.get("user_like_count") or 0),
-            reverse=True,
+        recall = (
+            sum(session["recall"] for session in evaluated_sessions) / len(evaluated_sessions)
+            if evaluated_sessions
+            else 0.0
+        )
+        ndcg = (
+            sum(session["ndcg"] for session in evaluated_sessions) / len(evaluated_sessions)
+            if evaluated_sessions
+            else 0.0
         )
 
-        dcg = _dcg(observed_rank)
-        ideal_dcg = _dcg(ideal_rank)
-        ndcg = round(dcg / ideal_dcg, 6) if ideal_dcg else 0.0
-
-        viewed_count = len(model_rows)
-        favourited_count = len(relevant_for_model)
-        favourite_rate = round(favourited_count / viewed_count, 6) if viewed_count else 0.0
-        precision = favourite_rate
-        recall = round(favourited_count / total_relevant, 6) if total_relevant else 0.0
-        coverage = round(viewed_count / total_interacted, 6) if total_interacted else 0.0
-        diversity = _diversity_score(model_rows, flat_meta)
-
-        metrics.append(
-            {
-                "recommendation": model_key,
-                "recommendation_label": MODEL_LABELS[model_key],
-                "precision_score": precision,
-                "recall_score": recall,
-                "ndcg_score": ndcg,
-                "coverage_score": coverage,
-                "diversity_score": diversity,
-                "interacted_flats": viewed_count,
-                "relevant_flats": favourited_count,
-                "viewed_flats": viewed_count,
-                "favourited_flats": favourited_count,
-                "favourite_rate": favourite_rate,
-            }
-        )
+        metric = {
+            "recommendation": model_key,
+            "recommendation_label": MODEL_LABELS[model_key],
+            "k": EVALUATION_K,
+            "sessions": len(evaluated_sessions),
+            "precision_at_10": round(precision, 6),
+            "recall_at_10": round(recall, 6),
+            "ndcg_at_10": round(ndcg, 6),
+            "viewed_flats": total_viewed,
+            "favorited_flats": total_favourited,
+            "favorite_rate": round(favourite_rate, 6),
+        }
+        metrics.append(metric)
 
     return metrics
-
-
-def _load_flat_meta(db: DbConnector, resale_flat_ids: list[str]) -> dict[str, dict[str, Any]]:
-    if not resale_flat_ids:
-        return {}
-
-    placeholders = ", ".join(["%s"] * len(resale_flat_ids))
-    db.cursor.execute(
-        f"""
-        SELECT resale_flat_id, estate, flat_type
-        FROM resale_flats
-        WHERE resale_flat_id IN ({placeholders})
-        """,
-        tuple(resale_flat_ids),
-    )
-
-    return {
-        str(row["resale_flat_id"]): {
-            "estate": row.get("estate"),
-            "flat_type": row.get("flat_type"),
-        }
-        for row in db.cursor.fetchall() or []
-    }
 
 
 def refresh_model_evaluations(db: DbConnector | None = None) -> list[dict[str, Any]]:
@@ -297,58 +398,53 @@ def refresh_model_evaluations(db: DbConnector | None = None) -> list[dict[str, A
         _ensure_tables_with_db(db)
         db.cursor.execute(
             f"""
-            SELECT resale_flat_id, recommendation, user_like_count, user_view_count
-            FROM {USER_RATINGS_TABLE}
+            SELECT session_id, recommendation, resale_flat_id, position,
+                   user_like_count, user_view_count
+            FROM {RECOMMENDATION_SESSION_TABLE}
             """
         )
-        raw_rows = [dict(row) for row in db.cursor.fetchall() or []]
-        flat_meta = _load_flat_meta(db, [_row_resale_flat_id(row) for row in raw_rows])
-        metrics = calculate_model_evaluations(raw_rows, flat_meta)
-
+        metrics = calculate_model_evaluations([dict(row) for row in db.cursor.fetchall() or []])
         for metric in metrics:
             db.cursor.execute(
                 f"""
                 INSERT INTO {MODEL_EVALUATION_TABLE} (
                     recommendation,
-                    precision_score,
-                    recall_score,
-                    ndcg_score,
-                    coverage_score,
-                    diversity_score,
-                    interacted_flats,
-                    relevant_flats,
+                    recommendation_label,
+                    k_value,
+                    sessions,
+                    precision_at_10,
+                    recall_at_10,
+                    ndcg_at_10,
                     viewed_flats,
-                    favourited_flats,
-                    favourite_rate
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    favorited_flats,
+                    favorite_rate
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
-                    precision_score = VALUES(precision_score),
-                    recall_score = VALUES(recall_score),
-                    ndcg_score = VALUES(ndcg_score),
-                    coverage_score = VALUES(coverage_score),
-                    diversity_score = VALUES(diversity_score),
-                    interacted_flats = VALUES(interacted_flats),
-                    relevant_flats = VALUES(relevant_flats),
+                    recommendation_label = VALUES(recommendation_label),
+                    k_value = VALUES(k_value),
+                    sessions = VALUES(sessions),
+                    precision_at_10 = VALUES(precision_at_10),
+                    recall_at_10 = VALUES(recall_at_10),
+                    ndcg_at_10 = VALUES(ndcg_at_10),
                     viewed_flats = VALUES(viewed_flats),
-                    favourited_flats = VALUES(favourited_flats),
-                    favourite_rate = VALUES(favourite_rate)
+                    favorited_flats = VALUES(favorited_flats),
+                    favorite_rate = VALUES(favorite_rate)
                 """,
                 (
                     metric["recommendation"],
-                    metric["precision_score"],
-                    metric["recall_score"],
-                    metric["ndcg_score"],
-                    metric["coverage_score"],
-                    metric["diversity_score"],
-                    metric["interacted_flats"],
-                    metric["relevant_flats"],
+                    metric["recommendation_label"],
+                    metric["k"],
+                    metric["sessions"],
+                    metric["precision_at_10"],
+                    metric["recall_at_10"],
+                    metric["ndcg_at_10"],
                     metric["viewed_flats"],
-                    metric["favourited_flats"],
-                    metric["favourite_rate"],
+                    metric["favorited_flats"],
+                    metric["favorite_rate"],
                 ),
             )
-
-        db.Commit()
+        if close_db:
+            db.Commit()
         return metrics
     finally:
         if close_db:
@@ -361,19 +457,27 @@ def get_model_evaluations() -> list[dict[str, Any]]:
         _ensure_tables_with_db(db)
         db.cursor.execute(
             f"""
-            SELECT recommendation, precision_score, recall_score, ndcg_score,
-                   coverage_score, diversity_score, interacted_flats, relevant_flats,
-                   viewed_flats, favourited_flats, favourite_rate, updated_at
+            SELECT recommendation,
+                   recommendation_label,
+                   k_value AS k,
+                   sessions,
+                   precision_at_10,
+                   recall_at_10,
+                   ndcg_at_10,
+                   viewed_flats,
+                   favorited_flats,
+                   favorite_rate,
+                   updated_at
             FROM {MODEL_EVALUATION_TABLE}
             ORDER BY recommendation
             """
         )
         rows = [dict(row) for row in db.cursor.fetchall() or []]
-        if not rows:
-            return refresh_model_evaluations(db)
-        for row in rows:
-            row["recommendation_label"] = MODEL_LABELS.get(row["recommendation"], row["recommendation"])
-        return rows
+        if rows:
+            return rows
+        metrics = refresh_model_evaluations(db)
+        db.Commit()
+        return metrics
     finally:
         db.Close()
 
@@ -481,6 +585,141 @@ def _fetch_feedback_rows(
     return [dict(row) for row in db.cursor.fetchall() or []]
 
 
+def _parse_top_k_snapshot(snapshot: Any) -> list[dict[str, Any]]:
+    if not isinstance(snapshot, list):
+        return []
+
+    parsed: list[dict[str, Any]] = []
+    seen_flat_ids: set[str] = set()
+    seen_positions: set[int] = set()
+
+    for fallback_position, item in enumerate(snapshot, start=1):
+        if not isinstance(item, dict):
+            continue
+
+        resale_flat_id = str(item.get("resale_flat_id") or "").strip()
+        position = _safe_int(item.get("position"), fallback_position)
+        if (
+            not resale_flat_id
+            or resale_flat_id in seen_flat_ids
+            or position < 1
+            or position > EVALUATION_K
+            or position in seen_positions
+        ):
+            continue
+
+        parsed.append(
+            {
+                "resale_flat_id": resale_flat_id,
+                "position": position,
+            }
+        )
+        seen_flat_ids.add(resale_flat_id)
+        seen_positions.add(position)
+
+    return sorted(parsed, key=lambda item: item["position"])
+
+
+def _fetch_session_feedback_rows(
+    db: DbConnector,
+    session_id: str,
+    recommendation: str,
+    resale_flat_id: str | None = None,
+) -> list[dict[str, Any]]:
+    if resale_flat_id:
+        db.cursor.execute(
+            f"""
+            SELECT session_id, resale_flat_id, recommendation, position,
+                   user_like_count, user_view_count
+            FROM {RECOMMENDATION_SESSION_TABLE}
+            WHERE session_id = %s
+              AND recommendation = %s
+              AND resale_flat_id = %s
+            """,
+            (session_id, recommendation, resale_flat_id),
+        )
+    else:
+        db.cursor.execute(
+            f"""
+            SELECT session_id, resale_flat_id, recommendation, position,
+                   user_like_count, user_view_count
+            FROM {RECOMMENDATION_SESSION_TABLE}
+            WHERE session_id = %s
+              AND recommendation = %s
+            """,
+            (session_id, recommendation),
+        )
+    return [dict(row) for row in db.cursor.fetchall() or []]
+
+
+def _upsert_session_snapshot(
+    db: DbConnector,
+    session_id: str,
+    recommendation: str,
+    top_k_snapshot: list[dict[str, Any]],
+) -> None:
+    for item in top_k_snapshot:
+        db.cursor.execute(
+            f"""
+            INSERT INTO {RECOMMENDATION_SESSION_TABLE} (
+                session_id, recommendation, resale_flat_id, position,
+                user_like_count, user_view_count
+            ) VALUES (%s, %s, %s, %s, 0, 0)
+            ON DUPLICATE KEY UPDATE
+                position = VALUES(position)
+            """,
+            (
+                session_id,
+                recommendation,
+                item["resale_flat_id"],
+                item["position"],
+            ),
+        )
+
+
+def _write_session_feedback_row(
+    db: DbConnector,
+    session_id: str,
+    resale_flat_id: str,
+    recommendation: str,
+    viewed_flag: int,
+    favourite_flag: int,
+    position: int | None = None,
+) -> dict[str, Any]:
+    db.cursor.execute(
+        f"""
+        INSERT INTO {RECOMMENDATION_SESSION_TABLE} (
+            session_id, recommendation, resale_flat_id, position,
+            user_like_count, user_view_count
+        ) VALUES (%s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            position = COALESCE(VALUES(position), position),
+            user_like_count = VALUES(user_like_count),
+            user_view_count = VALUES(user_view_count)
+        """,
+        (
+            session_id,
+            recommendation,
+            str(resale_flat_id),
+            position,
+            int(favourite_flag),
+            int(viewed_flag),
+        ),
+    )
+    rows = _fetch_session_feedback_rows(db, session_id, recommendation, resale_flat_id)
+    row = rows[0] if rows else {
+        "session_id": session_id,
+        "resale_flat_id": str(resale_flat_id),
+        "recommendation": recommendation,
+        "position": position,
+        "user_like_count": int(favourite_flag),
+        "user_view_count": int(viewed_flag),
+    }
+    row["user_favourite"] = int(row.get("user_like_count") or 0) > 0
+    row["user_viewed"] = int(row.get("user_view_count") or 0) > 0
+    return row
+
+
 def _flag_value(value: bool | None, default: int) -> int:
     if value is None:
         return int(default)
@@ -551,9 +790,13 @@ def set_feedback_state(
     recommendation: str | None = None,
     viewed: bool | None = None,
     favourite: bool | None = None,
+    session_id: str | None = None,
+    top_k_snapshot: Any = None,
 ) -> dict[str, Any]:
     resale_flat_id = str(resale_flat_id or "").strip()
     model_key = normalise_model_key(recommendation) if recommendation else None
+    session_key = str(session_id or "").strip() or None
+    parsed_top_k_snapshot = _parse_top_k_snapshot(top_k_snapshot)
 
     if not resale_flat_id:
         raise ValueError("resale_flat_id is required")
@@ -579,6 +822,25 @@ def set_feedback_state(
             updated_rows.append(
                 _write_feedback_row(db, resale_flat_id, model_key, next_viewed, next_favourite)
             )
+            if session_key:
+                _upsert_session_snapshot(db, session_key, model_key, parsed_top_k_snapshot)
+                snapshot_position = next(
+                    (
+                        item["position"]
+                        for item in parsed_top_k_snapshot
+                        if item["resale_flat_id"] == resale_flat_id
+                    ),
+                    None,
+                )
+                _write_session_feedback_row(
+                    db,
+                    session_key,
+                    resale_flat_id,
+                    model_key,
+                    next_viewed,
+                    next_favourite,
+                    snapshot_position,
+                )
         else:
             for row in _fetch_feedback_rows(db, resale_flat_id):
                 row_model = normalise_model_key(row.get("recommendation"))
@@ -590,10 +852,12 @@ def set_feedback_state(
                 )
 
         metrics = refresh_model_evaluations(db)
+        db.Commit()
         summary_row = updated_rows[0] if len(updated_rows) == 1 else None
 
         return {
             "resale_flat_id": resale_flat_id,
+            "session_id": session_key,
             "recommendation": summary_row.get("recommendation") if summary_row else model_key,
             "recommendation_label": MODEL_LABELS.get(
                 summary_row.get("recommendation") if summary_row else model_key,
@@ -610,7 +874,13 @@ def set_feedback_state(
         db.Close()
 
 
-def record_feedback(resale_flat_id: str, recommendation: str, event: str) -> dict[str, Any]:
+def record_feedback(
+    resale_flat_id: str,
+    recommendation: str,
+    event: str,
+    session_id: str | None = None,
+    top_k_snapshot: Any = None,
+) -> dict[str, Any]:
     event = str(event or "").strip().lower()
     if event not in _INTERACTION_KINDS:
         raise ValueError(
@@ -622,6 +892,8 @@ def record_feedback(resale_flat_id: str, recommendation: str, event: str) -> dic
             resale_flat_id=resale_flat_id,
             recommendation=recommendation,
             viewed=True,
+            session_id=session_id,
+            top_k_snapshot=top_k_snapshot,
         )
     elif event in {"like", "favorite", "favourite"}:
         result = set_feedback_state(
@@ -629,6 +901,8 @@ def record_feedback(resale_flat_id: str, recommendation: str, event: str) -> dic
             recommendation=recommendation,
             viewed=True,
             favourite=True,
+            session_id=session_id,
+            top_k_snapshot=top_k_snapshot,
         )
     else:
         result = set_feedback_state(
@@ -636,6 +910,8 @@ def record_feedback(resale_flat_id: str, recommendation: str, event: str) -> dic
             recommendation=recommendation,
             viewed=True,
             favourite=False,
+            session_id=session_id,
+            top_k_snapshot=top_k_snapshot,
         )
 
     result["event"] = event
