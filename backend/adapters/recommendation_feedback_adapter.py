@@ -43,6 +43,8 @@ def handle_recommendation_feedback(payload: dict) -> dict:
     favourite = _parse_optional_bool(
         payload["favourite"] if "favourite" in payload else payload.get("favorite")
     )
+    session_id = str(payload.get("session_id", "")).strip() or None
+    top_k_snapshot = payload.get("top_k_snapshot")
 
     if action == "set_state" or viewed is not None or favourite is not None:
         return set_feedback_state(
@@ -50,12 +52,16 @@ def handle_recommendation_feedback(payload: dict) -> dict:
             recommendation=recommendation,
             viewed=viewed,
             favourite=favourite,
+            session_id=session_id,
+            top_k_snapshot=top_k_snapshot,
         )
 
     return record_feedback(
         resale_flat_id=resale_flat_id,
         recommendation=recommendation,
         event=event,
+        session_id=session_id,
+        top_k_snapshot=top_k_snapshot,
     )
 
 

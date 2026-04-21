@@ -484,6 +484,41 @@ function countStrongGeolocatedFlats(flats) {
   return getGeolocatedFlats(flats).filter(flat => Number(flat?.score || 0) >= 0.75).length;
 }
 
+const EVALUATION_K = 10;
+
+function createRecommendationSessionId() {
+  if (globalThis?.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return `rec_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function flattenRecommendationsForEvaluation(recommendations) {
+  const orderedEstates = (recommendations || [])
+    .map((estate, estateIndex) => ({ estate, estateIndex }))
+    .sort((left, right) => {
+      const scoreDiff = Number(right.estate?.avg_score || 0) - Number(left.estate?.avg_score || 0);
+      return scoreDiff !== 0 ? scoreDiff : left.estateIndex - right.estateIndex;
+    });
+
+  const flattened = [];
+  orderedEstates.forEach(({ estate }) => {
+    const orderedFlats = (estate?.top_flats || [])
+      .map((flat, flatIndex) => ({ flat, flatIndex }))
+      .sort((left, right) => {
+        const scoreDiff = Number(right.flat?.score || 0) - Number(left.flat?.score || 0);
+        return scoreDiff !== 0 ? scoreDiff : left.flatIndex - right.flatIndex;
+      });
+
+    orderedFlats.forEach(({ flat }) => {
+      if (!flat?.resale_flat_id) return;
+      flattened.push({ resale_flat_id: flat.resale_flat_id });
+    });
+  });
+
+  return flattened;
+}
+
 export default function MapView({ recs, highlightedTown, formState, effectiveBudget, derived, rawCount, latestMonth }) {
   const [drillTown, setDrillTown] = useState(null);
   const [drillFlats, setDrillFlats] = useState([]);
@@ -499,6 +534,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   const [favouritesLoading, setFavouritesLoading] = useState(false);
   const [favouritesError, setFavouritesError] = useState(null);
   const [favouritesBusyId, setFavouritesBusyId] = useState(null);
+  const [recommendationSessionId, setRecommendationSessionId] = useState(null);
   const mapRef = useRef(null);
   const flyToFlatRef = useRef(null);
   const [filteredFlats, setFilteredFlats] = useState([]);
@@ -511,6 +547,14 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   }, []);
   const selectedModel = recs[0]?.selected_model || null;
   const selectedModelLabel = selectedModel?.label || recs[0]?.recommendation_model_label || 'Adaptive model';
+
+  useEffect(() => {
+    if (!recs?.length) {
+      setRecommendationSessionId(null);
+      return;
+    }
+    setRecommendationSessionId(createRecommendationSessionId());
+  }, [recs]);
 
   const applyFavourites = useCallback((nextFavourites) => {
     const safeFavourites = Array.isArray(nextFavourites) ? nextFavourites : [];
@@ -589,12 +633,25 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
     const recommendation = flat?.recommendation_model || recs[0]?.recommendation_model || recs[0]?.selected_model?.key;
     if (!resaleFlatId) return;
 
+    const flattenedRecommendations = flattenRecommendationsForEvaluation(recs);
+    const isCurrentRecommendationFlat = flattenedRecommendations.some(
+      (item) => item.resale_flat_id === resaleFlatId
+    );
+    const topKSnapshot = isCurrentRecommendationFlat
+      ? flattenedRecommendations.slice(0, EVALUATION_K).map((item, index) => ({
+          resale_flat_id: item.resale_flat_id,
+          position: index + 1,
+        }))
+      : undefined;
+
     recordRecommendationFeedback({
       resaleFlatId,
       recommendation,
+      sessionId: isCurrentRecommendationFlat ? recommendationSessionId : undefined,
+      topKSnapshot,
       ...updates,
     }).catch(() => {});
-  }, [recs]);
+  }, [recs, recommendationSessionId]);
 
   const handleFlatCardClick = useCallback((flat, index) => {
     setSelectedFlat({ ...flat, _idx: index });

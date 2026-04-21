@@ -138,6 +138,8 @@ export async function recordRecommendationFeedback({
   event,
   viewed,
   favourite,
+  sessionId,
+  topKSnapshot,
 }) {
   const body = {
     resale_flat_id: resaleFlatId,
@@ -146,6 +148,8 @@ export async function recordRecommendationFeedback({
   if (event !== undefined) body.event = event;
   if (viewed !== undefined) body.viewed = viewed;
   if (favourite !== undefined) body.favourite = favourite;
+  if (sessionId) body.session_id = sessionId;
+  if (topKSnapshot !== undefined) body.top_k_snapshot = topKSnapshot;
 
   const r = await fetch(`${API_BASE}/api/recommendation-feedback`, {
     method: 'POST',
