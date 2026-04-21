@@ -38,8 +38,6 @@ _INTERACTION_KINDS = {
     "unfavorite",
     "unfavourite",
 }
-_SELECTION_PRIOR_FAVOURITES = 1
-_SELECTION_PRIOR_VIEWS = 2
 
 
 def _utc_now_iso() -> str:
@@ -510,20 +508,16 @@ def get_model_selection_snapshot() -> dict[str, dict[str, Any]]:
     finally:
         db.Close()
 
-    weights = {}
     favourite_rates = {}
+    equal_probability = round(1.0 / float(len(MODEL_KEYS)), 6) if MODEL_KEYS else 0.0
     for model_key in MODEL_KEYS:
         totals = interaction_totals.get(model_key, {})
         likes = max(int(totals.get("likes") or 0), 0)
         views = max(int(totals.get("views") or 0), 0)
 
         raw_rate = round(likes / views, 6) if views else 0.0
-        smoothed_rate = (likes + _SELECTION_PRIOR_FAVOURITES) / (views + _SELECTION_PRIOR_VIEWS)
 
         favourite_rates[model_key] = raw_rate
-        weights[model_key] = smoothed_rate
-
-    weight_total = sum(weights.values()) or float(len(MODEL_KEYS))
 
     return {
         model_key: {
@@ -534,8 +528,8 @@ def get_model_selection_snapshot() -> dict[str, dict[str, Any]]:
             "favourited_flats": interaction_totals.get(model_key, {}).get("likes", 0),
             "viewed_flats": interaction_totals.get(model_key, {}).get("views", 0),
             "favourite_rate": favourite_rates[model_key],
-            "weight": round(weights[model_key], 6),
-            "probability": round(weights[model_key] / weight_total, 6),
+            "weight": equal_probability,
+            "probability": equal_probability,
         }
         for model_key in MODEL_KEYS
     }
@@ -551,11 +545,7 @@ def choose_recommendation_model(requested_model: str | None = None) -> dict[str,
         choice["selected_at"] = _utc_now_iso()
         return choice
 
-    chosen_key = random.choices(
-        population=list(snapshot.keys()),
-        weights=[snapshot[key]["weight"] for key in snapshot],
-        k=1,
-    )[0]
+    chosen_key = random.choice(list(snapshot.keys()))
     choice = dict(snapshot[chosen_key])
     choice["selection_method"] = "adaptive"
     choice["selected_at"] = _utc_now_iso()
