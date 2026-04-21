@@ -37,7 +37,7 @@ from recommendation_scorer_service.feedback_store import (
 from recommendation_scorer_service.model_catalog import MODEL_LABELS, MODEL_KEYS
 
 
-_TOP_FLATS = 10
+_TOP_FLATS_GLOBAL = 50
 _STRONG_MATCH_THRESHOLD = 0.75
 
 _MODEL_RUNNERS = {
@@ -65,6 +65,8 @@ def _run_ranker(context, model_key: str) -> list[dict]:
 def _group_into_estates(context, ranked_items: list[dict], selection: dict) -> list[dict]:
     if not ranked_items:
         return []
+
+    ranked_items = ranked_items[:_TOP_FLATS_GLOBAL]
 
     candidate_lookup = {
         candidate.resale_flat_id: candidate
@@ -97,7 +99,7 @@ def _group_into_estates(context, ranked_items: list[dict], selection: dict) -> l
             }
             estate_map[town] = estate_entry
 
-        if len(estate_entry["top_flats"]) < _TOP_FLATS:
+        if len(estate_entry["top_flats"]) < 10:
             estate_entry["top_flats"].append(
                 {
                     **item,
