@@ -119,9 +119,9 @@ def _ensure_tables_with_db(db: DbConnector) -> None:
             recommendation_label VARCHAR(255) NOT NULL,
             k_value INT NOT NULL DEFAULT 10,
             sessions INT NOT NULL DEFAULT 0,
-            precision_at_10 DECIMAL(10, 6) NOT NULL DEFAULT 0,
-            recall_at_10 DECIMAL(10, 6) NOT NULL DEFAULT 0,
-            ndcg_at_10 DECIMAL(10, 6) NOT NULL DEFAULT 0,
+            precision_at_k DECIMAL(10, 6) NOT NULL DEFAULT 0,
+            recall_at_k DECIMAL(10, 6) NOT NULL DEFAULT 0,
+            ndcg_at_k DECIMAL(10, 6) NOT NULL DEFAULT 0,
             viewed_flats INT NOT NULL DEFAULT 0,
             favorited_flats INT NOT NULL DEFAULT 0,
             favorite_rate DECIMAL(10, 6) NOT NULL DEFAULT 0,
@@ -157,19 +157,19 @@ def _ensure_tables_with_db(db: DbConnector) -> None:
     _ensure_column(
         db,
         MODEL_EVALUATION_TABLE,
-        "precision_at_10",
+        "precision_at_k",
         "DECIMAL(10, 6) NOT NULL DEFAULT 0",
     )
     _ensure_column(
         db,
         MODEL_EVALUATION_TABLE,
-        "recall_at_10",
+        "recall_at_k",
         "DECIMAL(10, 6) NOT NULL DEFAULT 0",
     )
     _ensure_column(
         db,
         MODEL_EVALUATION_TABLE,
-        "ndcg_at_10",
+        "ndcg_at_k",
         "DECIMAL(10, 6) NOT NULL DEFAULT 0",
     )
     _ensure_column(
@@ -194,6 +194,9 @@ def _ensure_tables_with_db(db: DbConnector) -> None:
         "precision_score",
         "recall_score",
         "ndcg_score",
+        "precision_at_10",
+        "recall_at_10",
+        "ndcg_at_10",
         "coverage_score",
         "diversity_score",
         "interacted_flats",
@@ -252,7 +255,7 @@ def _safe_int(value: Any, default: int = 0) -> int:
 
 
 def _session_has_ranked_rows(session_rows: list[dict[str, Any]]) -> bool:
-    return any(1 <= _safe_int(row.get("position")) <= EVALUATION_K for row in session_rows)
+    return any(_safe_int(row.get("position")) >= 1 for row in session_rows)
 
 
 def _session_favourited_flat_ids(session_rows: list[dict[str, Any]]) -> set[str]:
@@ -377,9 +380,9 @@ def calculate_model_evaluations(raw_rows: list[dict[str, Any]]) -> list[dict[str
             "recommendation_label": MODEL_LABELS[model_key],
             "k": EVALUATION_K,
             "sessions": len(evaluated_sessions),
-            "precision_at_10": round(precision, 6),
-            "recall_at_10": round(recall, 6),
-            "ndcg_at_10": round(ndcg, 6),
+            "precision_at_k": round(precision, 6),
+            "recall_at_k": round(recall, 6),
+            "ndcg_at_k": round(ndcg, 6),
             "viewed_flats": total_viewed,
             "favorited_flats": total_favourited,
             "favorite_rate": round(favourite_rate, 6),
@@ -412,9 +415,9 @@ def refresh_model_evaluations(db: DbConnector | None = None) -> list[dict[str, A
                     recommendation_label,
                     k_value,
                     sessions,
-                    precision_at_10,
-                    recall_at_10,
-                    ndcg_at_10,
+                    precision_at_k,
+                    recall_at_k,
+                    ndcg_at_k,
                     viewed_flats,
                     favorited_flats,
                     favorite_rate
@@ -423,9 +426,9 @@ def refresh_model_evaluations(db: DbConnector | None = None) -> list[dict[str, A
                     recommendation_label = VALUES(recommendation_label),
                     k_value = VALUES(k_value),
                     sessions = VALUES(sessions),
-                    precision_at_10 = VALUES(precision_at_10),
-                    recall_at_10 = VALUES(recall_at_10),
-                    ndcg_at_10 = VALUES(ndcg_at_10),
+                    precision_at_k = VALUES(precision_at_k),
+                    recall_at_k = VALUES(recall_at_k),
+                    ndcg_at_k = VALUES(ndcg_at_k),
                     viewed_flats = VALUES(viewed_flats),
                     favorited_flats = VALUES(favorited_flats),
                     favorite_rate = VALUES(favorite_rate)
@@ -435,9 +438,9 @@ def refresh_model_evaluations(db: DbConnector | None = None) -> list[dict[str, A
                     metric["recommendation_label"],
                     metric["k"],
                     metric["sessions"],
-                    metric["precision_at_10"],
-                    metric["recall_at_10"],
-                    metric["ndcg_at_10"],
+                    metric["precision_at_k"],
+                    metric["recall_at_k"],
+                    metric["ndcg_at_k"],
                     metric["viewed_flats"],
                     metric["favorited_flats"],
                     metric["favorite_rate"],
@@ -461,9 +464,9 @@ def get_model_evaluations() -> list[dict[str, Any]]:
                    recommendation_label,
                    k_value AS k,
                    sessions,
-                   precision_at_10,
-                   recall_at_10,
-                   ndcg_at_10,
+                   precision_at_k,
+                   recall_at_k,
+                   ndcg_at_k,
                    viewed_flats,
                    favorited_flats,
                    favorite_rate,
@@ -585,7 +588,7 @@ def _fetch_feedback_rows(
     return [dict(row) for row in db.cursor.fetchall() or []]
 
 
-def _parse_top_k_snapshot(snapshot: Any) -> list[dict[str, Any]]:
+def _parse_recommendation_snapshot(snapshot: Any) -> list[dict[str, Any]]:
     if not isinstance(snapshot, list):
         return []
 
@@ -603,7 +606,6 @@ def _parse_top_k_snapshot(snapshot: Any) -> list[dict[str, Any]]:
             not resale_flat_id
             or resale_flat_id in seen_flat_ids
             or position < 1
-            or position > EVALUATION_K
             or position in seen_positions
         ):
             continue
@@ -656,9 +658,9 @@ def _upsert_session_snapshot(
     db: DbConnector,
     session_id: str,
     recommendation: str,
-    top_k_snapshot: list[dict[str, Any]],
+    recommendation_snapshot: list[dict[str, Any]],
 ) -> None:
-    for item in top_k_snapshot:
+    for item in recommendation_snapshot:
         db.cursor.execute(
             f"""
             INSERT INTO {RECOMMENDATION_SESSION_TABLE} (
@@ -675,6 +677,44 @@ def _upsert_session_snapshot(
                 item["position"],
             ),
         )
+
+
+def sync_recommendation_snapshot(
+    recommendation: str,
+    session_id: str,
+    recommendation_snapshot: Any,
+) -> dict[str, Any]:
+    model_key = normalise_model_key(recommendation)
+    session_key = str(session_id or "").strip()
+    parsed_recommendation_snapshot = _parse_recommendation_snapshot(recommendation_snapshot)
+
+    if model_key not in MODEL_KEYS:
+        raise ValueError("recommendation model is invalid")
+    if not session_key:
+        raise ValueError("session_id is required")
+    if not parsed_recommendation_snapshot:
+        raise ValueError("recommendation_snapshot must contain at least one recommendation")
+
+    db = DbConnector()
+    try:
+        _ensure_tables_with_db(db)
+        _upsert_session_snapshot(
+            db,
+            session_key,
+            model_key,
+            parsed_recommendation_snapshot,
+        )
+        metrics = refresh_model_evaluations(db)
+        db.Commit()
+        return {
+            "session_id": session_key,
+            "recommendation": model_key,
+            "recommendation_label": MODEL_LABELS[model_key],
+            "stored_recommendations": len(parsed_recommendation_snapshot),
+            "model_evaluation": metrics,
+        }
+    finally:
+        db.Close()
 
 
 def _write_session_feedback_row(
@@ -791,12 +831,12 @@ def set_feedback_state(
     viewed: bool | None = None,
     favourite: bool | None = None,
     session_id: str | None = None,
-    top_k_snapshot: Any = None,
+    recommendation_snapshot: Any = None,
 ) -> dict[str, Any]:
     resale_flat_id = str(resale_flat_id or "").strip()
     model_key = normalise_model_key(recommendation) if recommendation else None
     session_key = str(session_id or "").strip() or None
-    parsed_top_k_snapshot = _parse_top_k_snapshot(top_k_snapshot)
+    parsed_recommendation_snapshot = _parse_recommendation_snapshot(recommendation_snapshot)
 
     if not resale_flat_id:
         raise ValueError("resale_flat_id is required")
@@ -823,11 +863,16 @@ def set_feedback_state(
                 _write_feedback_row(db, resale_flat_id, model_key, next_viewed, next_favourite)
             )
             if session_key:
-                _upsert_session_snapshot(db, session_key, model_key, parsed_top_k_snapshot)
+                _upsert_session_snapshot(
+                    db,
+                    session_key,
+                    model_key,
+                    parsed_recommendation_snapshot,
+                )
                 snapshot_position = next(
                     (
                         item["position"]
-                        for item in parsed_top_k_snapshot
+                        for item in parsed_recommendation_snapshot
                         if item["resale_flat_id"] == resale_flat_id
                     ),
                     None,
@@ -879,7 +924,7 @@ def record_feedback(
     recommendation: str,
     event: str,
     session_id: str | None = None,
-    top_k_snapshot: Any = None,
+    recommendation_snapshot: Any = None,
 ) -> dict[str, Any]:
     event = str(event or "").strip().lower()
     if event not in _INTERACTION_KINDS:
@@ -893,7 +938,7 @@ def record_feedback(
             recommendation=recommendation,
             viewed=True,
             session_id=session_id,
-            top_k_snapshot=top_k_snapshot,
+            recommendation_snapshot=recommendation_snapshot,
         )
     elif event in {"like", "favorite", "favourite"}:
         result = set_feedback_state(
@@ -902,7 +947,7 @@ def record_feedback(
             viewed=True,
             favourite=True,
             session_id=session_id,
-            top_k_snapshot=top_k_snapshot,
+            recommendation_snapshot=recommendation_snapshot,
         )
     else:
         result = set_feedback_state(
@@ -911,7 +956,7 @@ def record_feedback(
             viewed=True,
             favourite=False,
             session_id=session_id,
-            top_k_snapshot=top_k_snapshot,
+            recommendation_snapshot=recommendation_snapshot,
         )
 
     result["event"] = event
