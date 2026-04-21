@@ -2,6 +2,7 @@ import os
 import sys
 import math
 import unittest
+from unittest.mock import patch
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
@@ -10,7 +11,11 @@ for path in (CURRENT_DIR, BACKEND_ROOT):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from feedback_store import _parse_recommendation_snapshot, calculate_model_evaluations
+from feedback_store import (
+    _parse_recommendation_snapshot,
+    calculate_model_evaluations,
+    choose_recommendation_model,
+)
 
 
 class TestTopKSnapshotParsing(unittest.TestCase):
@@ -170,6 +175,44 @@ class TestModelEvaluations(unittest.TestCase):
         self.assertEqual(knn["viewed_flats"], 12)
         self.assertEqual(knn["favorited_flats"], 2)
         self.assertAlmostEqual(knn["favorite_rate"], 2 / 12, places=6)
+
+
+class TestModelSelection(unittest.TestCase):
+    @patch("feedback_store.random.choice", return_value="weighted_cosine")
+    @patch(
+        "feedback_store.get_model_selection_snapshot",
+        return_value={
+            "euclidean_distance": {
+                "key": "euclidean_distance",
+                "label": "Euclidean Distance",
+                "weight": 0.333333,
+                "probability": 0.333333,
+            },
+            "weighted_cosine": {
+                "key": "weighted_cosine",
+                "label": "Weighted Cosine",
+                "weight": 0.333333,
+                "probability": 0.333333,
+            },
+            "knn_cosine_similarity": {
+                "key": "knn_cosine_similarity",
+                "label": "KNN Cosine Similarity",
+                "weight": 0.333333,
+                "probability": 0.333333,
+            },
+        },
+    )
+    def test_choose_recommendation_model_uses_uniform_choice(
+        self,
+        _mock_snapshot,
+        mock_choice,
+    ):
+        selected = choose_recommendation_model()
+        mock_choice.assert_called_once()
+        self.assertEqual(selected["key"], "weighted_cosine")
+        self.assertEqual(selected["selection_method"], "adaptive")
+        self.assertAlmostEqual(selected["weight"], 0.333333, places=6)
+        self.assertAlmostEqual(selected["probability"], 0.333333, places=6)
 
 
 if __name__ == "__main__":
