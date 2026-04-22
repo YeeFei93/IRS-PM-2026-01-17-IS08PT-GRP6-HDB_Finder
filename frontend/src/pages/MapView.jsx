@@ -35,7 +35,7 @@ function pointInGeoJsonGeometry(lat, lng, geometry) {
   return polys.some(ring => pointInPolygon(lat, lng, ring));
 }
 
-function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, activeFlatEstate, onEstateSelect, effectiveBudget, flyToFlatRef, selectedEstate, hoveredFlatIdx, selectedFlat, onFilteredFlats, mustAmenities, onFlatAmenities, onFlatSelect }) {
+function MapContent({selectedAmenities, recs, highlightedTown, onTownClick, mapRef, drillFlats, activeFlatEstate, onEstateSelect, effectiveBudget, flyToFlatRef, selectedEstate, hoveredFlatIdx, selectedFlat, onFilteredFlats, mustAmenities, onFlatAmenities, onFlatSelect }) {
   const map = useMap();
   const geoLayersRef = useRef([]);       // for mass-removal on recs change
   const geoLayerByTownRef = useRef({}); // town -> { layer, baseStyle }
@@ -50,7 +50,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
   const selectedEstateRef = useRef(null);
   const selectedFlatRef = useRef(null);
   const flatListRef = useRef([]);     // flat list mirroring flatMarkersRef order
-
+  const [amenities, setAmenities] = useState()
   // Expose map instance for external fly-to calls
   useEffect(() => { mapRef.current = map; }, [map, mapRef]);
   useEffect(() => { drillFlatsRef.current = drillFlats; }, [drillFlats]);
@@ -78,6 +78,21 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     amenityMarkersPhase3Ref.current = [];
   }, [map]);
 
+  
+  useEffect(()=>{
+    console.log(184)
+    if(!selectedAmenities){
+      return
+    }
+
+    if(!amenities){
+      return
+    }
+    // console.log(190)
+    // console.log(amenities)
+    showAmenityMarkersRef.current(amenities.amenities, amenities.latitude, amenities.longitude, selectedAmenities)
+  }, [selectedAmenities])
+
   // Config for each amenity type shown in Phase 3
   const FLAT_AMENITY_CFG = {
     parks:     { color: '#27ae60', emoji: '🌳', label: 'Park',      threshold: '1km',  mustKey: 'park' },
@@ -88,7 +103,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
     hospitals: { color: '#e74c3c', emoji: '🏥', label: 'Hospital',  threshold: '3km',  mustKey: 'hospital' },
   };
 
-  const showFlatAmenityMarkers = useCallback((amenities, flatLat, flatLng) => {
+  const showFlatAmenityMarkers = useCallback((amenities, flatLat, flatLng, selectedAmenities) => {
     clearFlatAmenityMarkers();
     // amenities may be the old { parks: [...] } shape or a flat array (legacy)
     const byType = Array.isArray(amenities)
@@ -97,10 +112,15 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
 
     const hasMust = mustAmenities?.length > 0;
     Object.entries(byType).forEach(([type, items]) => {
+      if(selectedAmenities && !selectedAmenities.includes(type)){
+        console.log({102: type})
+          return
+      }
       if (!items?.length) return;
       const cfg = FLAT_AMENITY_CFG[type] || { color: '#888', emoji: '📍', label: type, mustKey: type };
       const isMust = hasMust && mustAmenities.includes(cfg.mustKey);
       const opacity = hasMust && !isMust ? 0.25 : 1;
+      
       items.forEach(item => {
         // support legacy park_name key; for hawkers show only the text inside () if present
         const rawName = item.name || item.park_name || '';
@@ -126,6 +146,7 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
           className: '', iconAnchor: [14, 14],
         });
         const m = L.marker([item.latitude, item.longitude], { icon }).addTo(map);
+        //123
         const line = L.polyline(
           [[flatLat, flatLng], [item.latitude, item.longitude]],
           { color: cfg.color, weight: 1.5, dashArray: '4 4', opacity: hasMust && !isMust ? 0.15 : 0.6 }
@@ -158,11 +179,19 @@ function MapContent({ recs, highlightedTown, onTownClick, mapRef, drillFlats, ac
         // data contains { parks, hawkers, mrts, schools, malls, hospitals }
         const { block: _b, street_name: _s, ...amenities } = data;
         const hasAny = Object.values(amenities).some(arr => arr?.length);
-        if (hasAny) showAmenityMarkersRef.current(amenities, flat.latitude, flat.longitude);
+        if (hasAny) {
+          showAmenityMarkersRef.current(amenities, flat.latitude, flat.longitude)
+          setAmenities({amenities:amenities, latitude:  flat.latitude, longitude: flat.longitude})
+        }
+        
         onFlatAmenities?.(amenities, mustAmenitiesRef.current ?? []);
       })
       .catch(() => {});
   }, [map, onFlatAmenities]);
+
+
+
+
   useEffect(() => { if (flyToFlatRef) flyToFlatRef.current = flyToFlat; }, [flyToFlat, flyToFlatRef]);
 
   const clearAmenityMarkers = useCallback(() => {
@@ -546,6 +575,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   const flyToFlatRef = useRef(null);
   const [filteredFlats, setFilteredFlats] = useState([]);
   const [flatAmenities, setFlatAmenities] = useState(null);
+  const [selectedAmenties, setSelectedAmenities] = useState([])
   const [flatMustAmenities, setFlatMustAmenities] = useState([]);
   const handleFilteredFlats = useCallback((flats) => setFilteredFlats(flats), []);
   const handleFlatAmenities = useCallback((amenities, snap) => {
@@ -554,6 +584,13 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
   }, []);
   const selectedModel = recs[0]?.selected_model || null;
   const selectedModelLabel = selectedModel?.label || recs[0]?.recommendation_model_label || 'Adaptive model';
+
+
+  useEffect(()=>{
+      if(flatAmenities){
+          setSelectedAmenities(Object.keys(flatAmenities))
+      }
+  }, [flatAmenities])
 
   useEffect(() => {
     if (!recs?.length) {
@@ -803,7 +840,7 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
           subdomains="abcd"
           maxZoom={19}
         />
-        <MapContent recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={openEstateDrilldown} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} mustAmenities={formState?.mustAmenities} onFlatAmenities={handleFlatAmenities} onFlatSelect={handleFlatCardClick} />
+        <MapContent selectedAmenities={selectedAmenties} recs={recs} highlightedTown={highlightedTown} onTownClick={handleTownClick} mapRef={mapRef} drillFlats={drillFlats} activeFlatEstate={activeFlatEstate} onEstateSelect={openEstateDrilldown} effectiveBudget={effectiveBudget} flyToFlatRef={flyToFlatRef} selectedEstate={selectedEstate} hoveredFlatIdx={hoveredFlatIdx} selectedFlat={selectedFlat} onFilteredFlats={handleFilteredFlats} mustAmenities={formState?.mustAmenities} onFlatAmenities={handleFlatAmenities} onFlatSelect={handleFlatCardClick} />
       </MapContainer>
 
       {/* Zoom-out button */}
@@ -1113,8 +1150,6 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
               const isFavouriteBusy = favouritesBusyId === flat.resale_flat_id;
               return (
                 <div key={flat.resale_flat_id || i}
-                  onMouseEnter={() => setHoveredFlatIdx(i)}
-                  onMouseLeave={() => setHoveredFlatIdx(null)}
                   onClick={() => handleFlatCardClick(flat, i)}
                   style={{
                     background: isFlatSel ? '#0a1f12' : '#181818',
@@ -1202,8 +1237,18 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                           const items = flatAmenities[cfg.dataKey];
                           if (!items?.length) return null;
                           const unique = [...new Map(items.map(m => [m.name, m])).values()].sort((a, b) => a.distance - b.distance);
+                          const selected =  selectedAmenties.includes(cfg.dataKey)
+                          
                           return (
-                            <div key={amenKey} style={{ marginTop: 8, background: '#111', border: `1px solid ${cfg.color}33`, borderRadius: 6, padding: '8px 10px', fontSize: '0.62rem' }}>
+                            <div className='relative z-10' onClick={(e)=>{
+                                e.stopPropagation()
+                                if(selected){
+                                  setSelectedAmenities((prev) => prev.filter(a => a != cfg.dataKey))
+                                }
+                                else{
+                                  setSelectedAmenities((prev) => [...prev, cfg.dataKey.trim()])
+                                }
+                              }} key={amenKey} style={{ marginTop: 8, background: '#111', border: `3px solid ${selected? '#27ae60': '#111'}`, borderRadius: 6, padding: '8px 10px', fontSize: '0.62rem' }}>
                               <div style={{ fontSize: '0.65rem', fontWeight: 700, color: cfg.color, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{cfg.icon} {cfg.title}</div>
                               {unique.map((item, idx) => {
                                 const rawName = item.name || '';
