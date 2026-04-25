@@ -25,8 +25,8 @@ Our team had an enriching experience building this end-to-end AI system, and we 
 | Official Full Name | Student ID (MTech Applicable) | Work Items (Who Did What) | Email (Optional) |
 | :------------ |:---------------:| :-----| :-----|
 | Loh Kian Chee | A0339775J | Group Lead; |  |
-| Udayakumar Nivetha | A0245895L | Backend Redis Setup; Recommender Models Evaluation code; User Favorite Tab + Button Functionality; Data collection (Schools + Hospitals)  | e0908182@u.nus.edu |
-| Sim Yee Fei | A0339751W | Frontend (React/Tailwind/Leaflet); UI/UX Design; Cosine Similarity Recommender; Backend-Frontend Data Integration | yee-fei.sim@u.nus.edu |
+| Udayakumar Nivetha | A0245895L | Backend Redis Setup; Euclidean Distance & KNN Cosine Similarity Recommender Models; Models Evaluation Code; User Favorite Tab + Button Functionality; Data Collection (Schools + Hospitals)  | e0908182@u.nus.edu |
+| Sim Yee Fei | A0339751W | Frontend (React/Tailwind/Leaflet); UI/UX Design; Weighted Cosine Similarity Recommender Model; Backend-Frontend Data Integration | yee-fei.sim@u.nus.edu |
 | Lim Zheng Tao | A0339804X |  |  |
 
 ---
