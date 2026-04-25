@@ -1,0 +1,238 @@
+AI_Recommenders notes
+=====================
+
+Launcher
+--------
+Start the evaluator with:
+- start_evaluator.bat
+
+
+App layout
+----------
+- Single-page HTML app
+- Left sidebar: buyer inputs and action buttons
+- Right pane: recommendation outputs, ranking, rating submission, and evaluation status
+- "Show Evaluation Status" uses the same page and does not open a second app page
+- Clicking "Get Recommendations" while ineligible shows "Not eligible." and does not submit the recommendation request
+
+
+Shared inputs
+-------------
+All models use the same parsed buyer profile from input_data_for_all_models.py.
+
+Main profile fields:
+- cit
+- age
+- marital
+- income
+- ftimer
+- prox
+- ftype
+- regions
+- floor
+- min_lease
+- cash
+- cpf
+- loan
+- must_have
+
+Shared vector preparation
+-------------------------
+The shared buyer_vector and flat_vector are still built by the main
+recommendation_scorer_service vectorizer with each feature scaled into 0..1.
+
+Inside AI_Recommenders, each active model now performs its own L2 normalization
+on the buyer vector and flat vector before scoring. This keeps the change local
+to the model files in AI_Recommenders and does not modify the shared vectorizer.
+
+
+Shared candidate pool
+---------------------
+All models score the same FlatCandidate list from input_data_for_all_models.py.
+
+Each FlatCandidate already contains:
+- estate
+- block
+- street_name
+- flat_type
+- flat_model
+- resale_price
+- floor_area_sqm
+- remaining_lease_years
+- remaining_lease_months
+- remaining_lease_label
+- floor_label
+- sold_date
+- budget_fit
+- lease_fit
+- floor_match
+- must_have_match
+- buyer_vector
+- flat_vector
+- flat-level amenity stats from recommender.py style block_amenity_stats()
+
+
+Shared output format
+--------------------
+Each recommender returns a list of result dictionaries with fields such as:
+- model_key
+- model_name
+- rank
+- score
+- score_pct
+- reason
+- flat_id
+- estate
+- block
+- street_name
+- address
+- flat_type
+- flat_model
+- resale_price
+- floor_area_sqm
+- remaining_lease_years
+- remaining_lease_months
+- remaining_lease_label
+- floor_label
+- sold_date
+- amenity_counts
+- amenity_summary
+- vector_amenity_counts
+- vector_amenity_summary
+- budget_fit
+- lease_fit
+- floor_match
+- must_have_match
+- failed_must
+
+
+Model notes
+-----------
+1. cosine_similarity.py
+   Model name:
+   - cosine_similarity
+
+   Purpose:
+   Same buyer vector and flat vector inputs as the main recommender, but uses plain cosine similarity without active-criteria weighting.
+
+   Inputs:
+   - context.buyer_vector
+   - candidate.flat_vector
+
+   Computation:
+   - L2-normalize buyer_vector
+   - L2-normalize candidate.flat_vector
+   - cosine similarity = dot(normalized_buyer_vector, normalized_flat_vector)
+
+   Output:
+   - Top 10 flats sorted by cosine similarity descending.
+
+2. euclidean_distance_recommender.py
+   Model name:
+   - euclidean_distance
+
+   Purpose:
+   Same buyer vector and flat vector inputs as the main recommender, but ranks by Euclidean distance instead of cosine.
+
+   Inputs:
+   - context.buyer_vector
+   - candidate.flat_vector
+
+   Computation:
+   - L2-normalize buyer_vector
+   - L2-normalize candidate.flat_vector
+   - Euclidean distance between normalized_buyer_vector and normalized_flat_vector
+   - score = 1 / (1 + distance)
+
+   Output:
+   - Top 10 flats sorted by Euclidean-distance score descending.
+
+3. weighted_cosine_similarity.py
+   Model name:
+   - weighted_cosine
+
+   Purpose:
+   Mirrors the current recommendation_scorer_service weighted cosine scorer.
+
+   Inputs:
+   - context.buyer_vector
+   - candidate.flat_vector
+   - context.active_criteria
+
+   Computation:
+   - L2-normalize buyer_vector
+   - L2-normalize candidate.flat_vector
+   - build the same 7-dimension active-criteria weight vector used by the main recommender
+   - apply those weights to the normalized buyer and flat vectors
+   - L2-normalize the weighted vectors again
+   - weighted cosine similarity = dot(weighted_normalized_buyer, weighted_normalized_flat)
+
+   Output:
+   - Top 10 flats sorted by weighted cosine score descending.
+
+4. knn_recommender.py
+   Model name:
+   - knn_cosine_recommender
+
+   Purpose:
+   Uses cosine similarity for the buyer-flat match, then smooths each score with the cosine-nearest neighbouring flats in the shared candidate pool.
+
+   Inputs:
+   - context.buyer_vector
+   - candidate.flat_vector
+
+   Computation:
+   - L2-normalize buyer_vector
+   - L2-normalize every candidate flat_vector in the shared candidate pool
+   - cosine similarity between normalized buyer_vector and normalized candidate.flat_vector
+   - cosine similarity between normalized candidate.flat_vector and the top 5 nearest normalized flat neighbours
+   - final score = 0.7 * buyer cosine + 0.3 * neighbour mean cosine
+
+   Output:
+   - Top 10 flats sorted by the smoothed cosine kNN score descending.
+
+
+Nearby amenity display
+----------------------
+The "Nearby Amenities" column shown in the app is based on exact COUNT(*) values
+from the flat-to-amenity link tables matched by block and street_name.
+
+Current table sources:
+- resale_flats_hawker_centres
+- resale_flats_parks
+- resale_flats_schools
+- resale_flats_shopping_malls
+- resale_flats_public_hospitals
+- resale_flats_mrt_stations (Not yet available)
+
+
+Evaluation metrics
+------------------
+evaluate_recommender.py stores feedback in results.csv with a header row.
+
+Each stored row contains:
+- every buyer input field as its own column
+- flat properties such as block, street_name, flat_type, price, lease, and rank
+- exact nearby amenity counts for mrt, hawker, mall, park, school, and hospital
+- recommendation model
+- relevant (yes or no)
+
+submission_rounds.jsonl stores the submission grouping so the evaluator can count submission rounds without adding extra session columns to results.csv.
+
+The evaluation status panel shows:
+- collected ratings
+- submission rounds
+- compared models
+- best model
+- evaluation summary table
+
+Internally, evaluate_recommender.py still computes:
+- NDCG@10
+- Precision@10
+- average relevant rank
+
+Best-model selection order:
+1. highest NDCG@10
+2. highest Precision@10
+3. highest relevance rate
+4. most sessions
