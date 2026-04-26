@@ -222,7 +222,7 @@ export default function Sidebar({
           </select>
         </Field>
         <Field label="Monthly Household Income ($)">
-          <RangeValue>${Number(inc).toLocaleString()} / mo</RangeValue>
+          <RangeValue>${Number(inc).toLocaleString()} / mth</RangeValue>
           <input type="range" min={0} max={21000} step={500} value={inc} onChange={setNum('inc')} />
           <RangeLabels left="$0" right="$21,000" />
         </Field>
@@ -318,7 +318,7 @@ export default function Sidebar({
           <RangeLabels left="$0" right="$600k" />
         </Field>
         <Field label="Max Monthly Loan Repayment ($)">
-          <RangeValue>${Number(loan).toLocaleString()} / mo</RangeValue>
+          <RangeValue>${Number(loan).toLocaleString()} / mth</RangeValue>
           <input type="range" min={500} max={6000} step={100} value={loan} onChange={setNum('loan')} />
           <RangeLabels left="$500" right="$6,000" />
         </Field>
