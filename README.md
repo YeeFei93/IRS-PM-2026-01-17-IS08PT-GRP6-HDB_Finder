@@ -149,6 +149,7 @@ The system follows a microservices architecture:
 
 ### External Api Sources
 | Source | Link |
+|--------|------|
 | OneMap Geolocation | `https://www.onemap.gov.sg/api/common/elastic/search`|
 | Nominatim OpenStreetMap Geolocation | `https://nominatim.openstreetmap.org/search?q={{address}}&format=jsonv2`|
 
