@@ -30,6 +30,7 @@ export default function App() {
   const [rawCount, setRawCount] = useState(0);
   const [latestMonth, setLatestMonth] = useState(null);
   const [highlightedTown, setHighlightedTown] = useState(null);
+  const [warning, setWarning] = useState()
 
   const onFormChange = useCallback((key, value) => {
     setFormState(prev => ({ ...prev, [key]: value }));
@@ -69,11 +70,16 @@ export default function App() {
     }
 
     if (backendOk) {
+      setWarning()
       try {
         const payload = { ...formState, effective: derived.effective, grants: derived.grants };
         const res = await runSearchBackend(payload);
+        console.log({74: res})
         // Express wraps the Python result in { status, result: {...} }
         const data = res.result ?? res;
+        if(data.recommendations && data.recommendations.length == 0){
+          setWarning("No resale flats found. Please re-adjust your inputs and try searching again.")
+        }
         const topRecs = (data.recommendations || []).map(rec => normaliseBackendRec(rec, data.selected_model));
         setRawCount(data.raw_count || topRecs.length);
         setLatestMonth(data.latest_month || null);
@@ -107,8 +113,21 @@ export default function App() {
           isSearching={isSearching}
         />
         <main className="flex flex-col overflow-y-auto h-screen">
-          <MapView recs={recs} highlightedTown={highlightedTown} formState={formState} effectiveBudget={derived.effective} derived={derived} rawCount={rawCount} latestMonth={latestMonth} />
-
+          <div className="relative flex-1 z-0">
+            <MapView recs={recs} highlightedTown={highlightedTown} formState={formState} effectiveBudget={derived.effective} derived={derived} rawCount={rawCount} latestMonth={latestMonth} />
+            {warning && (
+              <div className="absolute inset-0 z-[9999] flex items-center justify-center p-8 pointer-events-none">
+                <div className="max-w-xl inline-flex min-w-[320px] bg-black/85 backdrop-blur-md border-2 border-yellow-400 rounded-2xl px-10 py-8 shadow-2xl items-center space-x-8">
+                  <div className="flex-shrink-0 flex h-12 w-12 items-center justify-center  text-3xl">
+                    ⚠️
+                  </div>
+                  <div className="min-w-0 text-white font-semibold text-lg leading-relaxed">
+                    <span className="inline-block px-4 py-2">{warning}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </main>
       </div>
     </div>
