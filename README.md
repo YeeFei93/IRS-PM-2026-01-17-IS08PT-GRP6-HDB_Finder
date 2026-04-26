@@ -27,7 +27,7 @@ Our team had an enriching experience building this end-to-end AI system, and we 
 | Loh Kian Chee | A0339775J | Group Lead; |  |
 | Udayakumar Nivetha | A0245895L | Backend Redis Setup; Euclidean Distance & KNN Cosine Similarity Recommender Models; Models Evaluation Code; User Favorite Tab + Button Functionality; Data Collection (Schools + Hospitals)  | e0908182@u.nus.edu |
 | Sim Yee Fei | A0339751W | Frontend (React/Tailwind/Leaflet); UI/UX Design; Weighted Cosine Similarity Recommender Model; Backend-Frontend Data Integration | yee-fei.sim@u.nus.edu |
-| Lim Zheng Tao | A0339804X |  |  |
+| Lim Zheng Tao | A0339804X | Data Collection & Preparation; Amenities Relationships & Proximity Distance Conversion; UI/UX toggling of amenities | zhengtao.lim@u.nus.edu |
 
 ---
 
@@ -124,27 +124,33 @@ The system follows a microservices architecture:
 |-------|-----------|-------------|
 | Frontend | React 19, Vite, Tailwind CSS, Leaflet | Interactive web app with map view |
 | Backend API | Node.js, Express, TypeScript | REST API gateway with Redis caching |
-| Eligibility Checker | Python | Rule-based HDB policy engine |
-| Budget Estimator | Python | Grant computation (EHG, CPF, PHG) and effective budget |
-| Estate Finder | Python | Constraint-based flat filtering by region, flat type, budget |
+| Eligibility Checker Service | Python | Rule-based HDB policy engine |
+| Budget Estimator Service | Python | Grant computation (EHG, CPF, PHG) and effective budget |
+| Estate Finder Service | Python | Constraint-based flat filtering by region, flat type, budget |
 | Recommendation Scorer | Python | Weighted Cosine Similarity + MMR, Euclidean Distance and KNN (A/B testing evaluation) |
-| Amenity Proximity | Python | Geospatial distance computation to MRT, schools, hawker centres, parks, hospitals |
+| Amenity Proximity Service | Python | Geospatial distance computation to MRT, schools, hawker centres, parks, hospitals |
 | Data Service | Python | Data ingestion pipeline from data.gov.sg APIs |
 | Database | MySQL | Resale flat transactions, amenity data, user favourites |
 | Cache / Queue | Redis | Adapter result caching and inter-service messaging |
 
 ### Data Sources
 
-| Dataset | Source | Notes |
+| Dataset | Source | Link |
 |---------|--------|-------|
-| HDB Resale Prices Oct 2025–Present | [data.gov.sg](https://data.gov.sg) | `d_8b84c4ee58e3cfc0ece0d773c8ca6abc` |
-| MRT Station Master Plan | data.gov.sg (LTA) | `d_b39d3a0871985372d7e1637193335da5` |
-| Hawker Centres | data.gov.sg (NEA) | `d_4a086da0a5553be1d89383cd90d07ebc` |
-| Public Sector Hospitals | data.gov.sg | `d_1338b55f6d4ea6b2df9884ec4bce4464` |
-| Schools | data.gov.sg (MOE) | `d_688b934f82c1059ed0a6993d2a829089` |
-| Parks | data.gov.sg (NParks) | `d_0542d48f0991541706b58059381a6eca` |
-| Shopping Malls | Wikipedia | https://en.wikipedia.org/wiki/List_of_shopping_malls_in_Singapore |
-| Planning Area Boundaries | data.gov.sg | `d_4765db0e87b9c86336792efe8a1f7a66` |
+| Resale Flat Prices By HDB | data.gov.sg | `https://data.gov.sg/datasets?resultId=d_8b84c4ee58e3cfc0ece0d773c8ca6abc` |
+| MRT Stations By LTA| data.gov.sg | `https://data.gov.sg/datasets?resultId=d_b39d3a0871985372d7e1637193335da5` |
+| MRT Stations Lines By LTA| data.gov.sg | `https://data.gov.sg/datasets?resultId=d_d312a5b127e1ae74299b8ae664cedd4e` |
+| Hawker Centres By NEA | data.gov.sg | `https://data.gov.sg/datasets?query=hawker+centres&resultId=d_4a086da0a5553be1d89383cd90d07ecd` |
+| Public Sector Hospitals By MOH | data.gov.sg | `https://data.gov.sg/datasets?resultId=d_1338b55f6d4ea6b2df9884ec4bce4464` |
+| Schools By MOE | data.gov.sg | `https://data.gov.sg/datasets?resultId=d_688b934f82c1059ed0a6993d2a829089` |
+| Parks By NPARKS | data.gov.sg | `https://data.gov.sg/datasets?resultId=d_0542d48f0991541706b58059381a6eca` |
+| Planning Area Boundaries By URA | data.gov.sg | `https://data.gov.sg/datasets?resultId=d_4765db0e87b9c86336792efe8a1f7a66` |
+| Shopping Malls | Wikipedia | `https://en.wikipedia.org/wiki/List_of_shopping_malls_in_Singapore` |
+
+### External Api Sources
+| Source | Link |
+| OneMap Geolocation | `https://www.onemap.gov.sg/api/common/elastic/search`|
+| Nominatim OpenStreetMap Geolocation | `https://nominatim.openstreetmap.org/search?q={{address}}&format=jsonv2`|
 
 ### Recommendation Scoring — Vector Design
 
