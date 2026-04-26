@@ -64,7 +64,7 @@ export function calcGrants(cit, income, ftype, ftimer, prox, marital) {
   const isFirst = ftimer === 'first';
   const isPR = cit === 'PR_PR';
 
-  const isSingleScheme = (cit === 'SC_single' && marital === 'single');
+  const isSingleScheme = (cit === 'SC_single' && (marital === 'single'|| marital === 'widowed'));
   const isJointSingle = (cit === 'SC_single' && marital === 'joint');
   const isWithSCParents = (cit === 'SC_single' && marital === 'with_SC_parents');
   const isPRWithSCParents = (cit === 'PR_PR' && marital === 'with_SC_parents');
@@ -183,7 +183,8 @@ export function checkEligibility(cit, income, age, marital, ftimer) {
 
   const isJointSingle = (cit === 'SC_single' && marital === 'joint');
   const isWithSCParents = (cit === 'SC_single' && marital === 'with_SC_parents');
-  const isSingleScheme = (cit === 'SC_single' && marital === 'single');
+  const isSingleScheme = (cit === 'SC_single' && (marital === 'single'|| marital === 'widowed'));
+  const isSingleDivorcedWithKids = (cit === 'SC_single' && marital === 'widowed_w_kids' && age >= 35);
   const isPRWithPRParents = (cit === 'PR_PR' && marital === 'with_PR_parents');
   const isPRWithSCParents = (cit === 'PR_PR' && marital === 'with_SC_parents');
 
@@ -209,6 +210,9 @@ export function checkEligibility(cit, income, age, marital, ftimer) {
   }
   if (isSingleScheme) {
     notes.push('Singapore Single Scheme: PHG (Singles) available — $15,000 to live with parents/child, $10,000 within 4km.');
+  }
+  if (isSingleDivorcedWithKids) {
+    notes.push('Widowed / Divorced with Children: PHG (Family) applies — $30,000 to live with parents/child (same flat), $20,000 within 4km.');
   }
   if (isPRWithPRParents) {
     notes.push('PR + PR Parents: At least one parent must be PR for at least 3 years. No grants apply.');

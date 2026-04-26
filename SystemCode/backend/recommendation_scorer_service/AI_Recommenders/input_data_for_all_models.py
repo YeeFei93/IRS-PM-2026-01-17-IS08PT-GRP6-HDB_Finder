@@ -75,7 +75,8 @@ CITIZENSHIP_OPTIONS = [
 MARITAL_OPTIONS = [
     {"value": "married", "label": "Married", "groups": ["SC_SC", "SC_PR", "SC_NR", "PR_PR"]},
     {"value": "fiancee", "label": "Fiance / Fiancee", "groups": ["SC_SC", "SC_PR", "SC_NR", "PR_PR"]},
-    {"value": "widowed", "label": "Widowed / Divorced", "groups": ["SC_SC", "SC_PR"]},
+    {"value": "widowed", "label": "Widowed / Divorced", "groups": ["SC_single", "PR_PR"]},
+    {"value": "widowed_w_kids", "label": "Widowed / Divorced with Children", "groups": ["SC_single"]},
     {"value": "single", "label": "Single", "groups": ["SC_single", "PR_PR"]},
     {"value": "joint", "label": "Joint Singles Scheme (JSS)", "groups": ["SC_single"]},
     {"value": "with_SC_parents", "label": "Single with SC Parents", "groups": ["SC_single", "PR_PR"]},
@@ -89,7 +90,7 @@ FTIMER_OPTIONS = [
 ]
 
 PROX_OPTIONS = [
-    ("none", "No"),
+    ("none", "No / Second-Time"),
     ("same", "Same Flat as Parents / Children"),
     ("near", "Within 4km of Parents / Children"),
 ]

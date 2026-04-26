@@ -124,8 +124,9 @@ const AMENITY_OPTIONS = [
 const MARITAL_OPTIONS = [
   { value: 'married', label: 'Married', groups: ['SC_SC', 'SC_PR', 'SC_NR', 'PR_PR'] },
   { value: 'fiancee', label: 'Fiancé / Fiancée', groups: ['SC_SC', 'SC_PR', 'SC_NR', 'PR_PR'] },
-  { value: 'widowed', label: 'Widowed / Divorced', groups: ['SC_SC', 'SC_PR'] },
   { value: 'single', label: 'Single', groups: ['SC_single','PR_PR'] },
+  { value: 'widowed', label: 'Widowed / Divorced', groups: ['SC_single','PR_PR'] },
+  { value: "widowed_w_kids", label: "Widowed / Divorced with Children", groups: ["SC_single"] },
   { value: 'joint', label: 'Joint Singles Scheme (JSS)', groups: ['SC_single'] },
   { value: 'with_SC_parents', label: 'Single with SC Parents', groups: ['SC_single','PR_PR'] },
   { value: 'with_PR_parents', label: 'Single with PR Parents', groups: ['PR_PR'] }
@@ -225,16 +226,16 @@ export default function Sidebar({
           <input type="range" min={0} max={21000} step={500} value={inc} onChange={setNum('inc')} />
           <RangeLabels left="$0" right="$21,000" />
         </Field>
-        <Field label="First-Timer Status">
+        <Field label="HG: HDB First-Timer Status">
           <select value={ftimer} onChange={set('ftimer')}>
             {visibleFtimer.map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
         </Field>
-        <Field label="Living Near / With Parents?">
+        <Field label="PHG: Living Near / With Parents?">
           <select value={prox} onChange={set('prox')}>
-            <option value="none">No</option>
+            <option value="none">No / Second-Time</option>
             <option value="same">Same Flat as Parents / Children</option>
             <option value="near">Within 4km of Parents / Children</option>
           </select>
