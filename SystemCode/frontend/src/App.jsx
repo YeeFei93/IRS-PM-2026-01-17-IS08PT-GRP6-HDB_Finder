@@ -13,9 +13,9 @@ const INITIAL_FORM = {
   inc: 6500,
   ftimer: 'first',
   prox: 'none',
-  ftype: '4 ROOM',
+  ftype: [],
   selRegions: [],
-  floor: 'any',
+  floor: [],
   lease: 50,
   cash: 30000,
   cpf: 80000,
@@ -40,7 +40,11 @@ export default function App() {
   const derived = useMemo(() => {
     const { cit, age, inc, ftimer, prox, ftype, cash, cpf, loan, marital, lease } = formState;
     const eligibility = checkEligibility(cit, inc, age, marital);
-    const grants = calcGrants(cit, inc, ftype, ftimer, prox, marital);
+    // For grant calc, use conservative fallback when no specific type selected
+    const ftypeForGrants = Array.isArray(ftype) && ftype.length > 0
+      ? (ftype.every(t => ['5 ROOM', 'EXECUTIVE'].includes(t)) ? '5 ROOM' : '4 ROOM')
+      : '4 ROOM';
+    const grants = calcGrants(cit, inc, ftypeForGrants, ftimer, prox, marital);
     const loanAmt = loanCapacity(loan);
     const effective = cash + cpf + grants.total + loanAmt;
     const loanLimitWarning = checkLoanLimit(inc, loan, cash + cpf + grants.total + loanAmt);

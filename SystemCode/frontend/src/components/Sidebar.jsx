@@ -112,6 +112,20 @@ const REGION_OPTIONS = [
   { value: 'central', label: 'Central' },
 ];
 
+const FTYPE_OPTIONS = [
+  { value: '2 ROOM', label: '2-Room' },
+  { value: '3 ROOM', label: '3-Room' },
+  { value: '4 ROOM', label: '4-Room' },
+  { value: '5 ROOM', label: '5-Room' },
+  { value: 'EXECUTIVE', label: 'Executive' },
+];
+
+const FLOOR_OPTIONS = [
+  { value: 'low', label: 'Low (1–6F)' },
+  { value: 'mid', label: 'Mid (7–15F)' },
+  { value: 'high', label: 'High (16F+)' },
+];
+
 const AMENITY_OPTIONS = [
   { value: 'mrt', icon: '🚇', label: 'MRT ≤1km' },
   { value: 'hawker', icon: '🍜', label: 'Hawker ≤1km' },
@@ -178,6 +192,20 @@ export default function Sidebar({
       ? selRegions.filter(r => r !== val)
       : [...selRegions, val];
     onFormChange('selRegions', next);
+  };
+
+  const toggleFtype = (val) => {
+    const next = ftype.includes(val)
+      ? ftype.filter(f => f !== val)
+      : [...ftype, val];
+    onFormChange('ftype', next);
+  };
+
+  const toggleFloor = (val) => {
+    const next = floor.includes(val)
+      ? floor.filter(f => f !== val)
+      : [...floor, val];
+    onFormChange('floor', next);
   };
 
   const toggleAmenity = (val) => {
@@ -251,17 +279,19 @@ export default function Sidebar({
 
       {/* Flat Preferences */}
       <SidebarSection icon="🏢" title="Flat Preferences" collapsible={false}>
-        <Field label="Flat Type">
-          <select value={ftype} onChange={set('ftype')}>
-            <option value="any">Any</option>
-            <option value="2 ROOM">2-Room Flexi</option>
-            <option value="3 ROOM">3-Room</option>
-            <option value="4 ROOM">4-Room</option>
-            <option value="5 ROOM">5-Room</option>
-            <option value="EXECUTIVE">Executive</option>
-          </select>
+        <Field label={<>Flat Type <span className="normal-case tracking-normal font-normal text-[#7da8c8] opacity-60">(optional)</span></>}>
+          <div className="flex flex-wrap gap-1.5">
+            {FTYPE_OPTIONS.map(o => (
+              <RegionTag
+                key={o.value}
+                label={o.label}
+                active={ftype.includes(o.value)}
+                onClick={() => toggleFtype(o.value)}
+              />
+            ))}
+          </div>
         </Field>
-        <Field label="Preferred Region">
+        <Field label={<>Preferred Region <span className="normal-case tracking-normal font-normal text-[#7da8c8] opacity-60">(optional)</span></>}>
           <div className="flex flex-wrap gap-1.5">
             {REGION_OPTIONS.map(r => (
               <RegionTag
@@ -273,13 +303,17 @@ export default function Sidebar({
             ))}
           </div>
         </Field>
-        <Field label="Floor Preference">
-          <select value={floor} onChange={set('floor')}>
-            <option value="any">Any Floor</option>
-            <option value="low">Low (1–6F)</option>
-            <option value="mid">Mid (7–15F)</option>
-            <option value="high">High (16F+)</option>
-          </select>
+        <Field label={<>Floor Preference <span className="normal-case tracking-normal font-normal text-[#7da8c8] opacity-60">(optional)</span></>}>
+          <div className="flex flex-wrap gap-1.5">
+            {FLOOR_OPTIONS.map(o => (
+              <RegionTag
+                key={o.value}
+                label={o.label}
+                active={floor.includes(o.value)}
+                onClick={() => toggleFloor(o.value)}
+              />
+            ))}
+          </div>
         </Field>
         <Field label="Minimum Remaining Lease">
           <SliderBox value={`${lease} years`} rawValue={lease} min={20} max={99} step={5} onChange={setNum('lease')} left="20 yrs" right="99 yrs" />

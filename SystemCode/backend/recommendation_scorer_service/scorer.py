@@ -22,10 +22,15 @@ def detect_active_criteria(profile: dict, budget: float,
     active = []
     if budget > 0:
         active.append(CRITERION_BUDGET)
-    if profile.get("ftype", DEFAULTS[CRITERION_FLAT]) != DEFAULTS[CRITERION_FLAT]:
+    ftype_val = profile.get("ftype", DEFAULTS[CRITERION_FLAT])
+    # ftype is now a list; active when non-empty list or non-'any' string
+    if (isinstance(ftype_val, list) and ftype_val) or \
+       (isinstance(ftype_val, str) and ftype_val.lower() != DEFAULTS[CRITERION_FLAT]):
         active.append(CRITERION_FLAT)
-    floor = profile.get("floor", profile.get("floor_pref", "any"))
-    if floor != DEFAULTS[CRITERION_FLOOR]:
+    floor_val = profile.get("floor", profile.get("floor_pref", "any"))
+    # floor is active only when exactly one floor is selected
+    if (isinstance(floor_val, list) and len(floor_val) == 1) or \
+       (isinstance(floor_val, str) and floor_val.lower() != DEFAULTS[CRITERION_FLOOR]):
         active.append(CRITERION_FLOOR)
     if regions:
         active.append(CRITERION_REGION)

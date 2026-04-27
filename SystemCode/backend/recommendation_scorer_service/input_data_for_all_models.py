@@ -39,9 +39,9 @@ DEFAULT_PROFILE = {
     "income": 6500,
     "ftimer": "first",
     "prox": "none",
-    "ftype": "4 ROOM",
+    "ftype": ["4 ROOM"],
     "regions": [],
-    "floor": "any",
+    "floor": [],
     "min_lease": 50,
     "cash": 30000,
     "cpf": 80000,
@@ -134,8 +134,26 @@ def _normalise_profile(profile: dict[str, Any] | None) -> dict[str, Any]:
 
     normalised["regions"] = regions
     normalised["must_have"] = must_have
-    normalised["floor"] = str(raw.get("floor", raw.get("floor_pref", normalised["floor"])) or DEFAULT_PROFILE["floor"]).strip().lower()
-    normalised["ftype"] = str(raw.get("ftype", normalised["ftype"]) or DEFAULT_PROFILE["ftype"]).strip() or DEFAULT_PROFILE["ftype"]
+
+    # ftype: accept string or list, normalise to list (empty = any)
+    raw_ftype = raw.get("ftype", normalised["ftype"])
+    if isinstance(raw_ftype, list):
+        ftype_list = [str(f).strip() for f in raw_ftype if str(f).strip() and str(f).strip().lower() != "any"]
+    else:
+        s = str(raw_ftype or "").strip()
+        ftype_list = [] if not s or s.lower() == "any" else [s]
+    normalised["ftype"] = ftype_list
+
+    # floor: accept string or list, normalise to list (empty = any)
+    raw_floor = raw.get("floor", raw.get("floor_pref", normalised["floor"]))
+    _VALID_FLOORS = {"low", "mid", "high"}
+    if isinstance(raw_floor, list):
+        floor_list = [str(f).strip().lower() for f in raw_floor if str(f).strip().lower() in _VALID_FLOORS]
+    else:
+        s = str(raw_floor or "").strip().lower()
+        floor_list = [s] if s in _VALID_FLOORS else []
+    normalised["floor"] = floor_list
+
     normalised["cit"] = str(raw.get("cit", normalised["cit"]) or DEFAULT_PROFILE["cit"]).strip()
     normalised["marital"] = str(raw.get("marital", normalised["marital"]) or DEFAULT_PROFILE["marital"]).strip()
     normalised["ftimer"] = str(raw.get("ftimer", normalised["ftimer"]) or DEFAULT_PROFILE["ftimer"]).strip()
@@ -149,10 +167,12 @@ def _detect_active_criteria(profile: dict[str, Any], budget: float) -> list[str]
 
     if budget > 0:
         active.append(CRITERION_BUDGET)
-    if str(profile.get("ftype", DEFAULTS[CRITERION_FLAT])).lower() != DEFAULTS[CRITERION_FLAT]:
+    if profile.get("ftype"):  # non-empty list = specific type selected
         active.append(CRITERION_FLAT)
-    if str(profile.get("floor", DEFAULTS[CRITERION_FLOOR])).lower() != DEFAULTS[CRITERION_FLOOR]:
-        active.append(CRITERION_FLOOR)
+    if profile.get("floor"):  # non-empty list
+        floor_list = profile["floor"] if isinstance(profile["floor"], list) else [profile["floor"]]
+        if len(floor_list) == 1:  # only activate when exactly one floor chosen
+            active.append(CRITERION_FLOOR)
     if profile.get("regions"):
         active.append(CRITERION_REGION)
 
@@ -393,9 +413,10 @@ def _estate_candidates_for_profile(profile: dict[str, Any], budget: float) -> tu
     del budget
 
     notes: list[str] = []
-    pricing_ftype = profile["ftype"]
-    if pricing_ftype.lower() == "any":
-        pricing_ftype = "4 ROOM"
+    ftype_list = profile.get("ftype") or []
+    # For estate-level price analysis, use the first specific type or fall back to 4 ROOM
+    pricing_ftype = ftype_list[0] if ftype_list else "4 ROOM"
+    if not ftype_list:
         notes.append(
             "Flat type 'Any' uses 4 ROOM for estate-level price analysis."
         )
