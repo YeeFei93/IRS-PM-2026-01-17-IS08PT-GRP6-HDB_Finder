@@ -45,13 +45,15 @@ _FLOOR_CLAUSES = {
 
 # --- Logic Functions ---
 
-def detect_active_criteria(ftype: str, floor_pref: str, regions: list) -> list:
+def detect_active_criteria(ftype, floor_pref: str, regions: list) -> list:
     active = []
-    if ftype and ftype.lower() != "any":
+    ftypes = [ftype] if isinstance(ftype, str) else list(ftype or [])
+    if any(f and f.lower() != "any" for f in ftypes):
         active.append("flat")
     if regions and len(regions) > 0:
         active.append("region")
-    if floor_pref and floor_pref.lower() != "any":
+    floors = [floor_pref] if isinstance(floor_pref, str) else list(floor_pref or [])
+    if any(f and f.lower() != "any" for f in floors):
         active.append("floor_pref")
     return active
 
@@ -85,13 +87,23 @@ def get_transactions_for_town(town: str, ftype: str = "any", floor_pref: str = "
     params = [town, cutoff]
 
     # Dynamic Filtering for Flat Type
-    if ftype and ftype.lower() != "any":
-        query += " AND flat_type = %s"
-        params.append(ftype)
+    ftypes = [ftype] if isinstance(ftype, str) else list(ftype or [])
+    ftypes = [f for f in ftypes if f and f.lower() != "any"]
+    if ftypes:
+        if len(ftypes) == 1:
+            query += " AND flat_type = %s"
+            params.append(ftypes[0])
+        else:
+            placeholders = ", ".join(["%s"] * len(ftypes))
+            query += f" AND flat_type IN ({placeholders})"
+            params.extend(ftypes)
 
     # Dynamic Filtering for Floor Preference (int column comparisons)
-    if floor_pref and floor_pref.lower() in _FLOOR_CLAUSES:
-        query += f" AND {_FLOOR_CLAUSES[floor_pref.lower()]}"
+    floors = [floor_pref] if isinstance(floor_pref, str) else list(floor_pref or [])
+    floors = [f for f in floors if f and f.lower() in _FLOOR_CLAUSES]
+    if floors:
+        floor_sql = " OR ".join(_FLOOR_CLAUSES[f.lower()] for f in floors)
+        query += f" AND ({floor_sql})"
 
     query += " ORDER BY sold_date DESC"
 
@@ -132,24 +144,22 @@ def get_price_trend(town: str, ftype: str = "any", floor_pref: str = "any") -> d
     """
     params = [town, cutoff]
 
-    if ftype and ftype.lower() != "any":
-        query += " AND flat_type = %s"
-        params.append(ftype)
+    ftypes_t = [ftype] if isinstance(ftype, str) else list(ftype or [])
+    ftypes_t = [f for f in ftypes_t if f and f.lower() != "any"]
+    if ftypes_t:
+        if len(ftypes_t) == 1:
+            query += " AND flat_type = %s"
+            params.append(ftypes_t[0])
+        else:
+            placeholders = ", ".join(["%s"] * len(ftypes_t))
+            query += f" AND flat_type IN ({placeholders})"
+            params.extend(ftypes_t)
 
-    if floor_pref and floor_pref.lower() in _FLOOR_CLAUSES:
-        query += f" AND {_FLOOR_CLAUSES[floor_pref.lower()]}"
-
-    query += " ORDER BY sold_date"
-
-    db = DbConnector()
-    try:
-        db.cursor.execute(query, tuple(params))
-        rows = db.cursor.fetchall()
-    finally:
-        db.Close()
-
-    if not rows:
-        return {"town": town, "ftype": ftype, "months": [], "medians": []}
+    floors_t = [floor_pref] if isinstance(floor_pref, str) else list(floor_pref or [])
+    floors_t = [f for f in floors_t if f and f.lower() in _FLOOR_CLAUSES]
+    if floors_t:
+        floor_sql = " OR ".join(_FLOOR_CLAUSES[f.lower()] for f in floors_t)
+        query += f" AND ({floor_sql})"
 
     monthly = defaultdict(list)
     for r in rows:
@@ -168,14 +178,30 @@ def get_price_trend(town: str, ftype: str = "any", floor_pref: str = "any") -> d
     }
 
 
-def _apply_flat_filters(query: str, params: list, ftype: str, floor_pref: str, min_lease: int, alias: str = "rf") -> tuple:
-    """Append optional filter clauses to a flat query. Returns (query, params)."""
-    if ftype and ftype.lower() != "any":
-        query += f" AND {alias}.flat_type = %s"
-        params.append(ftype)
-    if floor_pref and floor_pref.lower() in _FLOOR_CLAUSES:
-        clause = _FLOOR_CLAUSES[floor_pref.lower()].replace("storey_range_start", f"{alias}.storey_range_start")
-        query += f" AND {clause}"
+def _apply_flat_filters(query: str, params: list, ftype, floor_pref, min_lease: int, alias: str = "rf") -> tuple:
+    """Append optional filter clauses to a flat query. Returns (query, params).
+    ftype and floor_pref may each be a string or a list of strings.
+    """
+    # Flat type filter
+    ftypes = [ftype] if isinstance(ftype, str) else list(ftype or [])
+    ftypes = [f for f in ftypes if f and f.lower() != "any"]
+    if ftypes:
+        if len(ftypes) == 1:
+            query += f" AND {alias}.flat_type = %s"
+            params.append(ftypes[0])
+        else:
+            placeholders = ", ".join(["%s"] * len(ftypes))
+            query += f" AND {alias}.flat_type IN ({placeholders})"
+            params.extend(ftypes)
+    # Floor preference filter
+    floors = [floor_pref] if isinstance(floor_pref, str) else list(floor_pref or [])
+    floors = [f for f in floors if f and f.lower() in _FLOOR_CLAUSES]
+    if floors:
+        floor_sql = " OR ".join(
+            _FLOOR_CLAUSES[f.lower()].replace("storey_range_start", f"{alias}.storey_range_start")
+            for f in floors
+        )
+        query += f" AND ({floor_sql})"
     if min_lease > 0:
         query += f" AND {alias}.remaining_lease_years >= %s"
         params.append(min_lease)

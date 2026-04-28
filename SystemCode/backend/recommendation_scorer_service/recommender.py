@@ -83,9 +83,11 @@ def _group_into_estates(context, ranked_items: list[dict], selection: dict) -> l
         town = candidate.estate
         estate_entry = estate_map.get(town)
         if estate_entry is None:
+            ftype_raw = context.profile.get("ftype", [])
+            ftype_display = ", ".join(ftype_raw) if ftype_raw else "Any"
             estate_entry = {
                 "town": town,
-                "ftype": context.profile.get("ftype", "4 ROOM"),
+                "ftype": ftype_display,
                 "price_data": dict(candidate.estate_price_data),
                 "amenities": dict(candidate.amenities),
                 "score": item["score"],

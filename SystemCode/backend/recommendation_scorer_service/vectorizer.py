@@ -150,8 +150,13 @@ def buyer_vector(profile: dict, budget: float = 0.0) -> list[float]:
     vec: list[float] = [0.0] * 7
 
     # 0 — floor_pref
-    floor = profile.get("floor", profile.get("floor_pref", "any"))
-    vec[0] = FLOOR_PREF_ORD.get(floor, 0.5)
+    floor_raw = profile.get("floor", profile.get("floor_pref", "any"))
+    # floor may be a list; only apply preference when exactly one floor is chosen
+    if isinstance(floor_raw, list):
+        floor_val = FLOOR_PREF_ORD.get(floor_raw[0], 0.5) if len(floor_raw) == 1 else 0.5
+    else:
+        floor_val = FLOOR_PREF_ORD.get(floor_raw, 0.5)
+    vec[0] = floor_val
 
     # 1–6 — amenity dims from mustAmenities (mrt, hawker, mall, park, school, hospital)
     # 1.0 = buyer must have this amenity nearby

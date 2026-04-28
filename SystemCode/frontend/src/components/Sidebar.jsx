@@ -1,20 +1,22 @@
 import { useState } from 'react';
 
-function SidebarSection({ icon, title, defaultOpen = true, children }) {
+function SidebarSection({ icon, title, defaultOpen = true, collapsible = true, children }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border-b border-dk3">
       <div
-        className="flex items-center gap-2 px-4 pt-3.5 pb-2.5 cursor-pointer select-none"
-        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-2 px-4 pt-3.5 pb-2.5 select-none rounded-[4px] ${collapsible ? 'cursor-pointer transition-colors duration-150 hover:bg-dk3' : 'cursor-default'}`}
+        onClick={() => collapsible && setOpen(!open)}
       >
         <span className="text-sm">{icon}</span>
         <span className="font-serif text-[0.88rem] text-gold flex-1">{title}</span>
-        <span className={`text-[11px] text-muted transition-transform duration-200 ${!open ? '-rotate-90' : ''}`}>
-          ▾
-        </span>
+        {collapsible && (
+          <span className={`text-[13px] text-muted transition-transform duration-200 ${!open ? '-rotate-90' : ''}`}>
+            ▾
+          </span>
+        )}
       </div>
-      {open && <div className="px-4 pb-3.5">{children}</div>}
+      {(!collapsible || open) && <div className="px-4 pb-3.5">{children}</div>}
     </div>
   );
 }
@@ -22,7 +24,7 @@ function SidebarSection({ icon, title, defaultOpen = true, children }) {
 function Field({ label, children }) {
   return (
     <div className="mb-3">
-      <label className="block text-[0.7rem] text-muted uppercase tracking-[1px] mb-1.5 font-medium">
+      <label className="block text-[0.7rem] text-[#7da8c8] uppercase tracking-[1px] mb-1 font-semibold">
         {label}
       </label>
       {children}
@@ -30,19 +32,18 @@ function Field({ label, children }) {
   );
 }
 
-function RangeValue({ children }) {
+function SliderBox({ value, rawValue, min, max, step, onChange, left, right }) {
   return (
-    <div className="font-mono text-[0.78rem] text-gold text-right mb-1">
-      {children}
-    </div>
-  );
-}
-
-function RangeLabels({ left, right }) {
-  return (
-    <div className="flex justify-between text-[0.68rem] text-muted mt-1">
-      <span>{left}</span>
-      <span>{right}</span>
+    <div className="bg-dk3 border border-dk4 rounded-[5px] px-3 pt-2 pb-2.5 transition-colors duration-150 hover:border-mid">
+      <div className="font-mono text-[0.78rem] text-gold text-right mb-1.5">
+        {value}
+      </div>
+      <input type="range" min={min} max={max} step={step} value={rawValue}
+        onChange={onChange} />
+      <div className="flex justify-between text-[0.65rem] text-muted mt-1.5">
+        <span>{left}</span>
+        <span>{right}</span>
+      </div>
     </div>
   );
 }
@@ -53,8 +54,8 @@ function CheckItem({ icon, label, active, onClick }) {
       onClick={onClick}
       className={`flex items-center gap-1.5 px-2 py-1.5 border rounded-[5px] cursor-pointer transition-all text-[0.76rem] select-none
         ${active
-          ? 'bg-[rgba(212,168,67,0.1)] border-gold text-gold-l'
-          : 'bg-dk3 border-dk4 hover:border-mid'
+          ? 'bg-[rgba(212,168,67,0.1)] border-gold text-gold-l hover:bg-[rgba(212,168,67,0.18)]'
+          : 'bg-dk3 border-dk4 hover:border-mid hover:bg-dk4 hover:text-light'
         }`}
     >
       <span className="text-[13px]">{icon}</span> {label}
@@ -68,8 +69,8 @@ function RegionTag({ label, active, onClick }) {
       onClick={onClick}
       className={`px-2.5 py-1 rounded-full border text-[0.72rem] cursor-pointer transition-all select-none
         ${active
-          ? 'bg-[rgba(192,57,43,0.2)] border-red text-[#ff9090]'
-          : 'bg-dk3 border-dk4 hover:border-mid'
+          ? 'bg-[rgba(192,57,43,0.2)] border-red text-[#ff9090] hover:bg-[rgba(192,57,43,0.28)]'
+          : 'bg-dk3 border-dk4 hover:border-mid hover:bg-dk4 hover:text-light'
         }`}
     >
       {label}
@@ -109,6 +110,20 @@ const REGION_OPTIONS = [
   { value: 'east', label: 'East' },
   { value: 'west', label: 'West' },
   { value: 'central', label: 'Central' },
+];
+
+const FTYPE_OPTIONS = [
+  { value: '2 ROOM', label: '2-Room' },
+  { value: '3 ROOM', label: '3-Room' },
+  { value: '4 ROOM', label: '4-Room' },
+  { value: '5 ROOM', label: '5-Room' },
+  { value: 'EXECUTIVE', label: 'Executive' },
+];
+
+const FLOOR_OPTIONS = [
+  { value: 'low', label: 'Low (1–6F)' },
+  { value: 'mid', label: 'Mid (7–15F)' },
+  { value: 'high', label: 'High (16F+)' },
 ];
 
 const AMENITY_OPTIONS = [
@@ -179,6 +194,20 @@ export default function Sidebar({
     onFormChange('selRegions', next);
   };
 
+  const toggleFtype = (val) => {
+    const next = ftype.includes(val)
+      ? ftype.filter(f => f !== val)
+      : [...ftype, val];
+    onFormChange('ftype', next);
+  };
+
+  const toggleFloor = (val) => {
+    const next = floor.includes(val)
+      ? floor.filter(f => f !== val)
+      : [...floor, val];
+    onFormChange('floor', next);
+  };
+
   const toggleAmenity = (val) => {
     const next = mustAmenities.includes(val)
       ? mustAmenities.filter(a => a !== val)
@@ -199,7 +228,7 @@ export default function Sidebar({
         </div>
       </div>
       {/* Buyer Profile */}
-      <SidebarSection icon="👤" title="Buyer Profile">
+      <SidebarSection icon="👤" title="Buyer Profile" collapsible={false}>
         <Field label="Citizenship Status">
           <select value={cit} onChange={onCitChange}>
             <option value="SC_SC">SC + SC (Couple / Family)</option>
@@ -210,9 +239,7 @@ export default function Sidebar({
           </select>
         </Field>
         <Field label="Age — Youngest Applicant">
-          <RangeValue>{age} yrs</RangeValue>
-          <input type="range" min={21} max={70} value={age} onChange={setNum('age')} />
-          <RangeLabels left="21" right="70" />
+          <SliderBox value={`${age} yrs`} rawValue={age} min={21} max={70} step={1} onChange={setNum('age')} left="21" right="70" />
         </Field>
         <Field label="Marital / Family Status">
           <select value={marital} onChange={set('marital')}>
@@ -222,11 +249,9 @@ export default function Sidebar({
           </select>
         </Field>
         <Field label="Monthly Household Income ($)">
-          <RangeValue>${Number(inc).toLocaleString()} / mth</RangeValue>
-          <input type="range" min={0} max={21000} step={500} value={inc} onChange={setNum('inc')} />
-          <RangeLabels left="$0" right="$21,000" />
+          <SliderBox value={`$${Number(inc).toLocaleString()} / mth`} rawValue={inc} min={0} max={21000} step={500} onChange={setNum('inc')} left="$0" right="$21,000" />
         </Field>
-        <Field label="HG: HDB First-Timer Status">
+        <Field label="EHG: HDB First-Timer Status">
           <select value={ftimer} onChange={set('ftimer')}>
             {visibleFtimer.map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -253,18 +278,20 @@ export default function Sidebar({
       </SidebarSection>
 
       {/* Flat Preferences */}
-      <SidebarSection icon="🏢" title="Flat Preferences">
-        <Field label="Flat Type">
-          <select value={ftype} onChange={set('ftype')}>
-            <option value="any">Any</option>
-            <option value="2 ROOM">2-Room Flexi</option>
-            <option value="3 ROOM">3-Room</option>
-            <option value="4 ROOM">4-Room</option>
-            <option value="5 ROOM">5-Room</option>
-            <option value="EXECUTIVE">Executive</option>
-          </select>
+      <SidebarSection icon="🏢" title="Flat Preferences" collapsible={false}>
+        <Field label={<>Flat Type <span className="normal-case tracking-normal font-normal text-[#7da8c8] opacity-60">(optional)</span></>}>
+          <div className="flex flex-wrap gap-1.5">
+            {FTYPE_OPTIONS.map(o => (
+              <RegionTag
+                key={o.value}
+                label={o.label}
+                active={ftype.includes(o.value)}
+                onClick={() => toggleFtype(o.value)}
+              />
+            ))}
+          </div>
         </Field>
-        <Field label="Preferred Region">
+        <Field label={<>Preferred Region <span className="normal-case tracking-normal font-normal text-[#7da8c8] opacity-60">(optional)</span></>}>
           <div className="flex flex-wrap gap-1.5">
             {REGION_OPTIONS.map(r => (
               <RegionTag
@@ -276,18 +303,20 @@ export default function Sidebar({
             ))}
           </div>
         </Field>
-        <Field label="Floor Preference">
-          <select value={floor} onChange={set('floor')}>
-            <option value="any">Any Floor</option>
-            <option value="low">Low (1–6F)</option>
-            <option value="mid">Mid (7–15F)</option>
-            <option value="high">High (16F+)</option>
-          </select>
+        <Field label={<>Floor Preference <span className="normal-case tracking-normal font-normal text-[#7da8c8] opacity-60">(optional)</span></>}>
+          <div className="flex flex-wrap gap-1.5">
+            {FLOOR_OPTIONS.map(o => (
+              <RegionTag
+                key={o.value}
+                label={o.label}
+                active={floor.includes(o.value)}
+                onClick={() => toggleFloor(o.value)}
+              />
+            ))}
+          </div>
         </Field>
         <Field label="Minimum Remaining Lease">
-          <RangeValue>{lease} years</RangeValue>
-          <input type="range" min={20} max={99} step={5} value={lease} onChange={setNum('lease')} />
-          <RangeLabels left="20 yrs" right="99 yrs" />
+          <SliderBox value={`${lease} years`} rawValue={lease} min={20} max={99} step={5} onChange={setNum('lease')} left="20 yrs" right="99 yrs" />
         </Field>
         {leaseAgeWarning && (
           <div className="mt-3 p-3 rounded-md border border-[#e67e22] bg-[rgba(230,126,34,0.12)] text-[#f0a050] text-[0.82rem] leading-relaxed">
@@ -306,21 +335,15 @@ export default function Sidebar({
       </SidebarSection>
 
       {/* Budget */}
-      <SidebarSection icon="💰" title="Budget">
+      <SidebarSection icon="💰" title="Budget" collapsible={false}>
         <Field label="Cash Available ($)">
-          <RangeValue>${Number(cash).toLocaleString()}</RangeValue>
-          <input type="range" min={0} max={500000} step={5000} value={cash} onChange={setNum('cash')} />
-          <RangeLabels left="$0" right="$500k" />
+          <SliderBox value={`$${Number(cash).toLocaleString()}`} rawValue={cash} min={0} max={500000} step={5000} onChange={setNum('cash')} left="$0" right="$500k" />
         </Field>
         <Field label="CPF Ordinary Account ($)">
-          <RangeValue>${Number(cpf).toLocaleString()}</RangeValue>
-          <input type="range" min={0} max={600000} step={5000} value={cpf} onChange={setNum('cpf')} />
-          <RangeLabels left="$0" right="$600k" />
+          <SliderBox value={`$${Number(cpf).toLocaleString()}`} rawValue={cpf} min={0} max={600000} step={5000} onChange={setNum('cpf')} left="$0" right="$600k" />
         </Field>
         <Field label="Max Monthly Loan Repayment ($)">
-          <RangeValue>${Number(loan).toLocaleString()} / mth</RangeValue>
-          <input type="range" min={500} max={6000} step={100} value={loan} onChange={setNum('loan')} />
-          <RangeLabels left="$500" right="$6,000" />
+          <SliderBox value={`$${Number(loan).toLocaleString()} / mth`} rawValue={loan} min={500} max={6000} step={100} onChange={setNum('loan')} left="$500" right="$6,000" />
         </Field>
         {loanLimitWarning && (
           <div className="mt-3 p-3 rounded-md border border-red bg-[rgba(192,57,43,0.12)] text-[#ff7070] text-[0.82rem] leading-relaxed">
