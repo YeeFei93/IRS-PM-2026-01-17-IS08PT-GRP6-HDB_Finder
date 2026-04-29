@@ -908,8 +908,10 @@ export default function MapView({ recs, highlightedTown, formState, effectiveBud
                 {panelTab === 'plotting' && activeFlatEstate && (
                   <button
                     onClick={() => { setActiveFlatEstate(null); setDrillFlats([]); setSelectedFlat(null); setHoveredFlatIdx(null); }}
-                    style={{ background: 'none', border: '1px solid #1a5c3a', color: '#27ae60', cursor: 'pointer', fontSize: '0.65rem', padding: '3px 8px', borderRadius: 4, lineHeight: 1, whiteSpace: 'nowrap' }}
-                  >← Estates</button>
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#27ae60'; e.currentTarget.style.color = '#111'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(39, 174, 96, 0.3)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = '#27ae60'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.3)'; }}
+                    style={{ background: '#27ae60', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, padding: '10px 16px', borderRadius: 6, lineHeight: 1, whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)', transition: 'all 0.2s ease' }}
+                  ><span style={{ fontSize: '1.3em', marginRight: '4px', fontWeight: 900 }}>←</span>Estates</button>
                 )}
               </div>
             </div>
