@@ -82,7 +82,7 @@ export default function App() {
         // Express wraps the Python result in { status, result: {...} }
         const data = res.result ?? res;
         if(data.recommendations && data.recommendations.length == 0){
-          setWarning("No resale flats found. Please re-adjust your inputs and try searching again.")
+          setWarning("No eligible flats found. Please re-adjust your inputs and try again.")
         }
         const topRecs = (data.recommendations || []).map(rec => normaliseBackendRec(rec, data.selected_model));
         setRawCount(data.raw_count || topRecs.length);
