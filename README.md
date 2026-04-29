@@ -127,7 +127,7 @@ The system follows a microservices architecture:
 | Eligibility Checker Service | Python | Rule-based HDB policy engine |
 | Budget Estimator Service | Python | Grant computation (EHG, CPF, PHG) and effective budget |
 | Estate Finder Service | Python | Constraint-based flat filtering by region, flat type, budget |
-| Recommendation Scorer | Python | Weighted Cosine Similarity + MMR, Euclidean Distance and KNN (A/B testing evaluation) |
+| Recommendation Scorer Service | Python | Weighted Cosine Similarity + MMR, Euclidean Distance and KNN (A/B testing evaluation) |
 | Amenity Proximity Service | Python | Geospatial distance computation to MRT, schools, hawker centres, parks, hospitals |
 | Data Service | Python | Data ingestion pipeline from data.gov.sg APIs |
 | Database | MySQL | Resale flat transactions, amenity data, user favourites |
