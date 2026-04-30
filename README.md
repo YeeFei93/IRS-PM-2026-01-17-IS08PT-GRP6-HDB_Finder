@@ -26,7 +26,7 @@ Our team had an enriching experience building this end-to-end AI system, and we 
 | :------------ |:---------------:| :-----| :-----|
 | Loh Kian Chee (Group Lead) | A0339775J |  Project Ideation, Scope & Management; Frontend User Panel; Frontend App; Eligibility Engine; User Testings & Feedback Collection | kian.chee.loh@u.nus.edu |
 | Udayakumar Nivetha | A0245895L | Backend Redis Setup; Euclidean Distance & KNN Cosine Similarity Recommender Models; Models Evaluation Code; User Favorite Tab + Button Functionality; Data Collection (Schools + Hospitals)  | e0908182@u.nus.edu |
-| Sim Yee Fei | A0339751W | Frontend (React/Tailwind/Leaflet); UI/UX Design; Weighted Cosine Similarity Recommender Model; Backend-Frontend Data Integration | yee-fei.sim@u.nus.edu |
+| Sim Yee Fei | A0339751W | Frontend (React/Tailwind/Leaflet) UI/UX, 3-phase map drill-down; Frontend Backend data integration (flat-lookup & flat-amenities routes); Weighted Cosine Similarity + MMR Recommender Model; Parallel/cached amenity queries | yee-fei.sim@u.nus.edu |
 | Lim Zheng Tao | A0339804X | Data Collection & Preparation; Amenities Relationships & Proximity Distance Conversion; UI/UX Enhancements | zhengtao.lim@u.nus.edu |
 
 ---
