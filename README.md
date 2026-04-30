@@ -46,7 +46,7 @@ Note: It is not mandatory for every project member to appear in the video presen
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) v18 or later (npm included)
-- [Python](https://www.python.org/) v3.10 or later
+- [Python](https://www.python.org/) v3.14.2 
 - [MySQL](https://dev.mysql.com/downloads/) v8.0 or later
 - [Redis](https://redis.io/) v7 or later (macOS: `brew install redis`)
 

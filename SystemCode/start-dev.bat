@@ -12,6 +12,8 @@ if not exist "%SCRIPT_DIR%backend\api" (
   exit /b
 )
 
+pip install -r requirements.txt
+
 echo Checking backend dependencies...
 cd /d "%SCRIPT_DIR%backend\api"
 call npm install
