@@ -33,7 +33,7 @@ Our team had an enriching experience building this end-to-end AI system, and we 
 
 ## SECTION 4 : VIDEO OF SYSTEM MODELLING & USE CASE DEMO
 
-<video src="Video/HDB Finder Business Video.mp4" controls width="100%"></video>
+[![HDB Finder Demo](http://img.youtube.com/vi/g_iaRn5MaV0/0.jpg)](https://youtu.be/g_iaRn5MaV0 "HDB Finder")
 
 ---
 
