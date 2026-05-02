@@ -33,7 +33,7 @@ Our team had an enriching experience building this end-to-end AI system, and we 
 
 ## SECTION 4 : VIDEO OF SYSTEM MODELLING & USE CASE DEMO
 
-[![AI Estate Recommender Demo](Video/HDB%20Finder%20Business%20Video.mp4)](Video/HDB%20Finder%20Business%20Video.mp4 "AI Estate Recommender for HDB Resale Flats")
+<video src="Video/HDB Finder Business Video.mp4" controls width="100%"></video>
 
 ---
 
