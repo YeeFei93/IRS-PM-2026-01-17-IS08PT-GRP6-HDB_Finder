@@ -33,9 +33,7 @@ Our team had an enriching experience building this end-to-end AI system, and we 
 
 ## SECTION 4 : VIDEO OF SYSTEM MODELLING & USE CASE DEMO
 
-[![AI Estate Recommender Demo](http://img.youtube.com/vi/placeholder/0.jpg)](https://youtu.be/placeholder "AI Estate Recommender for HDB Resale Flats")
-
-Note: It is not mandatory for every project member to appear in the video presentation; presentation by one project member is acceptable.
+[![AI Estate Recommender Demo](Video/HDB%20Finder%20Business%20Video.mp4)](Video/HDB%20Finder%20Business%20Video.mp4 "AI Estate Recommender for HDB Resale Flats")
 
 ---
 
