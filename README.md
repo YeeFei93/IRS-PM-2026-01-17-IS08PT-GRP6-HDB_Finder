@@ -1,8 +1,8 @@
-## SECTION 1 : AI Estate Recommender for HDB Resale Flats
+## SECTION 1 : PROJECT TITLE
+## HDB Finder
 
-<img src="Miscellaneous/application.png" style="float: left; margin-right: 0px;" />
-
-<br style="clear: both;" />
+<img src="Miscellaneous/Application1.png"
+     style="float: left; margin-right: 0px;" />
 
 ---
 
@@ -10,7 +10,7 @@
 
 Buying a first home in Singapore should be a milestone, yet it often becomes a tedious, bureaucratic process. With complicated HDB schemes and thousands of HDB resale flats on the market, finding the right estate and property - balancing lifestyle, location, and budget - remains a tiresome and time-consuming process. Currently, no single buyer-focused intelligent system exists to guide buyers through this fragmented landscape.
 
-Our team set out to build an AI-powered estate recommender system that simplifies property hunting by integrating eligibility rules, HDB grants, property features, and lifestyle preferences into a single, intuitive platform. The system targets Singapore Citizens and Permanent Residents purchasing HDB resale flats, and covers grant eligibility (citizenship, income ceiling, flat ownership rules, HDB and loan schemes) as well as amenity proximity scoring across MRT stations, schools, hawker centres, parks, and hospitals.
+Our team set out to build **HDB Finder**, an AI-powered HDB recommender system that simplifies property hunting by integrating eligibility rules, HDB grants, property features, and lifestyle preferences into a single, intuitive platform. The system targets Singapore Citizens and Permanent Residents purchasing HDB resale flats, and covers grant eligibility (citizenship, income ceiling, flat ownership rules, HDB and loan schemes) as well as amenity proximity scoring across MRT stations, schools, hawker centres, parks, and hospitals.
 
 The solution is built around a hybrid intelligent reasoning pipeline. A rule-based eligibility engine validates buyer profiles against current HDB policy constraints in real time, computing applicable grants (EHG, CPF Housing Grant, PHG) and an effective budget. A hybrid constraint-based and content-based filtering recommender system then scores and ranks individual resale flat listings using weighted cosine similarity between buyer preference vectors and per-flat feature vectors - covering floor preference, budget fit, and six amenity proximity dimensions - with Maximal Marginal Relevance (MMR) applied for diversity reranking to ensure estate variety in the Top-10 recommendations. To rigorously evaluate recommendation quality, the system conducts A/B testing across three model variants: Weighted Cosine Similarity + MMR, Euclidean Distance, and K-Nearest Neighbours (KNN), enabling objective comparison of ranking performance across different similarity metrics.
 
