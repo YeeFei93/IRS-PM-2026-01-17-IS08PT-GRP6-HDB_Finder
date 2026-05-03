@@ -97,7 +97,7 @@ start-dev.bat
 **Recommended Sections for Project Report / Paper:**
 - Executive Summary / Paper Abstract
 - Business Problem Background
-- Market Research
+- Market Research / Market Overview and Landscape
 - Project Objectives & Success Measurements
 - Project Solution (Domain modelling & system design)
 - Project Implementation (System development & testing approach)
@@ -106,9 +106,7 @@ start-dev.bat
 - Appendix of report: Project Proposal
 - Appendix of report: Mapped System Functionalities against knowledge, techniques and skills of modular courses: MR, RS, CGS
 - Appendix of report: Installation and User Guide
-- Appendix of report: Individual project report per project member
-- Appendix of report: List of Abbreviations (if applicable)
-- Appendix of report: References (if applicable)
+- Appendix of report: References (APA7 Format)
 
 ---
 
