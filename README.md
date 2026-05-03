@@ -25,7 +25,7 @@ Our team had an enriching experience building this end-to-end AI system, and we 
 | Official Full Name | Student ID (MTech Applicable) | Work Items (Who Did What) | Email (Optional) |
 | :------------ |:---------------:| :-----| :-----|
 | Loh Kian Chee (Group Lead) | A0339775J |  Project Ideation, Scope & Management; Frontend User Panel; Frontend App; Eligibility Engine; User Testings & Feedback Collection | kian.chee.loh@u.nus.edu |
-| Udayakumar Nivetha | A0245895L | Backend Redis Setup; Euclidean Distance & KNN Cosine Similarity Recommender Models; Models Evaluation Code; User Favorite Tab + Button Functionality; Data Collection (Schools + Hospitals)  | e0908182@u.nus.edu |
+| Udayakumar Nivetha | A0245895L | Backend Redis Setup; Euclidean Distance & KNN Cosine Similarity Recommender Models; Models Evaluation Code; User Favorite Tab + Like Functionality; Data Collection (Schools + Hospitals)  | e0908182@u.nus.edu |
 | Sim Yee Fei | A0339751W | Frontend (React/Tailwind/Leaflet) UI/UX, 3-phase map drill-down; Frontend Backend data integration (flat-lookup & flat-amenities routes); Weighted Cosine Similarity + MMR Recommender Model; Parallel/cached amenity queries | yee-fei.sim@u.nus.edu |
 | Lim Zheng Tao | A0339804X | Data Collection & Preparation; Amenities Relationships & Proximity Distance Conversion; UI/UX Enhancements | zhengtao.lim@u.nus.edu |
 
@@ -90,23 +90,57 @@ start-dev.bat
 
 ---
 
-## SECTION 6 : PROJECT REPORT / PAPER
+## SECTION 6 : PROJECT REPORT
 
 `Refer to project report at Github Folder: ProjectReport`
 
-**Recommended Sections for Project Report / Paper:**
-- Executive Summary / Paper Abstract
-- Business Problem Background
-- Market Research / Market Overview and Landscape
-- Project Objectives & Success Measurements
-- Project Solution (Domain modelling & system design)
-- Project Implementation (System development & testing approach)
-- Project Performance & Validation (Proof that project objectives are met)
-- Project Conclusions: Findings & Recommendation
-- Appendix of report: Project Proposal
-- Appendix of report: Mapped System Functionalities against knowledge, techniques and skills of modular courses: MR, RS, CGS
-- Appendix of report: Installation and User Guide
-- Appendix of report: References (APA7 Format)
+**Project Report Sections:**
+- Section 1: Business Case 
+  - 1.1 Executive Summary	
+  - 1.2 Project Background	
+  - 1.3 Market Overview and Landscape	
+    - 1.3.1 Analysis of HDB Resale Market	
+    - 1.3.2 Analysis of Real Estate Agents and Agencies	
+    - 1.3.3 Market Size and Value Capture	
+    - 1.3.4 Key Players and Competitors	
+    - 1.3.5 Market Demands, User Needs and Opportunities	
+  - 1.4 Project Scope & Intelligent Reasoning System	
+    - 1.4.1 Project Scope	
+    - 1.4.2 Intelligent Reasoning System	
+- Section 2: System Design	
+  - 2.1 Architecture Diagram	
+  - 2.2 Service Modules Details	
+- Section 3: System Development & Implementation	
+  - 3.1 Data Collection and Preparation	
+    - 3.1.1 Sources of Data	
+    - 3.1.2 How Data is Acquired and Processed	
+  - 3.2 HDB Recommender	
+    - 3.2.1 Frontend	
+    - 3.2.2 Backend Gateway	
+    - 3.2.3 Python Micro-services	
+    - 3.2.4 Database	
+    - 3.2.5 End-to-End Recommendation Flow	
+    - 3.2.6 User Interface Features	
+- Section 4: Models, Findings and Discussion	
+  - 4.1 Recommender Models Implementation	
+    - 4.1.1 System & Model Inputs	
+    - 4.1.2 Euclidean Distance Model	
+    - 4.1.3 KNN Cosine Similarity Model	
+    - 4.1.4 Weighted Cosine Similarity + MMR	
+    - 4.1.5 Sample Calculations	
+  - 4.2 Model Evaluation	
+  - 4.3 Challenges Faced	
+  - 4.4 Future Improvements
+    - 4.4.1 Advanced Recommender Model	
+    - 4.4.2 Enhance Amenity Coverage & Travel Time Mapping	
+    - 4.4.3 Conversational UI: Interactive AI Chatbot	
+    - 4.4.4 Property Appreciation & Asset Valuation	
+    - 4.4.5 Interactive Decision Support with 3D Representations	
+    - 4.4.6 Ecosystem Expansion	
+    - 4.4.7 Other Policy Guidelines	
+- Acknowledgement (Use of AI)	
+- References (APA7 Format)	
+- Appendix	
 
 ---
 
@@ -151,16 +185,16 @@ The system follows a microservices architecture:
 
 ### Recommendation Scoring — Vector Design
 
-Individual resale flats are scored using **weighted cosine similarity** between a buyer-preference vector and a per-flat vector across **7 dimensions**: floor preference, MRT proximity, hawker centre proximity, shopping mall proximity, park proximity, primary school proximity, and hospital proximity. **Maximal Marginal Relevance (MMR)** is applied as a diversity reranking step to balance relevance with variety in the Top-10 results.
+Our recommender adopts a **hybrid rule-based and content-based design**. A rule-based layer first applies hard filters for budget, flat type, eligibility, and region. The remaining eligible flats are then scored using one of three content-based models, selected with equal 1/3 probability: **Euclidean Distance**, **KNN Cosine Similarity**, or **Weighted Cosine Similarity + MMR**.
 
-Budget, flat type, and region are handled as **hard pre-filters** (not vector dimensions) because cosine similarity penalises deviation in both directions - cheaper flats or flats with more remaining lease should never be penalised.
+Each model uses buyer and flat vectors across **7 preference dimensions**: floor preference, MRT proximity, hawker centre proximity, shopping mall proximity, park proximity, primary school proximity, and hospital proximity. Budget and flat type are kept as hard filters rather than vector dimensions to avoid penalising favourable conditions such as lower price or better eligibility fit.
 
-To evaluate and compare recommender performance, the system implements **A/B testing** across three model variants:
+To evaluate and compare recommender performance, the system implements **A/B testing** with 20+ Users (Singles, Married Couple with Families, Downsizers) across three model variants:
 
 | Model | Description |
 |-------|-------------|
 | Weighted Cosine Similarity + MMR | Preference-weighted angular similarity with diversity reranking |
-| Euclidean Distance | Alternative metric — measures absolute feature-space distance between buyer and flat vectors |
-| K-Nearest Neighbours (KNN) | Alternative model — retrieves top-k most similar flats based on nearest-neighbour search |
+| Euclidean Distance | Recommends flats closest to the buyer’s preference vector by converting smaller distance into higher similarity scores. |
+| K-Nearest Neighbours (KNN) Cosine Similarity | Recommends flats based on both buyer similarity and similarity to nearby candidate flats. |
 
 ---
